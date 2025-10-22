@@ -1,0 +1,70 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: ["./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          900: "var(--primary-900)",
+          800: "var(--primary-800)",
+          700: "var(--primary-700)",
+          600: "var(--primary-600)",
+          500: "var(--primary-500)",
+          400: "var(--primary-400)",
+          300: "var(--primary-300)",
+          200: "var(--primary-200)",
+          100: "var(--primary-100)",
+        },
+        secondary: {
+          900: "var(--secondary-900)",
+          800: "var(--secondary-800)",
+          700: "var(--secondary-700)",
+          600: "var(--secondary-600)",
+          500: "var(--secondary-500)",
+          400: "var(--secondary-400)",
+          300: "var(--secondary-300)",
+          200: "var(--secondary-200)",
+          100: "var(--secondary-100)",
+        },
+        third: {
+          900: "var(--third-900)",
+          800: "var(--third-800)",
+          700: "var(--third-700)",
+          600: "var(--third-600)",
+          500: "var(--third-500)",
+          400: "var(--third-400)",
+          300: "var(--third-300)",
+          200: "var(--third-200)",
+          100: "var(--third-100)",
+        },
+        gray: {
+          900: "var(--gray-900)",
+          800: "var(--gray-800)",
+          700: "var(--gray-700)",
+          600: "var(--gray-600)",
+          500: "var(--gray-500)",
+          400: "var(--gray-400)",
+          300: "var(--gray-300)",
+          200: "var(--gray-200)",
+          100: "var(--gray-100)",
+        },
+        error: {
+          dark: "var(--error-dark)",
+          medium: "var(--error-medium)",
+          light: "var(--error-light)",
+        },
+        alert: {
+          dark: "var(--alert-dark)",
+          medium: "var(--alert-medium)",
+          light: "var(--alert-light)",
+        },
+        success: {
+          dark: "var(--success-dark)",
+          medium: "var(--success-medium)",
+          light: "var(--success-light)",
+        },
+      },
+    },
+  },
+  plugins: [],
+};
