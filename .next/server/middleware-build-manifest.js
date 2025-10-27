@@ -20,20 +20,15 @@ globalThis.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/dashboard": [
+    "/dashboard/clientes": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard.js"
+      "static/chunks/pages/dashboard/clientes.js"
     ],
-    "/forgot-password": [
+    "/dashboard/clientes/novo": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/forgot-password.js"
-    ],
-    "/login": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/login.js"
+      "static/chunks/pages/dashboard/clientes/novo.js"
     ]
   },
   "ampFirstPages": []

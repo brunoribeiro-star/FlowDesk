@@ -36,6 +36,24 @@ type PagesPageConfig = {
   type __Unused = __Check
 }
 
+// Validate ../../src/pages/dashboard/clientes/index.tsx
+{
+  type __IsExpected<Specific extends PagesPageConfig> = Specific
+  const handler = {} as typeof import("../../src/pages/dashboard/clientes/index.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/pages/dashboard/clientes/novo.tsx
+{
+  type __IsExpected<Specific extends PagesPageConfig> = Specific
+  const handler = {} as typeof import("../../src/pages/dashboard/clientes/novo.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/pages/dashboard/index.tsx
 {
   type __IsExpected<Specific extends PagesPageConfig> = Specific
