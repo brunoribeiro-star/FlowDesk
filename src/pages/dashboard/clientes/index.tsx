@@ -5,7 +5,6 @@ import Link from "next/link";
 import Sidebar from "@/components/Sidebar";
 import { getClientes, deleteCliente, updateCliente, Cliente } from "@/lib/supabaseQueries/clientes";
 
-/* ===== Toast personalizado ===== */
 function Toast({ message, type }: { message: string; type: "success" | "error" }) {
   return (
     <div
@@ -21,7 +20,6 @@ function Toast({ message, type }: { message: string; type: "success" | "error" }
   );
 }
 
-/* ===== Modal de confirmação ===== */
 function ConfirmModal({
   message,
   onConfirm,
@@ -64,13 +62,11 @@ export default function ClientesPage() {
   const [editing, setEditing] = useState<Cliente | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
-  /* ===== Toast ===== */
   function showToast(message: string, type: "success" | "error") {
     setToast({ message, type });
     setTimeout(() => setToast(null), 2500);
   }
 
-  /* ===== Buscar clientes ===== */
   async function fetchClientes() {
     try {
       setLoading(true);
@@ -88,7 +84,6 @@ export default function ClientesPage() {
     fetchClientes();
   }, []);
 
-  /* ===== Excluir cliente ===== */
   async function handleDeleteConfirmed(id: string) {
     try {
       await deleteCliente(id);
@@ -101,7 +96,6 @@ export default function ClientesPage() {
     }
   }
 
-  /* ===== Atualizar cliente ===== */
   async function handleUpdate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!editing) return;
@@ -125,7 +119,6 @@ export default function ClientesPage() {
     }
   }
 
-  /* ===== Filtro de busca ===== */
   const filteredClientes = clientes.filter((c) => {
     const q = search.toLowerCase();
     return (
