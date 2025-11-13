@@ -20,10 +20,10 @@ globalThis.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/dashboard/clientes/novo": [
+    "/dashboard": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard/clientes/novo.js"
+      "static/chunks/pages/dashboard.js"
     ],
     "/dashboard/projetos": [
       "static/chunks/webpack.js",
