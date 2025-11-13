@@ -135,6 +135,7 @@ export default function ProjetoDetalhesPage() {
   const [newLink, setNewLink] = useState({ titulo: "", url: "" });
 
   const [showBriefing, setShowBriefing] = useState(false);
+  const [showAddTask, setShowAddTask] = useState(false);
   const [confirm, setConfirm] = useState<{ open: boolean; msg: string; onYes?: () => void }>({
     open: false,
     msg: "",
@@ -782,50 +783,12 @@ export default function ProjetoDetalhesPage() {
         </header>
 
         {/* ===== Conteúdo ===== */}
-        <div className="grid grid-cols-[1.4fr,0.6fr] gap-6 flex-1 min-h-0">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr,0.6fr] gap-6 flex-1 min-h-0">
           {/* ===== Coluna esquerda: Tasks ===== */}
-          <section className="flex flex-col min-h-0 bg-primary-800 border border-primary-700 rounded-lg p-6">
+          <section className="flex flex-col min-h-0 bg-primary-800 border border-primary-700 rounded-lg p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[22px] text-primary-100 font-semibold">Etapas do projeto</h2>
             </div>
-
-            {/* Criar task */}
-            <form
-              onSubmit={handleAddTask}
-              className="grid grid-cols-1 xl:grid-cols-[1fr,0.6fr,0.4fr,auto] gap-3 mb-5"
-            >
-              <input
-                type="text"
-                value={newTask.titulo}
-                onChange={(e) => setNewTask((p) => ({ ...p, titulo: e.target.value }))}
-                className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400"
-                placeholder="Título da task *"
-                required
-              />
-              <input
-                type="text"
-                value={newTask.descricao}
-                onChange={(e) => setNewTask((p) => ({ ...p, descricao: e.target.value }))}
-                className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400"
-                placeholder="Descrição (opcional)"
-              />
-              <input
-                type="date"
-                value={newTask.due_date}
-                onChange={(e) => setNewTask((p) => ({ ...p, due_date: e.target.value }))}
-                className="date-input rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
-                placeholder="Prazo"
-              />
-              <button
-                type="submit"
-                disabled={saving}
-                className={`bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-5 text-[18px] font-semibold transition-colors ${
-                  saving ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                + Nova task
-              </button>
-            </form>
 
             {/* Lista de tasks */}
             <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
@@ -958,33 +921,32 @@ export default function ProjetoDetalhesPage() {
             </div>
 
             {/* Barra de progresso secundária */}
-            <div className="mt-5">
+            <div className="mt-5 mb-5">
               <div className="w-full h-3 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
                 <div className={`h-full ${styles.barFill} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
               </div>
             </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowAddTask(true)}
+                className="w-full bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-3 text-[16px] font-semibold transition-colors"
+              >
+                + Adicionar nova task
+              </button>
+              <button
+                onClick={() => setShowBriefing(true)}
+                className="w-full bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 text-[16px] hover:bg-primary-700 transition-colors"
+              >
+                Ver briefing do projeto
+              </button>
+            </div>
           </section>
 
           {/* ===== Coluna direita: Briefing + Arquivos + Links ===== */}
-          <section className="flex flex-col gap-6 min-h-0">
-            {/* Briefing */}
-            <div className="bg-primary-800 border border-primary-700 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[20px] text-primary-100 font-semibold">Briefing</h3>
-                <button
-                  onClick={() => setShowBriefing(true)}
-                  className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[16px] hover:bg-primary-700 transition-colors"
-                >
-                  Ver briefing
-                </button>
-              </div>
-              <p className="text-[14px] text-gray-300">
-                Acesse as respostas do briefing deste projeto para guiar seu desenvolvimento.
-              </p>
-            </div>
-
+          <section className="flex flex-col gap-6 min-h-0 w-full">
             {/* Arquivos */}
-            <div className="bg-primary-800 border border-primary-700 rounded-lg p-6 flex flex-col min-h-0">
+            <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-6 w-full min-h-0 flex flex-col">
               <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Arquivos</h3>
 
               <label className="w-full rounded-lg border border-dashed border-primary-600 bg-primary-900 px-4 py-6 text-center cursor-pointer hover:bg-primary-800 transition">
@@ -1034,16 +996,16 @@ export default function ProjetoDetalhesPage() {
             </div>
 
             {/* Links externos */}
-            <div className="bg-primary-800 border border-primary-700 rounded-lg p-6 flex flex-col min-h-0">
+            <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-6 w-full min-h-0 flex flex-col">
               <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Links</h3>
 
-              <form onSubmit={addLink} className="flex items-center gap-3">
+              <form onSubmit={addLink} className="flex flex-col md:flex-row items-center gap-3">
                 <input
                   type="text"
                   placeholder="Título (opcional)"
                   value={newLink.titulo}
                   onChange={(e) => setNewLink((p) => ({ ...p, titulo: e.target.value }))}
-                  className="flex-1 rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400"
+                  className="flex-1 rounded-lg bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
                 />
                 <input
                   type="url"
@@ -1051,11 +1013,11 @@ export default function ProjetoDetalhesPage() {
                   value={newLink.url}
                   onChange={(e) => setNewLink((p) => ({ ...p, url: e.target.value }))}
                   required
-                  className="flex-[1.4] rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400"
+                  className="flex-[1.4] rounded-lg bg-primary-900 border border-primary-700 px-2 py-3 text-gray-100 placeholder-gray-400"
                 />
                 <button
                   type="submit"
-                  className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-3 text-[16px] font-semibold transition-colors"
+                  className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[15px] font-semibold transition-colors"
                 >
                   Adicionar
                 </button>
@@ -1094,6 +1056,40 @@ export default function ProjetoDetalhesPage() {
           </section>
         </div>
       </div>
+
+      <Modal open={showAddTask} title="Adicionar nova task" onClose={() => setShowAddTask(false)}>
+        <form onSubmit={handleAddTask} className="flex flex-col gap-3">
+          <input
+            type="text"
+            placeholder="Título da task"
+            value={newTask.titulo}
+            onChange={(e) => setNewTask((p) => ({ ...p, titulo: e.target.value }))}
+            required
+            className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400"
+          />
+          <textarea
+            placeholder="Descrição (opcional)"
+            value={newTask.descricao}
+            onChange={(e) => setNewTask((p) => ({ ...p, descricao: e.target.value }))}
+            className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400 min-h-[80px]"  
+          />
+          <label className="flex items-center gap-2 text-gray-200 text-[14px]">
+            Prazo:
+            <input
+              type="date"
+              value={newSubtaskByTask.due_date}
+              onChange={(e) => setNewTask((p) => ({ ...p, due_date: e.target.value }))}
+              className="rounded-lg bg-primary-900 border border-primary-700 px-3 py-2 text-gray-100"
+            />
+          </label>
+          <button
+            type="submit"
+            className="mt-3 bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-3 text-[16px] font-semibold transition-colors"
+          >
+            Criar task
+          </button>
+        </form>
+      </Modal>
 
       {/* ===== Modal Briefing ===== */}
       <Modal open={showBriefing} title="Briefing do projeto" onClose={() => setShowBriefing(false)}>
