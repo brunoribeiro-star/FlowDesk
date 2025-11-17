@@ -301,7 +301,7 @@ export default function ProjetoDetalhesPage() {
   async function notifyDueTasks(currTasks: Task[], proj: Projeto | null) {
     if (!proj || !currTasks.length) return;
     const now = Date.now();
-    const soonMs = 48 * 60 * 60 * 1000; // 48h
+    const soonMs = 48 * 60 * 60 * 1000;
 
     const nearDue = currTasks.filter((t) => {
       if (!t.due_date || t.concluida) return false;
@@ -717,10 +717,8 @@ export default function ProjetoDetalhesPage() {
       <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-8 w-full overflow-hidden">
-        {/* ===== Header ===== */}
         <header className="w-full bg-primary-800 border border-primary-700 rounded-lg p-6">
           <div className="flex items-center justify-between gap-4">
-            {/* Esquerda: Botão Voltar + Avatar + Títulos */}
             <div className="flex items-center gap-4">
               <button
                 onClick={() => router.push("/dashboard/projetos")}
@@ -742,7 +740,6 @@ export default function ProjetoDetalhesPage() {
               </div>
             </div>
 
-            {/* Direita: status (colorido) + prazo */}
             <div className="flex items-center gap-3">
               <div className="relative">
                 <select
@@ -755,7 +752,6 @@ export default function ProjetoDetalhesPage() {
                   <option value="Concluído">Concluído</option>
                   <option value="Arquivado">Arquivado</option>
                 </select>
-                {/* Chevron */}
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
@@ -773,7 +769,6 @@ export default function ProjetoDetalhesPage() {
             </div>
           </div>
 
-          {/* Barra de progresso principal */}
           <div className="mt-5">
             <div className="w-full h-4 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
               <div className={`h-full ${styles.barFill} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
@@ -782,15 +777,12 @@ export default function ProjetoDetalhesPage() {
           </div>
         </header>
 
-        {/* ===== Conteúdo ===== */}
         <div className="grid grid-cols-1 lg:grid-cols-[1.4fr,0.6fr] gap-6 flex-1 min-h-0">
-          {/* ===== Coluna esquerda: Tasks ===== */}
           <section className="flex flex-col min-h-0 bg-primary-800 border border-primary-700 rounded-lg p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[22px] text-primary-100 font-semibold">Etapas do projeto</h2>
             </div>
 
-            {/* Lista de tasks */}
             <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
               {tasks.length === 0 ? (
                 <div className="text-gray-400">Nenhuma task criada ainda.</div>
@@ -802,7 +794,6 @@ export default function ProjetoDetalhesPage() {
 
                     return (
                       <li key={t.id} className="bg-primary-700 border border-primary-600 rounded-lg p-4">
-                        {/* Linha principal da task */}
                         <div className="flex items-start gap-3">
                           <input
                             type="checkbox"
@@ -855,7 +846,6 @@ export default function ProjetoDetalhesPage() {
                           </div>
                         </div>
 
-                        {/* Subtasks sanfona */}
                         {expanded && (
                           <div className="mt-3 pl-7">
                             {subs.length === 0 ? (
@@ -893,7 +883,6 @@ export default function ProjetoDetalhesPage() {
                               </ul>
                             )}
 
-                            {/* Adicionar subtask */}
                             <div className="mt-2 flex items-center gap-2">
                               <input
                                 type="text"
@@ -920,7 +909,6 @@ export default function ProjetoDetalhesPage() {
               )}
             </div>
 
-            {/* Barra de progresso secundária */}
             <div className="mt-5 mb-5">
               <div className="w-full h-3 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
                 <div className={`h-full ${styles.barFill} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
@@ -943,9 +931,7 @@ export default function ProjetoDetalhesPage() {
             </div>
           </section>
 
-          {/* ===== Coluna direita: Briefing + Arquivos + Links ===== */}
           <section className="flex flex-col gap-6 min-h-0 w-full">
-            {/* Arquivos */}
             <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-6 w-full min-h-0 flex flex-col">
               <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Arquivos</h3>
 
@@ -995,7 +981,6 @@ export default function ProjetoDetalhesPage() {
               </div>
             </div>
 
-            {/* Links externos */}
             <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-6 w-full min-h-0 flex flex-col">
               <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Links</h3>
 
@@ -1046,7 +1031,6 @@ export default function ProjetoDetalhesPage() {
                             {new Date(l.created_at).toLocaleString("pt-BR")}
                           </span>
                         </div>
-                        {/* Botão de remover link pode ser adicionado aqui se desejar */}
                       </li>
                     ))}
                   </ul>
@@ -1077,7 +1061,7 @@ export default function ProjetoDetalhesPage() {
             Prazo:
             <input
               type="date"
-              value={newSubtaskByTask.due_date}
+              value={newTask.due_date}
               onChange={(e) => setNewTask((p) => ({ ...p, due_date: e.target.value }))}
               className="rounded-lg bg-primary-900 border border-primary-700 px-3 py-2 text-gray-100"
             />
@@ -1091,7 +1075,6 @@ export default function ProjetoDetalhesPage() {
         </form>
       </Modal>
 
-      {/* ===== Modal Briefing ===== */}
       <Modal open={showBriefing} title="Briefing do projeto" onClose={() => setShowBriefing(false)}>
         {!briefing ? (
           <div className="text-gray-400">Nenhum briefing vinculado a este projeto.</div>
@@ -1102,7 +1085,6 @@ export default function ProjetoDetalhesPage() {
         )}
       </Modal>
 
-      {/* ===== Modal Editar Task ===== */}
       <Modal
         open={!!editTask}
         title="Editar task"
@@ -1151,7 +1133,6 @@ export default function ProjetoDetalhesPage() {
         )}
       </Modal>
 
-      {/* ===== Modal Confirm ===== */}
       <Modal
         open={confirm.open}
         title="Confirmar ação"
@@ -1178,7 +1159,6 @@ export default function ProjetoDetalhesPage() {
         <p className="text-[16px]">{confirm.msg}</p>
       </Modal>
 
-      {/* ===== Modal Notify ===== */}
       <Modal
         open={notify.open}
         onClose={() => setNotify({ open: false, msg: "" })}
@@ -1194,7 +1174,6 @@ export default function ProjetoDetalhesPage() {
         <p className="text-[16px]">{notify.msg}</p>
       </Modal>
 
-      {/* Scrollbar + ícone do calendário personalizados */}
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 10px;

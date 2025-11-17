@@ -201,14 +201,14 @@ export default function DashboardHome() {
         tarefasVencendo === 0
           ? "Nenhuma"
           : `${tarefasVencendo} tarefa${tarefasVencendo > 1 ? "s" : ""}`,
-      onClick: () => router.push("/dashboard/projetos"),
+      onClick: () => router.push("/dashboard/tasks"),
     },
     {
       id: "pay",
       icon: "/pagamentos.svg",
       label: "Pagamentos a receber",
       value: toCurrency(pagamentosPendentesTotal),
-      onClick: undefined,
+      onClick: () => router.push("/dashboard/pagamentos"),
     },
   ];
 
@@ -272,7 +272,7 @@ export default function DashboardHome() {
                 key={m.id}
                 onClick={m.onClick}
                 className={`flex flex-col justify-center items-start gap-3 p-5 rounded-lg bg-primary-800 border border-primary-700 w-full h-fit transition-colors ${
-                  m.onClick
+                  typeof m.onClick === "function"
                     ? "cursor-pointer hover:[background:linear-gradient(180deg,var(--primary-500),var(--primary-800))]"
                     : "hover:bg-primary-750"
                 }`}

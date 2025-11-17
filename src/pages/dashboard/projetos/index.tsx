@@ -32,8 +32,8 @@ type Projeto = {
 };
 
 type Pagamento = {
-  id: number;
-  projeto_id: number;
+  id: string;
+  projeto_id: string;
   valor: number;
   status: string;
   data_pagamento: string | null;

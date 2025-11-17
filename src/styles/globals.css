@@ -2,3 +2,40 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.dragging {
+  opacity: 0.6;
+  transform: scale(0.95);
+  transition: all 0.15s ease;
+}
+
+.trash-hover .dragging {
+  opacity: 0.3;
+  transform: scale(0.6);
+  transition: all 0.2s ease;
+}
+
+.cursor-grab {
+    cursor: grab;
+}
+
+.cursor-grabbing {
+    cursor: grabbing !important;
+}
+
+select.flow-select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none !important;
+    background-image: none !important;
+}
