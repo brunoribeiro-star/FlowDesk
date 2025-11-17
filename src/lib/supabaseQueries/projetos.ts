@@ -18,7 +18,7 @@ export async function getProjetos(): Promise<Projeto[]> {
         error: userError,
     } = await supabase.auth.getUser();
 
-    if  (userError || !user) throw new Error("Usuário não autenticado.");
+    if (userError || !user) throw new Error("Usuário não autenticado.");
 
     const { data, error } = await supabase
         .from("projetos")
@@ -50,7 +50,7 @@ export async function addProjeto(projeto: Omit<Projeto, "id" | "user_id" | "crea
         },
     ]);
 
-    if (userError) throw error;
+    if (error) throw error;
 }
 
 export async function updateProjeto(id: string, updates: Partial<Projeto>) {
@@ -67,7 +67,7 @@ export async function updateProjeto(id: string, updates: Partial<Projeto>) {
         .eq("id", id)
         .eq("user_id", user.id);
 
-        if (error) throw error;
+    if (error) throw error;
 }
 
 export async function deleteProjeto(id: string) {

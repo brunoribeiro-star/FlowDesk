@@ -10,7 +10,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  // 🔐 Listener global para redirecionar após login (inclusive Google)
   useEffect(() => {
     const {
       data: { subscription },
@@ -23,7 +22,6 @@ export default function LoginPage() {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  // === LOGIN ===
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -39,13 +37,12 @@ export default function LoginPage() {
     if (error) {
       alert(`Erro: ${error.message}`);
     } else {
-      router.push("/dashboard"); // ✅ redireciona após login
+      router.push("/dashboard");
     }
 
     setLoading(false);
   }
 
-  // === REGISTRO ===
   async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -65,10 +62,9 @@ export default function LoginPage() {
     if (error) {
       alert(`Erro: ${error.message}`);
     } else {
-      // Verifica se já criou sessão automaticamente
       const { data: sessionData } = await supabase.auth.getSession();
       if (sessionData.session) {
-        router.push("/dashboard"); // ✅ redireciona se já logado
+        router.push("/dashboard");
       } else {
         alert("Conta criada! Verifique seu e-mail antes de entrar.");
       }
@@ -77,13 +73,12 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  // === LOGIN/REGISTRO COM GOOGLE ===
   async function handleGoogleAuth() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`, // ✅ redireciona direto à dashboard
+          redirectTo: `${window.location.origin}/dashboard`,
         },
       });
       if (error) throw error;
@@ -94,9 +89,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen bg-primary-900 text-gray-100 font-sans overflow-hidden">
-      {/* === FORM SECTION (40%) === */}
       <section className="w-[40%] flex flex-col justify-center px-8 lg:px-16 py-6">
-        {/* Tabs */}
         <div className="flex justify-center w-full mb-6 border-b border-gray-700">
           <div className="grid grid-cols-2 w-full max-w-md mx-auto">
             <button
@@ -122,7 +115,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* === LOGIN === */}
         {tab === "login" && (
           <>
             <div className="mb-6">
@@ -136,7 +128,6 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleLogin} className="flex flex-col gap-6">
-              {/* Email */}
               <div className="flex flex-col gap-2">
                 <label className="text-[16px] text-gray-200">E-mail</label>
                 <div className="relative flex items-center">
@@ -151,7 +142,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Senha */}
               <div className="flex flex-col gap-2">
                 <label className="text-[16px] text-gray-200">Senha</label>
                 <div className="relative flex items-center">
@@ -173,7 +163,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Botão de login */}
               <button
                 type="submit"
                 disabled={loading}
@@ -191,7 +180,6 @@ export default function LoginPage() {
               <div className="flex-1 h-[1px] bg-gray-400" />
             </div>
 
-            {/* Login com Google */}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleGoogleAuth}
@@ -204,7 +192,6 @@ export default function LoginPage() {
           </>
         )}
 
-        {/* === REGISTER === */}
         {tab === "register" && (
           <>
             <div className="mb-6">
@@ -214,7 +201,6 @@ export default function LoginPage() {
             </div>
 
             <form onSubmit={handleRegister} className="flex flex-col gap-5">
-              {/* Tipo de usuário */}
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-6">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -259,7 +245,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Nome */}
               <div className="flex flex-col gap-2">
                 <label className="text-[16px] text-gray-200">Nome</label>
                 <div className="relative flex items-center">
@@ -274,7 +259,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Email */}
               <div className="flex flex-col gap-2">
                 <label className="text-[16px] text-gray-200">E-mail</label>
                 <div className="relative flex items-center">
@@ -289,7 +273,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Senha */}
               <div className="flex flex-col gap-2">
                 <label className="text-[16px] text-gray-200">Senha</label>
                 <div className="relative flex items-center">
@@ -304,7 +287,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Botão Criar Conta */}
               <button
                 type="submit"
                 disabled={loading}
@@ -316,7 +298,6 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Criar com Google */}
             <div className="flex gap-3 mt-6">
               <button
                 onClick={handleGoogleAuth}
@@ -330,7 +311,6 @@ export default function LoginPage() {
         )}
       </section>
 
-      {/* === IMAGE SECTION (60%) === */}
       <section className="w-[60%] h-screen relative hidden md:block">
         <Image
           src="/login-illustration.webp"

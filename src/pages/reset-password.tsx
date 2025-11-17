@@ -11,7 +11,6 @@ export default function ResetPassword() {
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // Verifica se o usuário chegou por link válido de recuperação
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) setReady(true);
@@ -50,9 +49,7 @@ export default function ResetPassword() {
 
   return (
     <main className="flex min-h-screen bg-primary-900 text-gray-100 font-sans overflow-hidden">
-      {/* === FORM SECTION (40%) === */}
       <section className="w-[40%] flex flex-col justify-center px-8 lg:px-16 py-6">
-        {/* Botão Voltar */}
         <button
           onClick={() => router.push("/login")}
           className="flex items-center gap-2 border border-primary-700 rounded-lg px-4 py-3 w-fit mb-8 text-gray-300 hover:text-primary-400 transition-colors"
@@ -61,7 +58,6 @@ export default function ResetPassword() {
           <span className="text-[16px]">Voltar</span>
         </button>
 
-        {/* Textos */}
         <div className="mb-8">
           <h1 className="text-[48px] font-semibold text-gray-100 leading-[110%]">
             Criar Nova Senha
@@ -71,9 +67,7 @@ export default function ResetPassword() {
           </p>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleReset} className="flex flex-col gap-6">
-          {/* Nova Senha */}
           <div className="flex flex-col gap-2">
             <label className="text-[16px] text-gray-200">Nova Senha</label>
             <div className="relative flex items-center">
@@ -89,7 +83,6 @@ export default function ResetPassword() {
             </div>
           </div>
 
-          {/* Confirmar Senha */}
           <div className="flex flex-col gap-2">
             <label className="text-[16px] text-gray-200">Confirmar Senha</label>
             <div className="relative flex items-center">
@@ -105,7 +98,6 @@ export default function ResetPassword() {
             </div>
           </div>
 
-          {/* Botão */}
           <button
             type="submit"
             disabled={loading}
@@ -116,7 +108,6 @@ export default function ResetPassword() {
         </form>
       </section>
 
-      {/* === IMAGE SECTION (60%) === */}
       <section className="w-[60%] h-screen relative hidden md:block">
         <Image
           src="/login-illustration.webp"

@@ -7,6 +7,22 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { getClientes } from "@/lib/supabaseQueries/clientes";
 
+interface FormProjeto {
+  titulo: string;
+  descricao: string;
+  tipo: string;
+  cliente_id: string | null;
+  orcamento: string;
+  data_inicio: string;
+  prazo_entrega: string;
+  status: string;
+  progresso: number;
+  link_arquivos: string;
+  etapa_atual: string;
+  notas_internas: string;
+  forma_pagamento: "pix" | "pix_2x" | "cartao";
+}
+
 export default function NovoProjetoPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [step, setStep] = useState(1);
@@ -18,11 +34,11 @@ export default function NovoProjetoPage() {
     type: null,
   });
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormProjeto>({
     titulo: "",
     descricao: "",
     tipo: "",
-    cliente_id: "",
+    cliente_id: null,
     orcamento: "",
     data_inicio: "",
     prazo_entrega: "",
@@ -31,7 +47,6 @@ export default function NovoProjetoPage() {
     link_arquivos: "",
     etapa_atual: "",
     notas_internas: "",
-
     forma_pagamento: "pix",
   });
 
@@ -51,20 +66,26 @@ export default function NovoProjetoPage() {
 
   function showPopup(message: string, type: "success" | "error" = "success") {
     setPopup({ message, type });
-    setTimeout(() => setPopup({ message: "", type: null }), 2500);
+    setTimeout(() => setPopup({ message: "", type: null }), 2600);
   }
 
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value === "" ? null : value,
+    }));
   }
 
-  async function criarPagamentos(projeto_id: number, user_id: string) {
+  async function criarPagamentos(projeto_id: string, user_id: string) {
     const valor = Number(form.orcamento);
 
     if (!valor || valor <= 0) return;
+
+    const hoje = new Date().toISOString().slice(0, 10);
 
     if (form.forma_pagamento === "pix") {
       return await supabase.from("pagamentos").insert([
@@ -77,8 +98,8 @@ export default function NovoProjetoPage() {
           total_parcelas: 1,
           tipo: "único",
           status: "pago",
-          data_pagamento: new Date().toISOString().slice(0, 10),
-          data_prevista: new Date().toISOString().slice(0, 10),
+          data_pagamento: hoje,
+          data_prevista: hoje,
         },
       ]);
     }
@@ -96,8 +117,8 @@ export default function NovoProjetoPage() {
           total_parcelas: 2,
           tipo: "entrada",
           status: "pago",
-          data_pagamento: new Date().toISOString().slice(0, 10),
-          data_prevista: new Date().toISOString().slice(0, 10),
+          data_pagamento: hoje,
+          data_prevista: hoje,
         },
       ]);
 
@@ -127,8 +148,8 @@ export default function NovoProjetoPage() {
           total_parcelas: 1,
           tipo: "único",
           status: "pago",
-          data_pagamento: new Date().toISOString().slice(0, 10),
-          data_prevista: new Date().toISOString().slice(0, 10),
+          data_pagamento: hoje,
+          data_prevista: hoje,
         },
       ]);
     }
@@ -226,14 +247,11 @@ export default function NovoProjetoPage() {
         </header>
 
         <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-8 flex flex-col justify-between overflow-y-auto relative">
-
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-[20px] text-gray-300 font-medium">
-              {step === 1 && "Etapa 1 de 3 – Informações básicas"}
-              {step === 2 && "Etapa 2 de 3 – Escopo, prazos e pagamento"}
-              {step === 3 && "Etapa 3 de 3 – Links e observações"}
-            </h2>
-          </div>
+          <h2 className="text-[20px] text-gray-300 font-medium mb-6">
+            {step === 1 && "Etapa 1 de 3 – Informações básicas"}
+            {step === 2 && "Etapa 2 de 3 – Escopo, prazos e pagamento"}
+            {step === 3 && "Etapa 3 de 3 – Links e observações"}
+          </h2>
 
           {step === 1 && (
             <div className="flex flex-col gap-6">
@@ -242,11 +260,9 @@ export default function NovoProjetoPage() {
                 <input
                   type="text"
                   name="titulo"
-                  required
                   value={form.titulo}
                   onChange={handleChange}
                   className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
-                  placeholder="Ex: Redesign do site da Verus"
                 />
               </label>
 
@@ -255,10 +271,9 @@ export default function NovoProjetoPage() {
                 <textarea
                   name="descricao"
                   rows={3}
-                  value={form.descricao}
+                  value={form.descricao ?? ""}
                   onChange={handleChange}
                   className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 resize-none"
-                  placeholder="Resumo breve do projeto"
                 />
               </label>
 
@@ -266,7 +281,7 @@ export default function NovoProjetoPage() {
                 <span className="text-[16px] text-gray-300">Cliente vinculado</span>
                 <select
                   name="cliente_id"
-                  value={form.cliente_id}
+                  value={form.cliente_id ?? ""}
                   onChange={handleChange}
                   className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
                 >
@@ -288,10 +303,9 @@ export default function NovoProjetoPage() {
                 <input
                   type="number"
                   name="orcamento"
-                  value={form.orcamento}
+                  value={form.orcamento ?? ""}
                   onChange={handleChange}
                   className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
-                  placeholder="Ex: 2500.00"
                 />
               </label>
 
@@ -315,7 +329,7 @@ export default function NovoProjetoPage() {
                   <input
                     type="date"
                     name="data_inicio"
-                    value={form.data_inicio}
+                    value={form.data_inicio ?? ""}
                     onChange={handleChange}
                     className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
                   />
@@ -326,7 +340,7 @@ export default function NovoProjetoPage() {
                   <input
                     type="date"
                     name="prazo_entrega"
-                    value={form.prazo_entrega}
+                    value={form.prazo_entrega ?? ""}
                     onChange={handleChange}
                     className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
                   />
@@ -356,10 +370,9 @@ export default function NovoProjetoPage() {
                 <input
                   type="text"
                   name="link_arquivos"
-                  value={form.link_arquivos}
+                  value={form.link_arquivos ?? ""}
                   onChange={handleChange}
                   className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
-                  placeholder="https://..."
                 />
               </label>
 
@@ -368,10 +381,9 @@ export default function NovoProjetoPage() {
                 <input
                   type="text"
                   name="etapa_atual"
-                  value={form.etapa_atual}
+                  value={form.etapa_atual ?? ""}
                   onChange={handleChange}
                   className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
-                  placeholder="Ex: Wireframe, Identidade Visual..."
                 />
               </label>
 
@@ -380,10 +392,9 @@ export default function NovoProjetoPage() {
                 <textarea
                   name="notas_internas"
                   rows={3}
-                  value={form.notas_internas}
+                  value={form.notas_internas ?? ""}
                   onChange={handleChange}
                   className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 resize-none"
-                  placeholder="Informações adicionais"
                 />
               </label>
             </div>

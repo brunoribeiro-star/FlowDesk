@@ -17,6 +17,5 @@ export default function App({ Component, pageProps, router }: AppProps) {
     );
   }
 
-  // Páginas públicas (login, index, etc.)
   return <Component {...pageProps} />;
 }

@@ -11,11 +11,9 @@ export default function HomeRedirect() {
         data: { session },
       } = await supabase.auth.getSession();
 
-      // Se estiver logado → vai para a dashboard
       if (session) {
         router.replace("/dashboard");
       } else {
-        // Se não estiver logado → vai para o login
         router.replace("/login");
       }
     }
