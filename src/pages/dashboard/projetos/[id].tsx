@@ -1,16 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Underline from "@tiptap/extension-underline";
+import Link from "@tiptap/extension-link";
+import Highlight from "@tiptap/extension-highlight";
+import TextAlign from "@tiptap/extension-text-align";
+import Heading from "@tiptap/extension-heading";
+import {
+  Pencil,
+  SlidersHorizontal,
+  Crown,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 type Projeto = {
   id: string;
   user_id: string;
   titulo: string;
-  descricao: string | null;
+  descricao: any;
   cliente_id: string | null;
   orcamento: number | null;
   data_inicio: string | null;
@@ -22,15 +36,21 @@ type Projeto = {
   notas_internas: string | null;
   created_at: string;
   updated_at: string;
-  clientes?: { id: string; nome: string | null; empresa: string | null } | null;
+  clientes?: {
+    id: string;
+    nome: string | null;
+    empresa: string | null;
+    foto_url: string | null;
+  } | null;
 };
 
 type Task = {
   id: string;
-  projeto_id: string;
+  projeto_id: string | null;
   titulo: string;
-  descricao: string | null;
-  concluida: boolean;
+  descricao: any;
+  status?: string | null;
+  concluida?: boolean | null;
   due_date: string | null;
   created_at: string;
   updated_at: string;
@@ -69,19 +89,54 @@ type Briefing = {
   created_at: string;
 };
 
-function Modal({
-  open,
-  title,
-  children,
-  onClose,
-  actions,
-}: {
-  open: boolean;
-  title?: string;
-  children?: React.ReactNode;
-  onClose: () => void;
-  actions?: React.ReactNode;
-}) {
+type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing";
+
+function calcularUrgencia(due_date: string | null): string {
+  if (!due_date) return "Sem prioridade";
+  const hoje = new Date();
+  const limite = new Date(due_date + "T00:00:00");
+  const diff = limite.getTime() - hoje.getTime();
+  const dias = diff / (1000 * 60 * 60 * 24);
+  if (dias < 0) return "Vencida";
+  if (dias <= 1) return "Muito urgente";
+  if (dias <= 2) return "Urgente";
+  if (dias <= 7) return "Normal";
+  return "Baixa";
+}
+
+function UrgenciaIndicator({ nivel }: { nivel: string }) {
+  const total = 4;
+  let ativos = 0;
+  switch (nivel) {
+    case "Muito urgente":
+      ativos = 4;
+      break;
+    case "Urgente":
+      ativos = 3;
+      break;
+    case "Normal":
+      ativos = 2;
+      break;
+    case "Baixa":
+      ativos = 1;
+      break;
+  }
+  return (
+    <div className="flex items-end gap-[2px]">
+      {Array.from({ length: total }).map((_, i) => (
+        <div
+          key={i}
+          className={`w-[3px] rounded-full ${
+            i < ativos ? "bg-primary-500" : "bg-primary-700"
+          }`}
+          style={{ height: 6 + i * 3 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Modal({ open, title, children, onClose, actions }: any) {
   if (!open) return null;
   return (
     <div
@@ -94,7 +149,9 @@ function Modal({
       >
         {title ? (
           <div className="flex items-center justify-between mb-4">
-            <h4 className="text-[20px] text-primary-100 font-semibold">{title}</h4>
+            <h4 className="text-[20px] text-primary-100 font-semibold">
+              {title}
+            </h4>
             <button
               onClick={onClose}
               className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-3 py-1 hover:bg-primary-700"
@@ -103,8 +160,14 @@ function Modal({
             </button>
           </div>
         ) : null}
+
         <div className="text-gray-100">{children}</div>
-        {actions ? <div className="mt-6 flex items-center justify-end gap-3">{actions}</div> : null}
+
+        {actions ? (
+          <div className="mt-6 flex items-center justify-end gap-3">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -117,99 +180,161 @@ export default function ProjetoDetalhesPage() {
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [subtasksByTask, setSubtasksByTask] = useState<Record<string, Subtask[]>>({});
+  const [subtasksByTask, setSubtasksByTask] = useState<
+    Record<string, Subtask[]>
+  >({});
   const [files, setFiles] = useState<ArquivoProjeto[]>([]);
   const [links, setLinks] = useState<LinkProjeto[]>([]);
   const [briefing, setBriefing] = useState<Briefing | null>(null);
+
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>(
+    {}
+  );
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [newTask, setNewTask] = useState({ titulo: "", descricao: "", due_date: "" });
-  const [editTask, setEditTask] = useState<Task | null>(null);
-
-  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
-  const [newSubtaskByTask, setNewSubtaskByTask] = useState<Record<string, string>>({});
-
   const [newLink, setNewLink] = useState({ titulo: "", url: "" });
 
-  const [showBriefing, setShowBriefing] = useState(false);
-  const [showAddTask, setShowAddTask] = useState(false);
-  const [confirm, setConfirm] = useState<{ open: boolean; msg: string; onYes?: () => void }>({
+  const [confirm, setConfirm] = useState<{
+    open: boolean;
+    msg: string;
+    onYes?: () => void;
+  }>({
     open: false,
     msg: "",
   });
-  const [notify, setNotify] = useState<{ open: boolean; msg: string }>({ open: false, msg: "" });
+
+  const [notify, setNotify] = useState<{ open: boolean; msg: string }>({
+    open: false,
+    msg: "",
+  });
+
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+
+  const [activeTab, setActiveTab] = useState<TabId>("descricao");
+
+  const [user, setUser] = useState<any>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement | null>(null);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({ heading: false }),
+      Heading.configure({ levels: [1, 2, 3] }),
+      Underline,
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        linkOnPaste: true,
+      }),
+      Highlight,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+    ],
+    content: "",
+    editable: true,
+    autofocus: false,
+    immediatelyRender: false,
+  });
 
   useEffect(() => {
     if (!id) return;
+
     (async () => {
       try {
         setLoading(true);
+
         const { data: auth } = await supabase.auth.getUser();
-        const user = auth?.user;
-        if (!user) {
+        const authUser = auth?.user;
+
+        if (!authUser) {
+          setUser(null);
           router.push("/login");
           return;
         }
 
+        setUser(authUser);
+
         const { data: projetoData, error: projetoErr } = await supabase
           .from("projetos")
           .select(
-            `
-            *,
-            clientes:cliente_id ( id, nome, empresa )
-          `
+            `*,
+             clientes:cliente_id (
+               id,
+               nome,
+               empresa,
+               foto_url
+             )`
           )
           .eq("id", id)
-          .eq("user_id", user.id)
+          .eq("user_id", authUser.id)
           .single();
+
         if (projetoErr) throw projetoErr;
+
         const proj = projetoData as Projeto;
         setProjeto(proj);
 
-        const { data: tasksData, error: tasksErr } = await supabase
+        if (editor) {
+          try {
+            let parsed =
+              typeof proj.descricao === "string"
+                ? JSON.parse(proj.descricao)
+                : proj.descricao;
+
+            if (parsed) editor.commands.setContent(parsed);
+            else editor.commands.clearContent();
+          } catch {
+            editor.commands.clearContent();
+          }
+        }
+
+        const { data: tasksData } = await supabase
           .from("tasks")
           .select("*")
           .eq("projeto_id", id)
           .order("created_at", { ascending: true });
-        if (tasksErr) throw tasksErr;
+
         const tks = (tasksData || []) as Task[];
         setTasks(tks);
 
         if (tks.length) {
           const taskIds = tks.map((t) => t.id);
-          const { data: subsData, error: subsErr } = await supabase
+
+          const { data: subsData } = await supabase
             .from("subtasks")
             .select("*")
             .in("task_id", taskIds)
             .order("created_at", { ascending: true });
-          if (subsErr) throw subsErr;
+
           const grouped: Record<string, Subtask[]> = {};
+
           (subsData || []).forEach((s: any) => {
             grouped[s.task_id] = grouped[s.task_id] || [];
-            grouped[s.task_id].push(s as Subtask);
+            grouped[s.task_id].push(s);
           });
+
           setSubtasksByTask(grouped);
         } else {
           setSubtasksByTask({});
         }
 
-        const { data: filesData, error: filesErr } = await supabase
+        const { data: filesData } = await supabase
           .from("arquivos_projeto")
           .select("*")
           .eq("projeto_id", id)
           .order("created_at", { ascending: false });
-        if (filesErr) throw filesErr;
+
         setFiles((filesData || []) as ArquivoProjeto[]);
 
-        const { data: linksData, error: linksErr } = await supabase
+        const { data: linksData } = await supabase
           .from("links_projeto")
           .select("*")
           .eq("projeto_id", id)
           .order("created_at", { ascending: false });
-        if (linksErr) throw linksErr;
+
         setLinks((linksData || []) as LinkProjeto[]);
 
         const { data: briefData } = await supabase
@@ -217,10 +342,8 @@ export default function ProjetoDetalhesPage() {
           .select("*")
           .eq("projeto_id", id)
           .maybeSingle();
-        if (briefData) setBriefing(briefData as Briefing);
 
-        await updateProgress(tks, proj);
-        await notifyDueTasks(tks, proj);
+        if (briefData) setBriefing(briefData as Briefing);
 
         setError(null);
       } catch (err: any) {
@@ -229,15 +352,29 @@ export default function ProjetoDetalhesPage() {
         setLoading(false);
       }
     })();
-  }, [id, router]);
+  }, [id, router, editor]);
+
+  useEffect(() => {
+    function handleClickOutside(e: any) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const pct = useMemo(() => {
-    const flatDone = tasks.filter((t) => t.concluida).length;
+    const flatDone = tasks.filter(
+      (t) => t.concluida || t.status === "concluida"
+    ).length;
     const flatTotal = tasks.length;
     if (flatTotal === 0) return 0;
 
     let subDone = 0;
     let subTotal = 0;
+
     for (const t of tasks) {
       const subs = subtasksByTask[t.id] || [];
       subDone += subs.filter((s) => s.concluida).length;
@@ -250,395 +387,130 @@ export default function ProjetoDetalhesPage() {
     return Math.round(((taskRatio + subRatio) / 2) * 100);
   }, [tasks, subtasksByTask]);
 
-  async function updateProgress(currTasks: Task[], proj: Projeto | null) {
-    if (!proj) return;
+  async function salvarDescricao() {
+    if (!projeto || !editor) return;
 
-    const flatDone = currTasks.filter((t) => t.concluida).length;
-    const flatTotal = currTasks.length;
-    let subDone = 0;
-    let subTotal = 0;
-    for (const t of currTasks) {
-      const subs = subtasksByTask[t.id] || [];
-      subDone += subs.filter((s) => s.concluida).length;
-      subTotal += subs.length;
-    }
-    const taskRatio = flatTotal > 0 ? flatDone / flatTotal : 0;
-    const subRatio = subTotal > 0 ? subDone / subTotal : taskRatio;
-    const newPct = Math.round(((taskRatio + subRatio) / 2) * 100);
+    try {
+      setSaving(true);
 
-    if (proj.progresso === newPct) return;
+      const descricaoJSON = editor.getJSON();
 
-    const nextStatus =
-      proj.status === "Arquivado"
-        ? "Arquivado"
-        : newPct >= 100
-        ? ("Concluído" as Projeto["status"])
-        : ("Em andamento" as Projeto["status"]);
+      const { error: updateErr } = await supabase
+        .from("projetos")
+        .update({ descricao: descricaoJSON })
+        .eq("id", projeto.id);
 
-    const { error } = await supabase
-      .from("projetos")
-      .update({ progresso: newPct, status: nextStatus })
-      .eq("id", proj.id);
+      if (updateErr) throw updateErr;
 
-    if (!error) {
-      setProjeto((p) => (p ? { ...p, progresso: newPct, status: nextStatus } : p));
+      setProjeto((prev) =>
+        prev ? { ...prev, descricao: descricaoJSON } : prev
+      );
+
       try {
         await supabase.from("atividades").insert([
           {
-            user_id: proj.user_id,
-            projeto_id: proj.id,
+            user_id: projeto.user_id,
+            projeto_id: projeto.id,
             tipo: "Projetos",
-            descricao:
-              newPct >= 100
-                ? "Projeto concluído automaticamente pelo progresso."
-                : `Progresso atualizado para ${newPct}%.`,
+            descricao: "Descrição do projeto atualizada.",
           },
         ]);
       } catch {}
-    }
-  }
 
-  async function notifyDueTasks(currTasks: Task[], proj: Projeto | null) {
-    if (!proj || !currTasks.length) return;
-    const now = Date.now();
-    const soonMs = 48 * 60 * 60 * 1000;
-
-    const nearDue = currTasks.filter((t) => {
-      if (!t.due_date || t.concluida) return false;
-      const d = new Date(t.due_date).getTime();
-      return d - now <= soonMs && d > now;
-    });
-
-    if (!nearDue.length) return;
-
-    try {
-      await supabase.from("atividades").insert(
-        nearDue.map((t) => ({
-          user_id: proj.user_id,
-          projeto_id: proj.id,
-          tipo: "Projetos",
-          descricao: `Task "${t.titulo}" com prazo próximo (${new Date(
-            t.due_date as string
-          ).toLocaleDateString("pt-BR")}).`,
-        }))
-      );
-    } catch {}
-  }
-
-  function statusStyles(status: Projeto["status"]) {
-    if (status === "Concluído") {
-      return { tagBg: "bg-third-400", tagText: "text-primary-100", barFill: "bg-third-400" };
-    }
-    if (status === "Arquivado") {
-      return { tagBg: "bg-gray-400", tagText: "text-primary-900", barFill: "bg-gray-400" };
-    }
-    return { tagBg: "bg-primary-500", tagText: "text-primary-100", barFill: "bg-primary-400" };
-  }
-  const styles = statusStyles(projeto?.status || "Em andamento");
-
-  function statusSelectClasses(s: Projeto["status"]) {
-    if (s === "Concluído") {
-      return {
-        select: "bg-third-400 border-third-400 text-primary-100",
-        chevron: "fill-primary-100",
-      };
-    }
-    if (s === "Arquivado") {
-      return {
-        select: "bg-gray-400 border-gray-400 text-primary-900",
-        chevron: "fill-primary-900",
-      };
-    }
-    return {
-      select: "bg-primary-500 border-primary-500 text-primary-900",
-      chevron: "fill-primary-900",
-    };
-  }
-
-  async function setStatusManually(next: Projeto["status"]) {
-    if (!projeto) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("projetos")
-        .update({ status: next })
-        .eq("id", projeto.id);
-      if (error) throw error;
-      setProjeto((p) => (p ? { ...p, status: next } : p));
-      await supabase.from("atividades").insert([
-        {
-          user_id: projeto.user_id,
-          projeto_id: projeto.id,
-          tipo: "Projetos",
-          descricao: `Status alterado manualmente para "${next}".`,
-        },
-      ]);
-      setNotify({ open: true, msg: "Status atualizado com sucesso." });
+      setNotify({ open: true, msg: "Descrição atualizada com sucesso." });
     } catch (err: any) {
-      setNotify({ open: true, msg: "Erro ao alterar status: " + err.message });
+      setNotify({
+        open: true,
+        msg: "Erro ao salvar descrição: " + err.message,
+      });
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleAddTask(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newTask.titulo.trim() || !projeto) return;
-    setSaving(true);
-    try {
-      const payload = {
-        projeto_id: projeto.id,
-        titulo: newTask.titulo.trim(),
-        descricao: newTask.descricao.trim() || null,
-        due_date: newTask.due_date ? newTask.due_date : null,
-        concluida: false,
-      };
-      const { data, error } = await supabase
-        .from("tasks")
-        .insert([payload])
-        .select()
-        .single();
-      if (error) throw error;
-      const created = data as Task;
-      const next = [...tasks, created];
-      setTasks(next);
-      setNewTask({ titulo: "", descricao: "", due_date: "" });
-      await updateProgress(next, projeto);
-      await supabase.from("atividades").insert([
-        {
-          user_id: projeto.user_id,
-          projeto_id: projeto.id,
-          tipo: "Projetos",
-          descricao: `Task criada: ${created.titulo}`,
-        },
-      ]);
-    } catch (err: any) {
-      setNotify({ open: true, msg: "Erro ao criar task: " + err.message });
-    } finally {
-      setSaving(false);
-    }
+  function openLinkModal() {
+    if (!editor) return;
+
+    const attrs = editor.getAttributes("link");
+    const currentHref = attrs?.href || "";
+    setLinkUrl(currentHref);
+    setLinkModalOpen(true);
   }
 
-  function askRemoveTask(task: Task) {
-    setConfirm({
-      open: true,
-      msg: `Tem certeza que deseja excluir a task "${task.titulo}"?`,
-      onYes: () => removeTask(task),
-    });
-  }
+  function handleConfirmLink() {
+    if (!editor) return;
 
-  async function removeTask(task: Task) {
-    if (!projeto) return;
-    setConfirm({ open: false, msg: "" });
-    const backupTasks = tasks;
-    const backupSubs = subtasksByTask[task.id] || [];
-    setTasks((prev) => prev.filter((t) => t.id !== task.id));
-    const nextGrouped = { ...subtasksByTask };
-    delete nextGrouped[task.id];
-    setSubtasksByTask(nextGrouped);
-
-    await updateProgress(
-      backupTasks.filter((t) => t.id !== task.id),
-      projeto
-    );
-
-    const { error } = await supabase.from("tasks").delete().eq("id", task.id);
-    if (error) {
-      setTasks(backupTasks);
-      setSubtasksByTask((prev) => ({ ...prev, [task.id]: backupSubs }));
-      await updateProgress(backupTasks, projeto);
-      setNotify({ open: true, msg: "Erro ao excluir task: " + error.message });
-      return;
+    if (!linkUrl.trim()) {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href: linkUrl.trim() })
+        .run();
     }
 
-    try {
-      await supabase.from("atividades").insert([
-        {
-          user_id: projeto.user_id,
-          projeto_id: projeto.id,
-          tipo: "Projetos",
-          descricao: `Task removida: ${task.titulo}`,
-        },
-      ]);
-    } catch {}
+    setLinkModalOpen(false);
   }
 
-  async function toggleTask(task: Task) {
-    if (!projeto) return;
-    const newVal = !task.concluida;
-
-    const temp = tasks.map((t) => (t.id === task.id ? { ...t, concluida: newVal } : t));
-    setTasks(temp);
-    await updateProgress(temp, projeto);
-
-    const { error } = await supabase.from("tasks").update({ concluida: newVal }).eq("id", task.id);
-    if (error) {
-      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, concluida: task.concluida } : t)));
-      await updateProgress(tasks, projeto);
-      setNotify({ open: true, msg: "Erro ao atualizar task: " + error.message });
-      return;
-    }
-
-    try {
-      await supabase.from("atividades").insert([
-        {
-          user_id: projeto.user_id,
-          projeto_id: projeto.id,
-          tipo: "Projetos",
-          descricao: newVal
-            ? `Task concluída: ${task.titulo}`
-            : `Task reaberta: ${task.titulo}`,
-        },
-      ]);
-    } catch {}
-  }
-
-  function openEditTask(t: Task) {
-    setEditTask(t);
-  }
-
-  async function saveEditTask() {
-    if (!editTask || !projeto) return;
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from("tasks")
-        .update({
-          titulo: editTask.titulo,
-          descricao: editTask.descricao,
-          due_date: editTask.due_date,
-        })
-        .eq("id", editTask.id);
-      if (error) throw error;
-
-      setTasks((prev) => prev.map((t) => (t.id === editTask.id ? { ...editTask } : t)));
-      setEditTask(null);
-      setNotify({ open: true, msg: "Task atualizada com sucesso." });
-    } catch (err: any) {
-      setNotify({ open: true, msg: "Erro ao atualizar task: " + err.message });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  function toggleExpand(taskId: string) {
-    setExpandedTasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
-  }
-
-  async function addSubtask(taskId: string) {
-    const title = (newSubtaskByTask[taskId] || "").trim();
-    if (!title) return;
-    try {
-      const { data, error } = await supabase
-        .from("subtasks")
-        .insert([{ task_id: taskId, titulo: title, concluida: false }])
-        .select()
-        .single();
-      if (error) throw error;
-      const created = data as Subtask;
-      setSubtasksByTask((prev) => ({
-        ...prev,
-        [taskId]: [...(prev[taskId] || []), created],
-      }));
-      setNewSubtaskByTask((prev) => ({ ...prev, [taskId]: "" }));
-      if (projeto) await updateProgress(tasks, projeto);
-    } catch (err: any) {
-      setNotify({ open: true, msg: "Erro ao adicionar subtask: " + err.message });
-    }
-  }
-
-  async function toggleSubtask(taskId: string, s: Subtask) {
-    const newVal = !s.concluida;
-    setSubtasksByTask((prev) => ({
-      ...prev,
-      [taskId]: (prev[taskId] || []).map((x) => (x.id === s.id ? { ...x, concluida: newVal } : x)),
-    }));
-    const { error } = await supabase.from("subtasks").update({ concluida: newVal }).eq("id", s.id);
-    if (error) {
-      setSubtasksByTask((prev) => ({
-        ...prev,
-        [taskId]: (prev[taskId] || []).map((x) => (x.id === s.id ? { ...x, concluida: s.concluida } : x)),
-      }));
-      setNotify({ open: true, msg: "Erro ao atualizar subtask: " + error.message });
-      return;
-    }
-    if (projeto) await updateProgress(tasks, projeto);
-  }
-
-  function askRemoveSubtask(taskId: string, s: Subtask) {
-    setConfirm({
-      open: true,
-      msg: `Remover a subtask "${s.titulo}"?`,
-      onYes: () => removeSubtask(taskId, s),
-    });
-  }
-
-  async function removeSubtask(taskId: string, s: Subtask) {
-    setConfirm({ open: false, msg: "" });
-    const backup = subtasksByTask[taskId] || [];
-    setSubtasksByTask((prev) => ({
-      ...prev,
-      [taskId]: backup.filter((x) => x.id !== s.id),
-    }));
-    const { error } = await supabase.from("subtasks").delete().eq("id", s.id);
-    if (error) {
-      setSubtasksByTask((prev) => ({ ...prev, [taskId]: backup }));
-      setNotify({ open: true, msg: "Erro ao excluir subtask: " + error.message });
-      return;
-    }
-    if (projeto) await updateProgress(tasks, projeto);
+  function handleRemoveLink() {
+    if (!editor) return;
+    editor.chain().focus().unsetLink().run();
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!projeto) return;
+
     const filesSel = e.target.files;
     if (!filesSel || !filesSel.length) return;
 
     const { data: auth } = await supabase.auth.getUser();
-    const user = auth?.user;
-    if (!user) {
+    const authUser = auth?.user;
+
+    if (!authUser) {
       setNotify({ open: true, msg: "Usuário não autenticado." });
       return;
     }
 
     const file = filesSel[0];
-    const filePath = `${user.id}/${projeto.id}/${Date.now()}_${file.name}`;
+    const filePath = `${authUser.id}/${projeto.id}/${Date.now()}_${file.name}`;
 
     try {
       setSaving(true);
+
       const { error: upErr } = await supabase.storage
         .from("projetos")
-        .upload(filePath, file, { upsert: false });
-      if (upErr) {
-        if ((upErr as any)?.message?.toLowerCase?.().includes("bucket not found")) {
-          throw new Error(
-            "Bucket 'projetos' não encontrado no Supabase Storage. Crie um bucket público chamado exatamente 'projetos'."
-          );
-        }
-        throw upErr;
-      }
+        .upload(filePath, file);
 
-      const { data: publicUrl } = supabase.storage.from("projetos").getPublicUrl(filePath);
+      if (upErr) throw upErr;
+
+      const { data: publicUrl } = supabase.storage
+        .from("projetos")
+        .getPublicUrl(filePath);
 
       const { data, error: insErr } = await supabase
         .from("arquivos_projeto")
-        .insert([{ projeto_id: projeto.id, nome: file.name, url: publicUrl.publicUrl, status: "pendente" }])
+        .insert([
+          {
+            projeto_id: projeto.id,
+            nome: file.name,
+            url: publicUrl.publicUrl,
+            status: "pendente",
+          },
+        ])
         .select()
         .single();
+
       if (insErr) throw insErr;
 
       setFiles((prev) => [data as ArquivoProjeto, ...prev]);
-      await supabase.from("atividades").insert([
-        {
-          user_id: projeto.user_id,
-          projeto_id: projeto.id,
-          tipo: "Projetos",
-          descricao: `Arquivo enviado: ${file.name}`,
-        },
-      ]);
       setNotify({ open: true, msg: "Arquivo enviado com sucesso." });
     } catch (err: any) {
-      setNotify({ open: true, msg: "Erro ao enviar arquivo: " + err.message });
+      setNotify({
+        open: true,
+        msg: "Erro ao enviar arquivo: " + err.message,
+      });
     } finally {
       setSaving(false);
       e.target.value = "";
@@ -648,42 +520,66 @@ export default function ProjetoDetalhesPage() {
   async function addLink(e: React.FormEvent) {
     e.preventDefault();
     if (!projeto) return;
+
     const url = newLink.url.trim();
     if (!url) return;
+
     try {
       const { data, error } = await supabase
         .from("links_projeto")
-        .insert([{ projeto_id: projeto.id, titulo: newLink.titulo || null, url }])
+        .insert([
+          {
+            projeto_id: projeto.id,
+            titulo: newLink.titulo || null,
+            url,
+          },
+        ])
         .select()
         .single();
+
       if (error) throw error;
+
       setLinks((prev) => [data as LinkProjeto, ...prev]);
       setNewLink({ titulo: "", url: "" });
       setNotify({ open: true, msg: "Link adicionado." });
     } catch (err: any) {
-      setNotify({ open: true, msg: "Erro ao adicionar link: " + err.message });
+      setNotify({
+        open: true,
+        msg: "Erro ao adicionar link: " + err.message,
+      });
     }
   }
 
   function renderBriefing(respostas: any) {
-    if (!respostas) return <div className="text-gray-400">—</div>;
+    if (!respostas)
+      return <div className="text-gray-400">Nenhum briefing preenchido.</div>;
+
     if (Array.isArray(respostas)) {
       return (
         <ul className="flex flex-col gap-2">
-          {respostas.map((item: any, idx: number) => (
-            <li key={idx} className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-3">
-              <div className="text-primary-100 font-medium">{item.pergunta ?? `Pergunta ${idx + 1}`}</div>
+          {respostas.map((item, idx) => (
+            <li
+              key={idx}
+              className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
+            >
+              <div className="text-primary-100 font-medium">
+                {item.pergunta ?? `Pergunta ${idx + 1}`}
+              </div>
               <div className="text-gray-300">{item.resposta ?? "—"}</div>
             </li>
           ))}
         </ul>
       );
     }
+
     if (typeof respostas === "object") {
       return (
         <ul className="flex flex-col gap-2">
           {Object.entries(respostas).map(([pergunta, resposta], idx) => (
-            <li key={idx} className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-3">
+            <li
+              key={idx}
+              className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
+            >
               <div className="text-primary-100 font-medium">{pergunta}</div>
               <div className="text-gray-300">{String(resposta)}</div>
             </li>
@@ -691,7 +587,85 @@ export default function ProjetoDetalhesPage() {
         </ul>
       );
     }
-    return <div className="text-gray-300 whitespace-pre-wrap">{String(respostas)}</div>;
+
+    return (
+      <div className="text-gray-300 whitespace-pre-wrap">
+        {String(respostas)}
+      </div>
+    );
+  }
+
+  function isTaskDone(t: Task) {
+    return !!(t.concluida || t.status === "concluida");
+  }
+
+  async function toggleTaskCompletion(task: Task) {
+    const done = isTaskDone(task);
+    const novoStatus = done ? "para_fazer" : "concluida";
+
+    try {
+      await supabase
+        .from("tasks")
+        .update({ status: novoStatus })
+        .eq("id", task.id);
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, status: novoStatus, concluida: novoStatus === "concluida" }
+            : t
+        )
+      );
+    } catch (err: any) {
+      setNotify({
+        open: true,
+        msg: "Erro ao atualizar tarefa: " + err.message,
+      });
+    }
+  }
+
+  async function toggleSubtaskCompletion(sub: Subtask) {
+    const nova = !sub.concluida;
+    try {
+      await supabase
+        .from("subtasks")
+        .update({ concluida: nova })
+        .eq("id", sub.id);
+
+      setSubtasksByTask((prev) => {
+        const current = prev[sub.task_id] || [];
+        const updated = current.map((s) =>
+          s.id === sub.id ? { ...s, concluida: nova } : s
+        );
+        return { ...prev, [sub.task_id]: updated };
+      });
+    } catch (err: any) {
+      setNotify({
+        open: true,
+        msg: "Erro ao atualizar subtask: " + err.message,
+      });
+    }
+  }
+
+  function toggleTaskExpanded(taskId: string) {
+    setExpandedTasks((prev) => ({
+      ...prev,
+      [taskId]: !prev[taskId],
+    }));
+  }
+
+  function handleEditProfile() {
+    setProfileOpen(false);
+    router.push("/dashboard/perfil");
+  }
+
+  function handleTheme() {
+    setProfileOpen(false);
+    router.push("/dashboard/tema");
+  }
+
+  function handleSignature() {
+    setProfileOpen(false);
   }
 
   if (loading) {
@@ -701,6 +675,7 @@ export default function ProjetoDetalhesPage() {
       </div>
     );
   }
+
   if (error || !projeto) {
     return (
       <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">
@@ -710,12 +685,17 @@ export default function ProjetoDetalhesPage() {
   }
 
   const clienteNome = projeto.clientes?.nome || "Cliente não informado";
-  const selectColor = statusSelectClasses(projeto.status);
+  const clienteFoto = projeto.clientes?.foto_url || "/perfil.svg";
+
+  const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
+  const displayName =
+    user?.user_metadata?.nome ||
+    user?.email?.split("@")[0] ||
+    "Usuário";
 
   return (
     <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
       <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-
       <div className="flex flex-col flex-1 gap-6 pr-6 py-8 w-full overflow-hidden">
         <header className="w-full bg-primary-800 border border-primary-700 rounded-lg p-6">
           <div className="flex items-center justify-between gap-4">
@@ -727,437 +707,528 @@ export default function ProjetoDetalhesPage() {
                 ← Voltar
               </button>
 
-              <div className="w-[70px] h-[70px] rounded-full overflow-hidden border border-primary-600">
-                <Image src="/perfil.svg" alt="Avatar" width={70} height={70} className="object-contain p-2" />
+              <div className="w-[70px] h-[70px] rounded-full overflow-hidden border border-primary-600 bg-primary-900">
+                <Image
+                  src={clienteFoto}
+                  alt={clienteNome}
+                  width={70}
+                  height={70}
+                  className="object-cover"
+                />
               </div>
 
               <div className="flex flex-col">
-                <h1 className="text-[28px] text-primary-100 font-semibold">{projeto.titulo}</h1>
+                <h1 className="text-[28px] text-primary-100 font-semibold">
+                  {projeto.titulo}
+                </h1>
                 <div className="text-[18px] text-gray-300">
                   <span className="text-gray-300">Cliente:</span>{" "}
-                  <span className="text-primary-100 font-medium">{clienteNome}</span>
+                  <span className="text-primary-100 font-medium">
+                    {clienteNome}
+                  </span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <select
-                  value={projeto.status}
-                  onChange={(e) => setStatusManually(e.target.value as Projeto["status"])}
-                  className={`appearance-none font-medium rounded-lg pl-4 pr-10 py-2 border ${selectColor.select}`}
-                  disabled={saving}
-                >
-                  <option value="Em andamento">Ativo</option>
-                  <option value="Concluído">Concluído</option>
-                  <option value="Arquivado">Arquivado</option>
-                </select>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  className={`pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 ${selectColor.chevron}`}
-                >
-                  <path d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 10.17l3.71-2.94a.75.75 0 1 1 .94 1.16l-4.24 3.36a.75.75 0 0 1-.94 0L5.21 8.39a.75.75 0 0 1 .02-1.18z" />
-                </svg>
+            <div className="flex items-center gap-4">
+              <div className="text-[14px] text-gray-300 bg-primary-700 border border-primary-600 rounded-lg px-4 py-2">
+                {projeto.prazo_entrega
+                  ? `Prazo: ${new Date(
+                      projeto.prazo_entrega
+                    ).toLocaleDateString("pt-BR")}`
+                  : "Prazo: —"}
               </div>
 
-              <div className="inline-flex items-center text-[14px] text-gray-300 bg-primary-700 border border-primary-600 rounded-lg px-4 py-2">
-                {projeto.prazo_entrega
-                  ? `Prazo: ${new Date(projeto.prazo_entrega).toLocaleDateString("pt-BR")}`
-                  : "Prazo: —"}
+              <div className="relative" ref={profileRef}>
+                <button
+                  type="button"
+                  onClick={() => setProfileOpen((v) => !v)}
+                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  <Image
+                    src={avatarSrc}
+                    alt="Perfil"
+                    width={38}
+                    height={38}
+                    className="rounded-full object-cover border border-primary-600"
+                  />
+
+                  {profileOpen ? (
+                    <ChevronUp size={18} className="text-primary-100" />
+                  ) : (
+                    <ChevronDown size={18} className="text-primary-100" />
+                  )}
+                </button>
+
+                {profileOpen && (
+                  <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in">
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="text-[14px] text-gray-200 font-medium">
+                        Olá, {displayName}!
+                      </div>
+                    </div>
+
+                    <button
+                      className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
+                      onClick={handleEditProfile}
+                    >
+                      <Pencil size={20} className="text-primary-200" />
+                      Editar perfil
+                    </button>
+
+                    <button
+                      className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
+                      onClick={handleTheme}
+                    >
+                      <SlidersHorizontal
+                        size={20}
+                        className="text-primary-200"
+                      />
+                      Personalizar tema
+                    </button>
+
+                    <button
+                      className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors"
+                      onClick={handleSignature}
+                    >
+                      <Crown size={20} />
+                      Assinatura
+                    </button>
+
+                    <button
+                      className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
+                      onClick={async () => {
+                        await supabase.auth.signOut();
+                        router.push("/login");
+                      }}
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                      Sair da plataforma
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           <div className="mt-5">
             <div className="w-full h-4 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
-              <div className={`h-full ${styles.barFill} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
+              <div
+                className="h-full bg-primary-400 transition-[width] duration-300"
+                style={{ width: `${pct}%` }}
+              />
             </div>
-            <div className="mt-2 text-[14px] text-gray-300">{pct}% concluído</div>
+            <div className="mt-2 text-[14px] text-gray-300">
+              {pct}% concluído
+            </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr,0.6fr] gap-6 flex-1 min-h-0">
-          <section className="flex flex-col min-h-0 bg-primary-800 border border-primary-700 rounded-lg p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[22px] text-primary-100 font-semibold">Etapas do projeto</h2>
-            </div>
+        <section className="flex-1 min-h-0 bg-primary-800 border border-primary-700 rounded-lg p-5 flex flex-col">
+          <div className="flex flex-wrap gap-2 border-b border-primary-700 pb-3 mb-4">
+            <button
+              type="button"
+              onClick={() => setActiveTab("descricao")}
+              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
+                activeTab === "descricao"
+                  ? "bg-primary-500 text-primary-900"
+                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
+              }`}
+            >
+              Descrição
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("etapas")}
+              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
+                activeTab === "etapas"
+                  ? "bg-primary-500 text-primary-900"
+                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
+              }`}
+            >
+              Etapas
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("arquivos")}
+              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
+                activeTab === "arquivos"
+                  ? "bg-primary-500 text-primary-900"
+                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
+              }`}
+            >
+              Arquivos
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("links")}
+              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
+                activeTab === "links"
+                  ? "bg-primary-500 text-primary-900"
+                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
+              }`}
+            >
+              Links
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("briefing")}
+              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
+                activeTab === "briefing"
+                  ? "bg-primary-500 text-primary-900"
+                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
+              }`}
+            >
+              Briefing
+            </button>
+          </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-              {tasks.length === 0 ? (
-                <div className="text-gray-400">Nenhuma task criada ainda.</div>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {tasks.map((t) => {
-                    const subs = subtasksByTask[t.id] || [];
-                    const expanded = !!expandedTasks[t.id];
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {activeTab === "descricao" && (
+              <div className="flex flex-col h-full">
+                <h2 className="text-[22px] text-primary-100 font-semibold mb-4">
+                  Descrição do projeto
+                </h2>
+                <div className="bg-primary-900 border border-primary-700 rounded-lg overflow-hidden flex-1 flex flex-col min-h-[220px]">
+                  {editor && (
+                    <EditorToolbar
+                      editor={editor}
+                      onOpenLinkModal={openLinkModal}
+                      onRemoveLink={handleRemoveLink}
+                    />
+                  )}
 
-                    return (
-                      <li key={t.id} className="bg-primary-700 border border-primary-600 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                          <input
-                            type="checkbox"
-                            checked={t.concluida}
-                            onChange={() => toggleTask(t)}
-                            className="mt-1 w-5 h-5 accent-primary-500"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleExpand(t.id)}
-                                  className="text-gray-300 hover:text-primary-300"
-                                  title={expanded ? "Recolher subtasks" : "Expandir subtasks"}
-                                >
-                                  {expanded ? "▾" : "▸"}
-                                </button>
-                                <div
-                                  className={`text-[16px] ${
-                                    t.concluida ? "line-through text-gray-400" : "text-gray-100"
-                                  } font-medium`}
-                                >
-                                  {t.titulo}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <div className="text-[12px] text-gray-300 bg-primary-800 border border-primary-600 rounded-md px-2 py-1">
-                                  {t.due_date
-                                    ? `Prazo: ${new Date(t.due_date).toLocaleDateString("pt-BR")}`
-                                    : "Sem prazo"}
-                                </div>
-                                <button
-                                  onClick={() => openEditTask(t)}
-                                  className="text-[14px] text-primary-200 hover:text-primary-100"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() => askRemoveTask(t)}
-                                  className="text-[14px] text-red-400 hover:text-red-300"
-                                >
-                                  Excluir
-                                </button>
-                              </div>
-                            </div>
-                            {t.descricao ? (
-                              <div className="text-[14px] text-gray-300 mt-1">{t.descricao}</div>
-                            ) : null}
-                          </div>
-                        </div>
+                  <div className="border-t border-primary-700 flex-1 min-h-0">
+                    <EditorContent
+                      editor={editor}
+                      className="tiptap px-4 py-3 text-[15px] text-gray-100 custom-editor max-h-full h-full overflow-y-auto custom-scrollbar"
+                    />
+                  </div>
+                </div>
 
-                        {expanded && (
-                          <div className="mt-3 pl-7">
-                            {subs.length === 0 ? (
-                              <div className="text-gray-400 text-[14px]">Sem subtasks.</div>
-                            ) : (
-                              <ul className="flex flex-col gap-2">
-                                {subs.map((s) => (
-                                  <li
-                                    key={s.id}
-                                    className="flex items-center justify-between bg-primary-800 border border-primary-600 rounded-lg px-3 py-2"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        checked={s.concluida}
-                                        onChange={() => toggleSubtask(t.id, s)}
-                                        className="w-4 h-4 accent-primary-500"
-                                      />
-                                      <span
-                                        className={`text-[14px] ${
-                                          s.concluida ? "line-through text-gray-400" : "text-gray-100"
-                                        }`}
-                                      >
-                                        {s.titulo}
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={salvarDescricao}
+                    disabled={saving}
+                    className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {saving ? "Salvando..." : "Salvar descrição"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "etapas" && (
+              <div className="flex flex-col h-full">
+                <h2 className="text-[22px] text-primary-100 font-semibold mb-4">
+                  Etapas do projeto
+                </h2>
+
+                <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                  {tasks.length === 0 ? (
+                    <div className="text-gray-400">
+                      Nenhuma task criada ainda.
+                    </div>
+                  ) : (
+                    <ul className="flex flex-col gap-3">
+                      {tasks.map((t) => {
+                        const subs = subtasksByTask[t.id] || [];
+                        const expanded = !!expandedTasks[t.id];
+                        const done = isTaskDone(t);
+                        const urgencia = calcularUrgencia(t.due_date);
+
+                        return (
+                          <li
+                            key={t.id}
+                            className="bg-primary-700 border border-primary-600 rounded-lg p-4"
+                          >
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={done}
+                                onChange={() => toggleTaskCompletion(t)}
+                                className="mt-1 w-5 h-5 accent-primary-500 cursor-pointer"
+                              />
+
+                              <div className="flex-1">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        toggleTaskExpanded(t.id)
+                                      }
+                                      className="text-gray-300 hover:text-primary-100 text-[14px]"
+                                    >
+                                      {expanded ? "▾" : "▸"}
+                                    </button>
+                                    <div
+                                      className={`text-gray-100 text-[16px] font-medium ${
+                                        done
+                                          ? "line-through text-gray-400"
+                                          : ""
+                                      }`}
+                                    >
+                                      {t.titulo}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 bg-primary-800 border border-primary-600 rounded-full px-3 py-1">
+                                      <UrgenciaIndicator nivel={urgencia} />
+                                      <span className="text-[12px] text-gray-100">
+                                        {urgencia}
                                       </span>
                                     </div>
-                                    <button
-                                      onClick={() => askRemoveSubtask(t.id, s)}
-                                      className="text-[12px] text-red-400 hover:text-red-300"
-                                    >
-                                      Remover
-                                    </button>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-
-                            <div className="mt-2 flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={newSubtaskByTask[t.id] || ""}
-                                onChange={(e) =>
-                                  setNewSubtaskByTask((prev) => ({ ...prev, [t.id]: e.target.value }))
-                                }
-                                className="flex-1 rounded-lg bg-primary-900 border border-primary-700 px-3 py-2 text-gray-100 placeholder-gray-400"
-                                placeholder="Nova subtask"
-                              />
-                              <button
-                                onClick={() => addSubtask(t.id)}
-                                className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-3 py-2 text-[14px] font-semibold transition-colors"
-                              >
-                                Adicionar
-                              </button>
+                                    {t.due_date && (
+                                      <div className="text-[12px] text-gray-200 bg-primary-800 border border-primary-600 rounded-full px-3 py-1">
+                                        {new Date(
+                                          t.due_date + "T00:00:00"
+                                        ).toLocaleDateString("pt-BR")}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
 
-            <div className="mt-5 mb-5">
-              <div className="w-full h-3 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
-                <div className={`h-full ${styles.barFill} transition-[width] duration-300`} style={{ width: `${pct}%` }} />
+                            {expanded && (
+                              <div className="mt-3 pl-7 flex flex-col gap-3">
+                                {t.descricao && (
+                                  <div className="bg-primary-800 border border-primary-600 rounded-lg px-3 py-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                    <TaskDescricaoReadonly
+                                      content={t.descricao}
+                                    />
+                                  </div>
+                                )}
+
+                                <div className="bg-primary-800 border border-primary-600 rounded-lg px-3 py-3 max-h-40 overflow-y-auto custom-scrollbar">
+                                  {subs.length === 0 ? (
+                                    <div className="text-gray-400 text-[14px]">
+                                      Sem subtasks.
+                                    </div>
+                                  ) : (
+                                    <ul className="flex flex-col gap-2">
+                                      {subs.map((s) => (
+                                        <li
+                                          key={s.id}
+                                          className="flex items-center justify-between"
+                                        >
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              type="checkbox"
+                                              checked={s.concluida}
+                                              onChange={() =>
+                                                toggleSubtaskCompletion(s)
+                                              }
+                                              className="w-4 h-4 accent-primary-500 cursor-pointer"
+                                            />
+                                            <span
+                                              className={`text-[14px] ${
+                                                s.concluida
+                                                  ? "line-through text-gray-400"
+                                                  : "text-gray-100"
+                                              }`}
+                                            >
+                                              {s.titulo}
+                                            </span>
+                                          </div>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="mt-5">
+                  <div className="w-full h-3 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary-400 transition-[width] duration-300"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={() => setShowAddTask(true)}
-                className="w-full bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-3 text-[16px] font-semibold transition-colors"
-              >
-                + Adicionar nova task
-              </button>
-              <button
-                onClick={() => setShowBriefing(true)}
-                className="w-full bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 text-[16px] hover:bg-primary-700 transition-colors"
-              >
-                Ver briefing do projeto
-              </button>
-            </div>
-          </section>
+            {activeTab === "arquivos" && (
+              <div className="flex flex-col h-full">
+                <h3 className="text-[20px] text-primary-100 font-semibold mb-3">
+                  Arquivos
+                </h3>
 
-          <section className="flex flex-col gap-6 min-h-0 w-full">
-            <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-6 w-full min-h-0 flex flex-col">
-              <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Arquivos</h3>
+                <label className="w-full rounded-lg border border-dashed border-primary-600 bg-primary-900 px-4 py-6 text-center cursor-pointer hover:bg-primary-800 transition">
+                  <span className="text-[16px] text-gray-300">
+                    Arraste aqui ou{" "}
+                    <span className="text-primary-300">
+                      clique para enviar
+                    </span>
+                  </span>
+                  <input
+                    type="file"
+                    accept="*/*"
+                    className="hidden"
+                    onChange={handleUpload}
+                  />
+                </label>
 
-              <label className="w-full rounded-lg border border-dashed border-primary-600 bg-primary-900 px-4 py-6 text-center cursor-pointer hover:bg-primary-800 transition">
-                <span className="text-[16px] text-gray-300">
-                  Arraste aqui ou <span className="text-primary-300">clique para enviar</span>
-                </span>
-                <input type="file" accept="*/*" className="hidden" onChange={handleUpload} />
-              </label>
-
-              <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                {files.length === 0 ? (
-                  <div className="text-gray-400">Nenhum arquivo enviado.</div>
-                ) : (
-                  <ul className="flex flex-col gap-3">
-                    {files.map((f) => (
-                      <li
-                        key={f.id}
-                        className="flex items-center justify-between bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
-                      >
-                        <div className="flex flex-col">
-                          <a
-                            href={f.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[16px] text-primary-100 hover:underline"
-                          >
-                            {f.nome}
-                          </a>
-                          <span className="text-[12px] text-gray-400">
-                            {new Date(f.created_at).toLocaleString("pt-BR")}
-                          </span>
-                        </div>
-                        <span
-                          className={`px-3 py-1 rounded-md text-[12px] ${
-                            f.status === "aprovado"
-                              ? "bg-third-400 text-primary-100"
-                              : "bg-primary-500 text-primary-100"
-                          }`}
+                <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                  {files.length === 0 ? (
+                    <div className="text-gray-400">
+                      Nenhum arquivo enviado.
+                    </div>
+                  ) : (
+                    <ul className="flex flex-col gap-3">
+                      {files.map((f) => (
+                        <li
+                          key={f.id}
+                          className="flex items-center justify-between bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
                         >
-                          {f.status}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
+                          <div className="flex flex-col">
+                            <a
+                              href={f.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[16px] text-primary-100 hover:underline"
+                            >
+                              {f.nome}
+                            </a>
+                            <span className="text-[12px] text-gray-400">
+                              {new Date(f.created_at).toLocaleString("pt-BR")}
+                            </span>
+                          </div>
 
-            <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-6 w-full min-h-0 flex flex-col">
-              <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Links</h3>
-
-              <form onSubmit={addLink} className="flex flex-col md:flex-row items-center gap-3">
-                <input
-                  type="text"
-                  placeholder="Título (opcional)"
-                  value={newLink.titulo}
-                  onChange={(e) => setNewLink((p) => ({ ...p, titulo: e.target.value }))}
-                  className="flex-1 rounded-lg bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
-                />
-                <input
-                  type="url"
-                  placeholder="https://..."
-                  value={newLink.url}
-                  onChange={(e) => setNewLink((p) => ({ ...p, url: e.target.value }))}
-                  required
-                  className="flex-[1.4] rounded-lg bg-primary-900 border border-primary-700 px-2 py-3 text-gray-100 placeholder-gray-400"
-                />
-                <button
-                  type="submit"
-                  className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[15px] font-semibold transition-colors"
-                >
-                  Adicionar
-                </button>
-              </form>
-
-              <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                {links.length === 0 ? (
-                  <div className="text-gray-400">Nenhum link adicionado.</div>
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {links.map((l) => (
-                      <li
-                        key={l.id}
-                        className="flex items-center justify-between bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
-                      >
-                        <div className="flex flex-col">
-                          <a
-                            href={l.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[16px] text-primary-100 hover:underline"
+                          <span
+                            className={`px-3 py-1 rounded-md text-[12px] ${
+                              f.status === "aprovado"
+                                ? "bg-third-400 text-primary-900"
+                                : "bg-primary-500 text-primary-100"
+                            }`}
                           >
-                            {l.titulo || l.url}
-                          </a>
-                          <span className="text-[12px] text-gray-400">
-                            {new Date(l.created_at).toLocaleString("pt-BR")}
+                            {f.status}
                           </span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
-            </div>
-          </section>
-        </div>
+            )}
+
+            {activeTab === "links" && (
+              <div className="flex flex-col h-full">
+                <h3 className="text-[20px] text-primary-100 font-semibold mb-3">
+                  Links
+                </h3>
+
+                <form
+                  onSubmit={addLink}
+                  className="flex flex-col md:flex-row items-center gap-3"
+                >
+                  <input
+                    type="text"
+                    placeholder="Título (opcional)"
+                    value={newLink.titulo}
+                    onChange={(e) =>
+                      setNewLink((p) => ({ ...p, titulo: e.target.value }))
+                    }
+                    className="flex-1 rounded-lg bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
+                  />
+
+                  <input
+                    type="url"
+                    placeholder="https://..."
+                    required
+                    value={newLink.url}
+                    onChange={(e) =>
+                      setNewLink((p) => ({ ...p, url: e.target.value }))
+                    }
+                    className="flex-[1.4] rounded-lg bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
+                  />
+
+                  <button
+                    type="submit"
+                    className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[15px] font-semibold transition-colors"
+                  >
+                    Adicionar
+                  </button>
+                </form>
+
+                <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                  {links.length === 0 ? (
+                    <div className="text-gray-400">
+                      Nenhum link adicionado.
+                    </div>
+                  ) : (
+                    <ul className="flex flex-col gap-2">
+                      {links.map((l) => (
+                        <li
+                          key={l.id}
+                          className="flex items-center justify-between bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
+                        >
+                          <div className="flex flex-col">
+                            <a
+                              href={l.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[16px] text-primary-100 hover:underline"
+                            >
+                              {l.titulo || l.url}
+                            </a>
+                            <span className="text-[12px] text-gray-400">
+                              {new Date(l.created_at).toLocaleString("pt-BR")}
+                            </span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "briefing" && (
+              <div className="flex flex-col h-full">
+                <h3 className="text-[20px] text-primary-100 font-semibold mb-3">
+                  Briefing do projeto
+                </h3>
+
+                <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                  {!briefing ? (
+                    <div className="text-gray-400">
+                      Nenhum briefing vinculado a este projeto.
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {renderBriefing(briefing.respostas)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
-
-      <Modal open={showAddTask} title="Adicionar nova task" onClose={() => setShowAddTask(false)}>
-        <form onSubmit={handleAddTask} className="flex flex-col gap-3">
-          <input
-            type="text"
-            placeholder="Título da task"
-            value={newTask.titulo}
-            onChange={(e) => setNewTask((p) => ({ ...p, titulo: e.target.value }))}
-            required
-            className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400"
-          />
-          <textarea
-            placeholder="Descrição (opcional)"
-            value={newTask.descricao}
-            onChange={(e) => setNewTask((p) => ({ ...p, descricao: e.target.value }))}
-            className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400 min-h-[80px]"  
-          />
-          <label className="flex items-center gap-2 text-gray-200 text-[14px]">
-            Prazo:
-            <input
-              type="date"
-              value={newTask.due_date}
-              onChange={(e) => setNewTask((p) => ({ ...p, due_date: e.target.value }))}
-              className="rounded-lg bg-primary-900 border border-primary-700 px-3 py-2 text-gray-100"
-            />
-          </label>
-          <button
-            type="submit"
-            className="mt-3 bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-3 text-[16px] font-semibold transition-colors"
-          >
-            Criar task
-          </button>
-        </form>
-      </Modal>
-
-      <Modal open={showBriefing} title="Briefing do projeto" onClose={() => setShowBriefing(false)}>
-        {!briefing ? (
-          <div className="text-gray-400">Nenhum briefing vinculado a este projeto.</div>
-        ) : (
-          <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-            {renderBriefing(briefing.respostas)}
-          </div>
-        )}
-      </Modal>
-
-      <Modal
-        open={!!editTask}
-        title="Editar task"
-        onClose={() => setEditTask(null)}
-        actions={
-          <>
-            <button
-              onClick={() => setEditTask(null)}
-              className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[16px] hover:bg-primary-700 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={saveEditTask}
-              className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[16px] font-semibold transition-colors"
-              disabled={saving}
-            >
-              Salvar
-            </button>
-          </>
-        }
-      >
-        {editTask && (
-          <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              value={editTask.titulo}
-              onChange={(e) => setEditTask({ ...editTask, titulo: e.target.value })}
-              className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400"
-              placeholder="Título"
-            />
-            <textarea
-              value={editTask.descricao || ""}
-              onChange={(e) => setEditTask({ ...editTask, descricao: e.target.value })}
-              className="rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100 placeholder-gray-400 resize-none"
-              rows={3}
-              placeholder="Descrição"
-            />
-            <input
-              type="date"
-              value={editTask.due_date || ""}
-              onChange={(e) => setEditTask({ ...editTask, due_date: e.target.value })}
-              className="date-input rounded-lg bg-primary-900 border border-primary-700 px-4 py-3 text-gray-100"
-            />
-          </div>
-        )}
-      </Modal>
-
-      <Modal
-        open={confirm.open}
-        title="Confirmar ação"
-        onClose={() => setConfirm({ open: false, msg: "" })}
-        actions={
-          <>
-            <button
-              onClick={() => setConfirm({ open: false, msg: "" })}
-              className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[16px] hover:bg-primary-700 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => {
-                if (confirm.onYes) confirm.onYes();
-              }}
-              className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[16px] font-semibold transition-colors"
-            >
-              Confirmar
-            </button>
-          </>
-        }
-      >
-        <p className="text-[16px]">{confirm.msg}</p>
-      </Modal>
 
       <Modal
         open={notify.open}
@@ -1174,6 +1245,45 @@ export default function ProjetoDetalhesPage() {
         <p className="text-[16px]">{notify.msg}</p>
       </Modal>
 
+      {linkModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="w-full max-w-md rounded-2xl bg-primary-800 border border-primary-600 shadow-[0_24px_60px_rgba(0,0,0,0.6)] p-6">
+            <h2 className="text-[18px] text-gray-100 font-semibold mb-3">
+              Inserir link
+            </h2>
+            <p className="text-[14px] text-gray-300 mb-4">
+              Cole a URL que deseja vincular ao texto selecionado.
+            </p>
+
+            <input
+              autoFocus
+              type="text"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              placeholder="https://..."
+              className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 mb-5"
+            />
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setLinkModalOpen(false)}
+                className="px-4 py-2 rounded-lg bg-primary-800 border border-primary-600 text-gray-200 text-[14px] hover:bg-primary-700"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLink}
+                className="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[14px]"
+              >
+                Aplicar link
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 10px;
@@ -1189,11 +1299,263 @@ export default function ProjetoDetalhesPage() {
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background-color: var(--primary-400);
         }
-        /* Deixa o ícone do calendário claro no tema escuro */
-        .date-input::-webkit-calendar-picker-indicator {
-          filter: invert(1);
+        .tiptap {
+          min-height: 160px;
+          outline: none;
+        }
+        .tiptap p {
+          margin-bottom: 0.4rem;
+        }
+        .tiptap h1 {
+          font-size: 1.4rem;
+          font-weight: 600;
+          margin: 0.75rem 0 0.4rem;
+        }
+        .tiptap h2 {
+          font-size: 1.2rem;
+          font-weight: 600;
+          margin: 0.7rem 0 0.35rem;
+        }
+        .tiptap h3 {
+          font-size: 1.05rem;
+          font-weight: 600;
+          margin: 0.6rem 0 0.3rem;
+        }
+        .tiptap ul {
+          list-style-type: disc;
+          padding-left: 1.25rem;
+          margin: 0.25rem 0;
+        }
+        .tiptap ol {
+          list-style-type: decimal;
+          padding-left: 1.25rem;
+          margin: 0.25rem 0;
+        }
+        .tiptap blockquote {
+          border-left: 3px solid rgba(148, 163, 184, 0.8);
+          padding-left: 0.75rem;
+          margin: 0.5rem 0;
+          color: #e5e7eb;
+          font-style: italic;
+        }
+        .tiptap a {
+          color: #38bdf8;
+          text-decoration: underline;
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.15s ease-out forwards;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
       `}</style>
     </div>
+  );
+}
+
+function EditorToolbar({
+  editor,
+  onOpenLinkModal,
+  onRemoveLink,
+}: {
+  editor: Editor;
+  onOpenLinkModal: () => void;
+  onRemoveLink: () => void;
+}) {
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const update = () => forceUpdate((v) => v + 1);
+
+    editor.on("selectionUpdate", update);
+    editor.on("transaction", update);
+    editor.on("update", update);
+
+    return () => {
+      editor.off("selectionUpdate", update);
+      editor.off("transaction", update);
+      editor.off("update", update);
+    };
+  }, [editor]);
+
+  if (!editor) return null;
+
+  const isActive = (check: () => boolean) =>
+    check() ? "bg-primary-700 text-primary-100" : "text-gray-300";
+
+  const base =
+    "px-2.5 py-1.5 text-[13px] rounded-md border border-transparent hover:bg-primary-800 flex items-center justify-center gap-1";
+
+  const headingValue = editor.isActive("heading", { level: 1 })
+    ? "h1"
+    : editor.isActive("heading", { level: 2 })
+    ? "h2"
+    : editor.isActive("heading", { level: 3 })
+    ? "h3"
+    : "p";
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 bg-primary-900/80">
+      <select
+        value={headingValue}
+        onChange={(e) => {
+          const val = e.target.value;
+          if (val === "h1")
+            editor.chain().focus().setHeading({ level: 1 }).run();
+          else if (val === "h2")
+            editor.chain().focus().setHeading({ level: 2 }).run();
+          else if (val === "h3")
+            editor.chain().focus().setHeading({ level: 3 }).run();
+          else editor.chain().focus().setParagraph().run();
+        }}
+        className="bg-primary-800 border border-primary-700 rounded-md px-3 pr-7 py-1.5 text-[13px] text-gray-100 cursor-pointer"
+      >
+        <option value="p">Normal</option>
+        <option value="h1">Título 1</option>
+        <option value="h2">Título 2</option>
+        <option value="h3">Título 3</option>
+      </select>
+
+      <div className="w-px h-6 bg-primary-700 mx-1" />
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("bold"))}`}
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      >
+        <span className="font-semibold">B</span>
+      </button>
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("italic"))}`}
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      >
+        <span className="italic">I</span>
+      </button>
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("underline"))}`}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      >
+        <span className="underline">U</span>
+      </button>
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("strike"))}`}
+        onClick={() => editor.chain().focus().toggleStrike().run()}
+      >
+        <span className="line-through">S</span>
+      </button>
+
+      <div className="w-px h-6 bg-primary-700 mx-1" />
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("bulletList"))}`}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+      >
+        • • •
+      </button>
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("orderedList"))}`}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+      >
+        1 2 3
+      </button>
+
+      <div className="w-px h-6 bg-primary-700 mx-1" />
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("blockquote"))}`}
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+      >
+        “”
+      </button>
+
+      <button
+        type="button"
+        className={`${base} ${isActive(() => editor.isActive("link"))}`}
+        onClick={onOpenLinkModal}
+      >
+        🔗
+      </button>
+
+      <button
+        type="button"
+        className={base + " text-gray-400 hover:text-primary-100"}
+        onClick={onRemoveLink}
+      >
+        Remover
+      </button>
+    </div>
+  );
+}
+
+function TaskDescricaoReadonly({ content }: { content: any }) {
+  const editor = useEditor({
+    editable: false,
+    immediatelyRender: false,
+    extensions: [
+      StarterKit.configure({ heading: false }),
+      Heading.configure({ levels: [1, 2, 3] }),
+      Underline,
+      Link,
+      Highlight,
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
+    ],
+    content: "",
+  });
+
+  useEffect(() => {
+    if (!editor) return;
+
+    if (!content) {
+      editor.commands.setContent("<p></p>");
+      return;
+    }
+
+    let parsed: any = content;
+
+    if (typeof content === "string") {
+      try {
+        parsed = JSON.parse(content);
+      } catch {
+        parsed = {
+          type: "doc",
+          content: [
+            {
+              type: "paragraph",
+              content: [{ type: "text", text: content }],
+            },
+          ],
+        };
+      }
+    }
+
+    editor.commands.setContent(parsed);
+  }, [editor, content]);
+
+  if (!editor) return null;
+
+  return (
+    <EditorContent
+      editor={editor}
+      className="tiptap text-[14px] text-gray-100"
+    />
   );
 }

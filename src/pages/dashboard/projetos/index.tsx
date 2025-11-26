@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  Pencil,
+  SlidersHorizontal,
+  Crown,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 
 type ProjetoStatus = "Em andamento" | "Concluído" | "Arquivado";
 
@@ -12,7 +19,7 @@ type Projeto = {
   id: string;
   user_id: string;
   titulo: string;
-  descricao: string | null;
+  descricao: any | null;
   cliente_id: string | null;
   orcamento: number | null;
   data_inicio: string | null;
@@ -28,6 +35,7 @@ type Projeto = {
     id: string;
     nome: string | null;
     empresa: string | null;
+    foto_url: string | null;
   } | null;
 };
 
@@ -51,6 +59,29 @@ type ConfirmState = {
   onConfirm: (() => void) | null;
 };
 
+function jsonToPlainText(json: any): string {
+  try {
+    if (!json) return "";
+    if (typeof json === "string") {
+      try {
+        json = JSON.parse(json);
+      } catch {
+        return json;
+      }
+    }
+    if (!json?.content) return "";
+    let finalText = "";
+    json.content.forEach((block: any) => {
+      block?.content?.forEach((piece: any) => {
+        if (piece.text) finalText += piece.text + " ";
+      });
+    });
+    return finalText.trim();
+  } catch {
+    return "";
+  }
+}
+
 export default function ProjetosPage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -63,11 +94,12 @@ export default function ProjetosPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState("Usuário");
+  const [userAvatarUrl, setUserAvatarUrl] = useState("/perfil.svg");
 
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<
-    "Todos" | ProjetoStatus
-  >("Todos");
+  const [statusFilter, setStatusFilter] = useState<"Todos" | ProjetoStatus>(
+    "Todos"
+  );
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -83,6 +115,38 @@ export default function ProjetosPage() {
     cancelLabel: "Cancelar",
     onConfirm: null,
   });
+
+  // ▼▼ NOVO: estados e refs para o dropdown de perfil (igual dashboard) ▼▼
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement | null>(null);
+  const avatarSrc = userAvatarUrl || "/perfil.svg";
+  const displayName = userName?.split("@")[0] || "Usuário";
+
+  function handleEditProfile() {
+    setProfileOpen(false);
+    router.push("/dashboard/perfil");
+  }
+
+  function handleTheme() {
+    setProfileOpen(false);
+    router.push("/dashboard/tema");
+  }
+
+  function handleSignature() {
+    setProfileOpen(false);
+  }
+
+  useEffect(() => {
+    function handleClickOutside(e: any) {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  // ▲▲ FIM BLOCO NOVO DO DROPDOWN ▲▲
 
   function getPagamentos(projetoId: string): Pagamento[] {
     return pagamentosByProjeto[projetoId] || [];
@@ -104,15 +168,20 @@ export default function ProjetosPage() {
   async function fetchProjetos() {
     try {
       setLoading(true);
+
       const { data: auth } = await supabase.auth.getUser();
       const user = auth?.user;
+
       if (!user) {
         setError("Usuário não autenticado.");
         setProjetos([]);
+        setLoading(false);
         return;
       }
 
-      setUserName(user.user_metadata?.nome || user.email || "Usuário");
+      const meta = user.user_metadata || {};
+      setUserName(meta.nome || user.email || "Usuário");
+      setUserAvatarUrl(meta.avatar_url || "/perfil.svg");
 
       const { data: projData, error: projError } = await supabase
         .from("projetos")
@@ -120,7 +189,10 @@ export default function ProjetosPage() {
           `
           *,
           clientes:cliente_id (
-            id, nome, empresa
+            id,
+            nome,
+            empresa,
+            foto_url
           )
         `
         )
@@ -206,7 +278,8 @@ export default function ProjetosPage() {
     const q = query.trim().toLowerCase();
 
     return projetos.filter((p) => {
-      const statusOk = statusFilter === "Todos" ? true : p.status === statusFilter;
+      const statusOk =
+        statusFilter === "Todos" ? true : p.status === statusFilter;
       if (!statusOk) return false;
 
       if (!q) return true;
@@ -352,7 +425,22 @@ export default function ProjetosPage() {
         return clone;
       });
 
-      await updateProjectStatus(projectId, "Concluído");
+      const prevState = projetos;
+      setProjetos((prev) =>
+        prev.map((p) =>
+          p.id === projectId ? { ...p, status: "Concluído" } : p
+        )
+      );
+
+      const { error } = await supabase
+        .from("projetos")
+        .update({ status: "Concluído" })
+        .eq("id", projectId);
+
+      if (error) {
+        console.error("Erro ao atualizar status:", error.message);
+        setProjetos(prevState);
+      }
     } catch (err) {
       console.error("Erro ao marcar pagamentos como pagos:", err);
     }
@@ -385,173 +473,210 @@ export default function ProjetosPage() {
     await updateProjectStatus(current, coluna);
   }
 
-  const columns: { status: ProjetoStatus; label: string; pillColor: string }[] = [
-    { status: "Em andamento", label: "Ativo", pillColor: "bg-primary-500" },
-    { status: "Concluído", label: "Concluído", pillColor: "bg-third-400" },
-    { status: "Arquivado", label: "Arquivado", pillColor: "bg-gray-400" },
-  ];
+  const columns: { status: ProjetoStatus; label: string; pillColor: string }[] =
+    [
+      { status: "Em andamento", label: "Ativo", pillColor: "bg-primary-500" },
+      { status: "Concluído", label: "Concluído", pillColor: "bg-third-400" },
+      { status: "Arquivado", label: "Arquivado", pillColor: "bg-gray-400" },
+    ];
 
   const totalProjetos = projetos.length;
 
   function renderListView() {
-    if (loading) {
-      return <div className="mt-8 text-gray-300">Carregando projetos...</div>;
-    }
-
-    if (error) {
-      return <div className="mt-8 text-red-400">{error}</div>;
-    }
-
-    if (!filtered.length) {
-      return <div className="mt-8 text-gray-400">Nenhum projeto encontrado.</div>;
-    }
+    const temErroOuVazio = !loading && (error || !filtered.length);
 
     return (
-      <div className="mt-6 bg-primary-800 border border-primary-700 rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[2.2fr,1.6fr,1.1fr,1.1fr,1fr,0.9fr] px-8 py-4 text-sm text-gray-400 bg-primary-900/60 border-b border-primary-700">
-          <span>Projeto</span>
-          <span>Cliente</span>
-          <span>Valor</span>
-          <span>Etapa</span>
-          <span>Status</span>
-          <span className="text-right">Entrega / Ações</span>
+      <div className="flex-1 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden flex flex-col">
+        <div className="px-6 py-3 border-b border-primary-700 text-[13px] text-gray-400 flex items-center gap-4">
+          <div className="w-[52px]" />
+          <div className="flex-1 min-w-[200px]">Projeto</div>
+          <div className="w-[180px] hidden md:block">Cliente</div>
+          <div className="w-[140px] hidden md:block">Valor</div>
+          <div className="w-[160px] hidden md:block">Etapa</div>
+          <div className="w-[120px] hidden md:block">Entrega</div>
+          <div className="w-[40px]" />
         </div>
 
-        <div className="divide-y divide-primary-700">
-          {filtered.map((p) => {
-            const styles = statusStyles(p.status);
-            const pct = progressValue(p);
-            const clienteNome = p.clientes?.nome || "Cliente não informado";
-            const pendente = hasPagamentoPendente(p.id);
-            const valorRestante = valorPendente(p.id);
+        <div className="flex-1">
+          {loading ? (
+            <div className="py-16 text-center text-gray-400 text-sm">
+              Carregando projetos...
+            </div>
+          ) : temErroOuVazio ? (
+            <div className="py-16 text-center text-sm">
+              {error ? (
+                <span className="text-red-400">{error}</span>
+              ) : (
+                <span className="text-gray-500">
+                  Nenhum projeto encontrado com os filtros atuais.
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="divide-y divide-primary-800">
+              {filtered.map((p) => {
+                const styles = statusStyles(p.status);
+                const pct = progressValue(p);
+                const clienteNome =
+                  p.clientes?.nome || "Cliente não informado";
+                const pendente = hasPagamentoPendente(p.id);
+                const valorRestante = valorPendente(p.id);
+                const previewDescricao = p.descricao
+                  ? jsonToPlainText(p.descricao).slice(0, 140)
+                  : "";
+                const clienteFoto = p.clientes?.foto_url || "/perfil.svg";
 
-            return (
-              <button
-                key={p.id}
-                onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
-                className="relative w-full grid grid-cols-[2.2fr,1.6fr,1.1fr,1.1fr,1fr,0.9fr] px-8 py-5 items-center bg-primary-800 hover:bg-primary-700/80 transition-colors text-left"
-              >
-                <div className="flex flex-col">
-                  <span className="text-[16px] text-primary-100 font-medium">
-                    {p.titulo}
-                  </span>
-                  {p.descricao ? (
-                    <span className="text-[13px] text-gray-400 line-clamp-1">
-                      {p.descricao}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full overflow-hidden border border-primary-600">
-                    <Image
-                      src="/perfil.svg"
-                      alt={clienteNome}
-                      width={36}
-                      height={36}
-                      className="object-contain p-1"
-                    />
-                  </div>
-                  <span className="text-[15px] text-primary-100">
-                    {clienteNome}
-                  </span>
-                </div>
-
-                <div className="text-[15px] text-gray-100">
-                  {p.orcamento
-                    ? p.orcamento.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })
-                    : "—"}
-                </div>
-
-                <div className="text-[14px] text-gray-200">
-                  {p.etapa_atual || "—"}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-flex items-center ${styles.tagText} text-[13px] font-medium px-4 py-1.5 rounded-full ${styles.tagBg}`}
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
+                    className="px-6 py-4 flex items-center gap-4 hover:bg-primary-800/70 cursor-pointer transition-colors group"
                   >
-                    {p.status === "Em andamento" ? "Ativo" : p.status}
-                  </span>
-                  <div className="flex items-center gap-[3px]">
-                    {[0, 1, 2, 3].map((idx) => {
-                      const limit = (idx + 1) * 25;
-                      const filled = pct >= limit;
-                      return (
-                        <span
-                          key={idx}
-                          className={`w-[7px] h-[18px] rounded-sm ${
-                            filled ? styles.barFill : "bg-primary-700"
-                          }`}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-end gap-3 text-right text-[14px] text-gray-100">
-                  <span>
-                    {p.prazo_entrega
-                      ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR")
-                      : "—"}
-                  </span>
-
-                  {pendente && (
-                    <span className="text-[11px] px-2 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/60">
-                      Pendência:{" "}
-                      {valorRestante.toLocaleString("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      })}
-                    </span>
-                  )}
-
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuOpenId((prev) => (prev === p.id ? null : p.id));
-                      }}
-                      className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary-700 text-gray-300"
-                    >
-                      ⋮
-                    </button>
-
-                    {menuOpenId === p.id && (
-                      <div
-                        className="absolute right-0 mt-2 w-40 rounded-lg bg-primary-800 border border-primary-700 shadow-xl z-20"
-                        onClick={(e) => e.stopPropagation()}
+                    <div className="w-[52px] flex items-center justify-center">
+                      <span
+                        className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-medium ${styles.tagBg} ${styles.tagText}`}
                       >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            router.push(`/dashboard/projetos/${p.id}`)
-                          }
-                          className="w-full text-left px-4 py-2 text-[14px] text-gray-100 hover:bg-primary-700"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMenuOpenId(null);
-                            handleAskDelete(p.id);
-                          }}
-                          className="w-full text-left px-4 py-2 text-[14px] text-red-300 hover:bg-red-500/10"
-                        >
-                          Excluir
-                        </button>
+                        {p.status === "Em andamento" ? "Ativo" : p.status}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-[200px]">
+                      <div className="text-[16px] md:text-[17px] text-gray-100">
+                        {p.titulo}
                       </div>
-                    )}
+                      {previewDescricao && (
+                        <div className="mt-1 text-[13px] text-gray-400 line-clamp-1">
+                          {previewDescricao}
+                        </div>
+                      )}
+                      <div className="mt-2 flex items-center gap-[3px] md:hidden">
+                        {[0, 1, 2, 3].map((idx) => {
+                          const limit = (idx + 1) * 25;
+                          const filled = pct >= limit;
+                          return (
+                            <span
+                              key={idx}
+                              className={`w-[6px] h-[16px] rounded-sm ${
+                                filled ? styles.barFill : "bg-primary-800"
+                              }`}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="w-[180px] hidden md:flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full overflow-hidden border border-primary-600 bg-primary-900">
+                        <Image
+                          src={clienteFoto}
+                          alt={clienteNome}
+                          width={36}
+                          height={36}
+                          className="object-cover"
+                        />
+                      </div>
+                      <span className="text-[14px] text-primary-100 truncate max-w-[130px]">
+                        {clienteNome}
+                      </span>
+                    </div>
+
+                    <div className="w-[140px] hidden md:block">
+                      <div className="text-[14px] text-gray-100">
+                        {p.orcamento
+                          ? p.orcamento.toLocaleString("pt-BR", {
+                              style: "currency",
+                              currency: "BRL",
+                            })
+                          : "—"}
+                      </div>
+                      {pendente && (
+                        <div className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-400/40 inline-flex">
+                          Pend.:{" "}
+                          {valorRestante.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="w-[160px] hidden md:block">
+                      <span className="inline-flex items-center px-3 py-1 rounded-lg bg-primary-800 border border-primary-600 text-[12px] text-gray-100 max-w-[150px] truncate">
+                        {p.etapa_atual || "Etapa não definida"}
+                      </span>
+                    </div>
+
+                    <div className="w-[120px] hidden md:block">
+                      <span className="text-[13px] text-gray-100">
+                        {p.prazo_entrega
+                          ? new Date(p.prazo_entrega).toLocaleDateString(
+                              "pt-BR"
+                            )
+                          : "—"}
+                      </span>
+                    </div>
+
+                    <div className="w-[40px] flex justify-end">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuOpenId((current) =>
+                              current === p.id ? null : p.id
+                            );
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-primary-700 text-gray-400"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="w-5 h-5"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <circle cx="12" cy="5" r="1" />
+                            <circle cx="12" cy="12" r="1" />
+                            <circle cx="12" cy="19" r="1" />
+                          </svg>
+                        </button>
+
+                        {menuOpenId === p.id && (
+                          <div
+                            className="absolute right-0 mt-2 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                router.push(`/dashboard/projetos/${p.id}`)
+                              }
+                              className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 rounded-t-xl"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setMenuOpenId(null);
+                                handleAskDelete(p.id);
+                              }}
+                              className="w-full text-left px-4 py-2.5 text-[13px] text-red-400 hover:bg-primary-700 rounded-b-xl"
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </button>
-            );
-          })}
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -567,7 +692,9 @@ export default function ProjetosPage() {
     }
 
     if (!filtered.length) {
-      return <div className="mt-8 text-gray-400">Nenhum projeto encontrado.</div>;
+      return (
+        <div className="mt-8 text-gray-400">Nenhum projeto encontrado.</div>
+      );
     }
 
     return (
@@ -617,6 +744,7 @@ export default function ProjetosPage() {
                       p.clientes?.nome || "Cliente não informado";
                     const pendente = hasPagamentoPendente(p.id);
                     const valorRestante = valorPendente(p.id);
+                    const clienteFoto = p.clientes?.foto_url || "/perfil.svg";
 
                     return (
                       <div
@@ -645,7 +773,7 @@ export default function ProjetosPage() {
                             </div>
                           </div>
 
-                          <div className="flex flex-col items-end gap-2">
+                          <div className="flex flex-col items-end gap-2 relative">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -661,7 +789,7 @@ export default function ProjetosPage() {
 
                             {menuOpenId === p.id && (
                               <div
-                                className="absolute z-30 mt-8 w-40 rounded-lg bg-primary-800 border border-primary-700 shadow-xl"
+                                className="absolute right-0 top-7 z-30 w-40 rounded-lg bg-primary-800 border border-primary-700 shadow-xl"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <button
@@ -714,13 +842,13 @@ export default function ProjetosPage() {
                         </div>
 
                         <div className="mt-3 flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full overflow-hidden border border-primary-600">
+                          <div className="w-7 h-7 rounded-full overflow-hidden border border-primary-600 bg-primary-900">
                             <Image
-                              src="/perfil.svg"
+                              src={clienteFoto}
                               alt={clienteNome}
                               width={28}
                               height={28}
-                              className="object-contain p-1"
+                              className="object-cover"
                             />
                           </div>
                           <span className="text-[13px] text-primary-100">
@@ -789,13 +917,13 @@ export default function ProjetosPage() {
       <div className="flex flex-col flex-1 gap-8 pr-6 py-8 w-full overflow-hidden relative">
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-4 flex-shrink-0">
-            <div className="w-[70px] h-[70px] rounded-full overflow-hidden border border-primary-600">
+            <div className="w-[70px] h-[70px] rounded-full overflow-hidden border border-primary-600 bg-primary-900">
               <Image
-                src="/perfil.svg"
+                src={userAvatarUrl}
                 alt="Avatar"
                 width={70}
                 height={70}
-                className="object-contain p-2"
+                className="object-cover"
               />
             </div>
             <div className="flex flex-col">
@@ -856,6 +984,84 @@ export default function ProjetosPage() {
                 >
                   + Projeto
                 </button>
+
+                {/* ▼▼ DROPDOWN IGUAL DA DASHBOARD ▼▼ */}
+                <div className="relative" ref={profileRef}>
+                  <button
+                    type="button"
+                    onClick={() => setProfileOpen((v) => !v)}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    <Image
+                      src={avatarSrc}
+                      alt="Perfil"
+                      width={35}
+                      height={35}
+                      className="rounded-full object-cover border border-primary-600"
+                    />
+
+                    {profileOpen ? (
+                      <ChevronUp size={18} className="text-primary-100" />
+                    ) : (
+                      <ChevronDown size={18} className="text-primary-100" />
+                    )}
+                  </button>
+
+                  {profileOpen && (
+                    <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in">
+                      <button
+                        className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
+                        onClick={handleEditProfile}
+                      >
+                        <Pencil size={20} className="text-primary-200" />
+                        Editar perfil
+                      </button>
+
+                      <button
+                        className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
+                        onClick={handleTheme}
+                      >
+                        <SlidersHorizontal
+                          size={20}
+                          className="text-primary-200"
+                        />
+                        Personalizar tema
+                      </button>
+
+                      <button
+                        className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors"
+                        onClick={handleSignature}
+                      >
+                        <Crown size={20} />
+                        Assinatura
+                      </button>
+
+                      <button
+                        className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
+                        onClick={async () => {
+                          await supabase.auth.signOut();
+                          router.push("/login");
+                        }}
+                      >
+                        <svg
+                          width="20"
+                          height="20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                          <polyline points="16 17 21 12 16 7" />
+                          <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                        Sair da plataforma
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {/* ▲▲ FIM DROPDOWN ▲▲ */}
               </div>
             </div>
 
@@ -986,6 +1192,20 @@ export default function ProjetosPage() {
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background-color: var(--primary-400);
+        }
+
+        .animate-fade-in {
+          animation: fadeIn 0.15s ease-out forwards;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
       `}</style>
     </div>

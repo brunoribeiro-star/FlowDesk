@@ -219,12 +219,6 @@ export default function ClientesPage() {
                     {c.telefone && (
                       <div className="text-[16px] text-gray-400">{c.telefone}</div>
                     )}
-
-                    {c.observacoes && (
-                      <div className="text-[14px] text-gray-500 italic">
-                        {c.observacoes}
-                      </div>
-                    )}
                   </div>
 
                   <div className="flex items-center justify-between mt-3">
@@ -297,13 +291,6 @@ export default function ClientesPage() {
                 defaultValue={editing.telefone || ""}
                 placeholder="Telefone"
                 className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-3 text-gray-200 focus:outline-none focus:border-primary-500"
-              />
-
-              <textarea
-                name="observacoes"
-                defaultValue={editing.observacoes || ""}
-                placeholder="Observações"
-                className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-3 text-gray-200 focus:outline-none focus:border-primary-500 min-h-[80px]"
               />
 
               <div className="flex justify-end gap-3 mt-4">

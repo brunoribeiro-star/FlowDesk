@@ -1,5 +1,7 @@
 :root {
-  /* === PRIMARY === */
+
+  --icon-color: var(--gray-200);
+
   --primary-900: #06191F;
   --primary-800: #08222A;
   --primary-700: #0B2F39;

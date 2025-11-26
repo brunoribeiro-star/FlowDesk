@@ -1,0 +1,56 @@
+:root {
+
+  --icon-color: #f2f2f2;
+  
+  --primary-900: #0d0f1a;
+  --primary-800: #111424;
+  --primary-700: #15182c;
+  --primary-600: #1c203a;
+  --primary-500: #222847;
+  --primary-400: #2b3059;
+  --primary-300: #3a4073;
+  --primary-200: #4a5190;
+  --primary-100: #5f67b0;
+
+  --secondary-900: #1a0f28;
+  --secondary-800: #231336;
+  --secondary-700: #2d1845;
+  --secondary-600: #372054;
+  --secondary-500: #472d6c;
+  --secondary-400: #5a3b89;
+  --secondary-300: #6e4ba5;
+  --secondary-200: #8b69c1;
+  --secondary-100: #bfa6e6;
+
+  --third-900: #0f1a14;
+  --third-800: #15231c;
+  --third-700: #1d3027;
+  --third-600: #294238;
+  --third-500: #345248;
+  --third-400: #4c7566;
+  --third-300: #689687;
+  --third-200: #8fbaae;
+  --third-100: #c6e4d7;
+
+  --gray-900: #0e0e13;
+  --gray-800: #17171f;
+  --gray-700: #1f1f2a;
+  --gray-600: #2b2b38;
+  --gray-500: #383846;
+  --gray-400: #4a4a59;
+  --gray-300: #6c6c7a;
+  --gray-200: #9c9cab;
+  --gray-100: #cfd0d9;
+
+  --error-dark: #e05f6f;
+  --error-medium: #f28794;
+  --error-light: #facbd0;
+
+  --alert-dark: #e5a85c;
+  --alert-medium: #f4c07a;
+  --alert-light: #fae3bf;
+
+  --success-dark: #7bbf76;
+  --success-medium: #98d395;
+  --success-light: #ccf0ca;
+}

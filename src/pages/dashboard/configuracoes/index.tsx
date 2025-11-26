@@ -1,5 +1,6 @@
 "use client";
 
+import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Image from "next/image";
@@ -36,12 +37,14 @@ function Modal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-primary-800 border border-primary-700 rounded-xl p-6 shadow-xl"
+        className="w-full max-w-lg bg-primary-800 border border-primary-700 rounded-2xl p-6 shadow-[0_24px_80px_rgba(0,0,0,0.75)]"
         onClick={(e) => e.stopPropagation()}
       >
         {title && (
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[20px] text-primary-100 font-semibold">{title}</h2>
+            <h2 className="text-[20px] text-primary-100 font-semibold">
+              {title}
+            </h2>
             <button
               onClick={onClose}
               className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-3 py-1 text-[14px] hover:bg-primary-700"
@@ -51,7 +54,11 @@ function Modal({
           </div>
         )}
         <div className="text-gray-100 text-[15px]">{children}</div>
-        {actions && <div className="mt-6 flex items-center justify-end gap-3">{actions}</div>}
+        {actions && (
+          <div className="mt-6 flex items-center justify-end gap-3">
+            {actions}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -59,6 +66,7 @@ function Modal({
 
 export default function ConfiguracoesPage() {
   const router = useRouter();
+  const [prefTheme, setPrefTheme] = useState("flowdesk");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [userData, setUserData] = useState<any>(null);
@@ -94,6 +102,21 @@ export default function ConfiguracoesPage() {
   const [showConfirmarNovaSenha, setShowConfirmarNovaSenha] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
+  function applyTheme(theme: string) {
+    const old = document.getElementById("flowdesk_theme");
+    if (old) old.remove();
+
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.id = "flowdesk_theme";
+    link.href =
+      theme === "flowdesk"
+        ? "/styles/variables.css"
+        : `/styles/themes/${theme}.css`;
+
+    document.head.appendChild(link);
+  }
+
   function showToast(type: ToastType, message: string) {
     if (toastTimeoutRef.current) {
       clearTimeout(toastTimeoutRef.current);
@@ -119,6 +142,10 @@ export default function ConfiguracoesPage() {
         return;
       }
 
+      const savedTheme = localStorage.getItem("flowdesk_theme") || "flowdesk";
+      setPrefTheme(savedTheme);
+      applyTheme(savedTheme);
+
       const user = data.user;
       setUserData(user);
 
@@ -128,7 +155,8 @@ export default function ConfiguracoesPage() {
       setAvatarUrl(user.user_metadata?.avatar_url || null);
 
       if (typeof window !== "undefined") {
-        const viewMode = (localStorage.getItem("flowdesk_view_mode") as ViewMode) || "list";
+        const viewMode =
+          (localStorage.getItem("flowdesk_view_mode") as ViewMode) || "list";
         const sidebar = localStorage.getItem("flowdesk_sidebar");
         const notifs = localStorage.getItem("flowdesk_notifs");
 
@@ -203,8 +231,15 @@ export default function ConfiguracoesPage() {
 
       if (typeof window !== "undefined") {
         localStorage.setItem("flowdesk_view_mode", prefViewMode);
-        localStorage.setItem("flowdesk_sidebar", prefSidebarDefault ? "open" : "closed");
-        localStorage.setItem("flowdesk_notifs", prefNotificacoes ? "on" : "off");
+        localStorage.setItem(
+          "flowdesk_sidebar",
+          prefSidebarDefault ? "open" : "closed"
+        );
+        localStorage.setItem(
+          "flowdesk_notifs",
+          prefNotificacoes ? "on" : "off"
+        );
+        localStorage.setItem("flowdesk_theme", prefTheme);
       }
 
       setUserData((prev: any) =>
@@ -235,6 +270,9 @@ export default function ConfiguracoesPage() {
         );
       }
 
+      applyTheme(prefTheme);
+      window.dispatchEvent(new Event("flowdesk:theme-updated"));
+
       setHasUnsavedChanges(false);
       showToast("success", "Alterações salvas com sucesso.");
     } catch (err: any) {
@@ -263,7 +301,10 @@ export default function ConfiguracoesPage() {
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
       setAvatarUrl(data.publicUrl);
       setHasUnsavedChanges(true);
-      showToast("success", "Foto de perfil atualizada (clique em salvar alterações).");
+      showToast(
+        "success",
+        "Foto de perfil atualizada (clique em salvar alterações)."
+      );
     } catch (err: any) {
       showToast("error", "Erro ao enviar imagem: " + err.message);
     }
@@ -368,182 +409,315 @@ export default function ConfiguracoesPage() {
       <Sidebar defaultOpen={prefSidebarDefault} onOpenChange={setSidebarOpen} />
 
       <div className="flex flex-col flex-1 gap-8 pr-6 py-8 w-full overflow-y-auto custom-scrollbar">
-        <h1 className="text-[32px] text-gray-200 font-semibold">Configurações</h1>
-
-        <div className="bg-primary-800 border border-primary-700 rounded-lg p-6 flex flex-col gap-6">
-          <h2 className="text-[22px] text-primary-100 font-semibold">Perfil</h2>
-
-          <div className="flex items-center gap-6">
-            <div className="relative w-[100px] h-[100px] rounded-full border border-primary-600 overflow-hidden">
-              <Image
-                src={avatarUrl || "/perfil.svg"}
-                alt="Avatar"
-                fill
-                className="object-cover"
-              />
-            </div>
-
-            <label className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-2 cursor-pointer hover:bg-primary-600 text-[15px]">
-              <span className="text-primary-100">Trocar foto</span>
-              <input type="file" className="hidden" accept="image/*" onChange={enviarAvatar} />
-            </label>
+        <header className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-[28px] text-gray-100 font-semibold">
+              Configurações da conta
+            </h1>
+            <p className="text-[14px] text-gray-400">
+              Personalize seu perfil, segurança e preferências do FlowDesk.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <label className="flex flex-col gap-2 text-[14px]">
-              <span className="text-gray-300">Nome completo</span>
-              <input
-                type="text"
-                value={nome}
-                onChange={(e) => {
-                  setNome(e.target.value);
-                  setHasUnsavedChanges(true);
-                }}
-                className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-2 text-gray-100"
-              />
-            </label>
-
-            <label className="flex flex-col gap-2 text-[14px]">
-              <span className="text-gray-300">Email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setHasUnsavedChanges(true);
-                }}
-                className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-2 text-gray-100"
-              />
-            </label>
-
-            <label className="flex flex-col gap-2 text-[14px]">
-              <span className="text-gray-300">Telefone</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  className="flex items-center gap-2 bg-primary-900 border border-primary-700 rounded-lg px-3 py-2 text-[14px] text-gray-100"
-                >
-                  <span className="text-lg">🇧🇷</span>
-                  <span className="text-gray-100">{phoneCountryCode}</span>
-                </button>
-                <input
-                  type="tel"
-                  value={telefone}
-                  onChange={handlePhoneChange}
-                  className="flex-1 bg-primary-900 border border-primary-700 rounded-lg px-4 py-2 text-gray-100"
-                  placeholder="(00) 00000-0000"
-                />
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <div className="bg-primary-800 border border-primary-700 rounded-lg p-6 flex flex-col gap-4">
-          <h2 className="text-[22px] text-primary-100 font-semibold">Segurança</h2>
-          <p className="text-[14px] text-gray-300">
-            Mantenha sua conta segura atualizando sua senha regularmente.
-          </p>
-
-          <button
-            type="button"
-            onClick={handleTrocarSenha}
-            className="bg-primary-800 border border-primary-600 text-gray-100 rounded-lg px-6 py-3 text-[15px] font-medium hover:bg-primary-700 w-fit"
-          >
-            Trocar senha
-          </button>
-        </div>
-
-        <div className="bg-primary-800 border border-primary-700 rounded-lg p-6 flex flex-col gap-6">
-          <h2 className="text-[22px] text-primary-100 font-semibold">Preferências</h2>
-
-          <div className="flex flex-col gap-4 text-[14px]">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <span className="text-gray-300">Visualização padrão dos projetos</span>
-              <div className="flex items-center bg-primary-900 border border-primary-700 rounded-full p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrefViewMode("list");
-                    setHasUnsavedChanges(true);
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    prefViewMode === "list"
-                      ? "bg-primary-500 text-primary-900"
-                      : "text-gray-300"
-                  }`}
-                >
-                  Lista
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPrefViewMode("board");
-                    setHasUnsavedChanges(true);
-                  }}
-                  className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                    prefViewMode === "board"
-                      ? "bg-primary-500 text-primary-900"
-                      : "text-gray-300"
-                  }`}
-                >
-                  Quadros
-                </button>
-              </div>
-            </div>
-
-            <label className="flex items-center justify-between gap-4 flex-wrap">
-              <span className="text-gray-300">Sidebar aberta ao entrar</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setPrefSidebarDefault((prev) => !prev);
-                  setHasUnsavedChanges(true);
-                }}
-                className={`relative inline-flex items-center h-6 w-11 rounded-full border border-primary-700 transition-colors ${
-                  prefSidebarDefault ? "bg-primary-500" : "bg-primary-900"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 rounded-full bg-primary-900 transform transition-transform ${
-                    prefSidebarDefault ? "translate-x-5" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </label>
-
-            <label className="flex items-center justify-between gap-4 flex-wrap">
-              <span className="text-gray-300">Notificações do sistema</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setPrefNotificacoes((prev) => !prev);
-                  setHasUnsavedChanges(true);
-                }}
-                className={`relative inline-flex items-center h-6 w-11 rounded-full border border-primary-700 transition-colors ${
-                  prefNotificacoes ? "bg-primary-500" : "bg-primary-900"
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 rounded-full bg-primary-900 transform transition-transform ${
-                    prefNotificacoes ? "translate-x-5" : "translate-x-1"
-                  }`}
-                />
-              </button>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex justify-end mt-4">
           <button
             type="button"
             onClick={salvarTudo}
             disabled={saving || !hasUnsavedChanges}
-            className={`bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-8 py-3 text-[16px] font-semibold transition-colors ${
-              saving || !hasUnsavedChanges ? "opacity-50 cursor-not-allowed" : ""
+            className={`bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-6 py-2.5 text-[14px] font-semibold transition-colors flex items-center gap-2 ${
+              saving || !hasUnsavedChanges
+                ? "opacity-50 cursor-not-allowed"
+                : ""
             }`}
           >
-            {saving ? "Salvando..." : "Salvar alterações"}
+            {saving ? (
+              <>
+                <span className="h-4 w-4 border-2 border-primary-900 border-t-transparent rounded-full animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              "Salvar alterações"
+            )}
           </button>
+        </header>
+
+        <div className="grid grid-cols-1 xl:grid-cols-[1.2fr,0.8fr] gap-6">
+          <div className="flex flex-col gap-6">
+            <div className="bg-primary-800 border border-primary-700 rounded-2xl p-6 flex flex-col gap-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-[20px] text-primary-50 font-semibold">
+                    Perfil
+                  </h2>
+                  <p className="text-[13px] text-gray-400 mt-1">
+                    Essas informações aparecem nas telas do FlowDesk e em
+                    futuros recursos de colaboração.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-6">
+                <div className="relative w-[96px] h-[96px] rounded-full border border-primary-600 overflow-hidden shadow-[0_0_0_1px_rgba(0,0,0,0.6)]">
+                  <Image
+                    src={avatarUrl || "/perfil.svg"}
+                    alt="Avatar"
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <label className="inline-flex items-center gap-2 bg-primary-700 border border-primary-500/80 rounded-full px-4 py-2 cursor-pointer hover:bg-primary-600 text-[14px]">
+                    <span className="text-primary-50 font-medium">
+                      Trocar foto
+                    </span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={enviarAvatar}
+                    />
+                  </label>
+                  <p className="text-[12px] text-gray-400 max-w-xs">
+                    Formatos recomendados: JPG ou PNG. Tamanho ideal mínimo de
+                    400×400px.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                <label className="flex flex-col gap-2 text-[14px]">
+                  <span className="text-gray-300">Nome completo</span>
+                  <input
+                    type="text"
+                    value={nome}
+                    onChange={(e) => {
+                      setNome(e.target.value);
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                    placeholder="Seu nome como será exibido"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-[14px]">
+                  <span className="text-gray-300">Email</span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setHasUnsavedChanges(true);
+                    }}
+                    className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                    placeholder="seu@email.com"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2 text-[14px]">
+                  <span className="text-gray-300">Telefone</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 bg-primary-900 border border-primary-700 rounded-lg px-3 py-2.5 text-[14px] text-gray-100"
+                    >
+                      <span className="text-lg">🇧🇷</span>
+                      <span className="text-gray-100">{phoneCountryCode}</span>
+                    </button>
+                    <input
+                      type="tel"
+                      value={telefone}
+                      onChange={handlePhoneChange}
+                      className="flex-1 bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                      placeholder="(00) 00000-0000"
+                    />
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div className="bg-primary-800 border border-primary-700 rounded-2xl p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-[20px] text-primary-50 font-semibold">
+                    Preferências
+                  </h2>
+                  <p className="text-[13px] text-gray-400 mt-1">
+                    Ajuste como o FlowDesk se comporta ao abrir projetos e
+                    trabalhar no dia a dia.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-5 text-[14px]">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-gray-300">
+                      Visualização padrão dos projetos
+                    </span>
+                    <span className="text-[12px] text-gray-500">
+                      Escolha se os projetos abrem em lista ou em quadro
+                      Kanban.
+                    </span>
+                  </div>
+                  <div className="flex items-center bg-primary-900 border border-primary-700 rounded-full p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrefViewMode("list");
+                        setHasUnsavedChanges(true);
+                      }}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        prefViewMode === "list"
+                          ? "bg-primary-500 text-primary-900 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
+                          : "text-gray-300"
+                      }`}
+                    >
+                      Lista
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrefViewMode("board");
+                        setHasUnsavedChanges(true);
+                      }}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        prefViewMode === "board"
+                          ? "bg-primary-500 text-primary-900 shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
+                          : "text-gray-300"
+                      }`}
+                    >
+                      Quadros
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-gray-300">Tema do FlowDesk</span>
+                    <span className="text-[12px] text-gray-500">
+                      Personalize o visual da interface escolhendo um dos temas disponíveis.
+                    </span>
+                  </div>
+
+                  <select
+                    value={prefTheme}
+                    onChange={(e) => {
+                      const theme = e.target.value;
+                      setPrefTheme(theme);
+                      setHasUnsavedChanges(true);
+                      localStorage.setItem("flowdesk_theme", theme);
+                      applyTheme(theme);
+                    }}
+                    className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 cursor-pointer"
+                  >
+                    <option value="flowdesk">FlowDesk (padrão)</option>
+                    <option value="claro">Claro</option>
+                    <option value="ayu">Ayu</option>
+                    <option value="solarized">Solarized</option>
+                    <option value="black">Black</option>
+                    <option value="dracula">Dracula</option>
+                    <option value="material">Material</option>
+                    <option value="tokyo">Tokyo Night</option>
+                    <option value="lucy">Lucy</option>
+                    <option value="one">One Dark</option>
+                  </select>
+                </div>
+
+                <label className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-gray-300">Sidebar aberta ao entrar</span>
+                    <span className="text-[12px] text-gray-500">
+                      Mantém o menu lateral aberto por padrão ao acessar o
+                      dashboard.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrefSidebarDefault((prev) => !prev);
+                      setHasUnsavedChanges(true);
+                    }}
+                    className={`relative inline-flex items-center h-6 w-11 rounded-full border border-primary-700 transition-colors ${
+                      prefSidebarDefault ? "bg-primary-500" : "bg-primary-900"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-primary-900 transform transition-transform ${
+                        prefSidebarDefault ? "translate-x-5" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </label>
+
+                <label className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-gray-300">Notificações do sistema</span>
+                    <span className="text-[12px] text-gray-500">
+                      Receba avisos dentro do FlowDesk sobre tarefas, prazos e
+                      atualizações.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrefNotificacoes((prev) => !prev);
+                      setHasUnsavedChanges(true);
+                    }}
+                    className={`relative inline-flex items-center h-6 w-11 rounded-full border border-primary-700 transition-colors ${
+                      prefNotificacoes ? "bg-primary-500" : "bg-primary-900"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-primary-900 transform transition-transform ${
+                        prefNotificacoes ? "translate-x-5" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <div className="bg-primary-800 border border-primary-700 rounded-2xl p-6 flex flex-col gap-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-[20px] text-primary-50 font-semibold">
+                    Segurança
+                  </h2>
+                  <p className="text-[13px] text-gray-400 mt-1">
+                    Reforce a proteção da sua conta atualizando a senha
+                    periodicamente.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTrocarSenha}
+                className="bg-primary-800 border border-primary-600 text-gray-100 rounded-lg px-5 py-2.5 text-[14px] font-medium hover:bg-primary-700 w-fit"
+              >
+                Trocar senha
+              </button>
+
+              <ul className="mt-2 text-[12px] text-gray-500 space-y-1.5">
+                <li>• Use ao menos 6 caracteres.</li>
+                <li>• Combine letras, números e símbolos.</li>
+                <li>• Evite reutilizar senhas de outros serviços.</li>
+              </ul>
+            </div>
+
+            <div className="bg-primary-900/40 border border-primary-800 rounded-2xl p-5 flex flex-col gap-3">
+              <h3 className="text-[15px] text-primary-100 font-semibold">
+                Dica de produtividade
+              </h3>
+              <p className="text-[13px] text-gray-400 leading-relaxed">
+                Mantenha seu perfil sempre atualizado: o nome e a foto são
+                usados para destacar você no dashboard, nos projetos e nos
+                futuros recursos de colaboração do FlowDesk.
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -624,7 +798,9 @@ export default function ConfiguracoesPage() {
               />
               <button
                 type="button"
-                onClick={() => setShowConfirmarNovaSenha((prev) => !prev)}
+                onClick={() =>
+                  setShowConfirmarNovaSenha((prev) => !prev)
+                }
                 className="absolute inset-y-0 right-2 flex items-center text-gray-400 hover:text-gray-200 text-sm"
               >
                 {showConfirmarNovaSenha ? "Ocultar" : "Mostrar"}
@@ -658,7 +834,8 @@ export default function ConfiguracoesPage() {
         }
       >
         <p className="text-[15px] text-gray-100">
-          Você fez alterações nas configurações que ainda não foram salvas. Tem certeza de que deseja sair sem salvar?
+          Você fez alterações nas configurações que ainda não foram salvas. Tem
+          certeza de que deseja sair sem salvar?
         </p>
       </Modal>
 
@@ -666,12 +843,20 @@ export default function ConfiguracoesPage() {
         <div className="fixed bottom-6 right-6 z-[70]">
           <div className="flex items-start gap-3 bg-primary-800 border border-primary-600 rounded-lg px-4 py-3 shadow-xl min-w-[260px] max-w-[360px] animate-[fadeIn_0.2s_ease-out]">
             <div className="mt-0.5">
-              {toast.type === "success" && <span className="text-green-400 text-xl">✓</span>}
-              {toast.type === "error" && <span className="text-red-400 text-xl">!</span>}
-              {toast.type === "info" && <span className="text-primary-300 text-xl">i</span>}
+              {toast.type === "success" && (
+                <span className="text-green-400 text-xl">✓</span>
+              )}
+              {toast.type === "error" && (
+                <span className="text-red-400 text-xl">!</span>
+              )}
+              {toast.type === "info" && (
+                <span className="text-primary-300 text-xl">i</span>
+              )}
             </div>
             <div className="flex-1">
-              <p className="text-[14px] text-primary-100 leading-snug">{toast.message}</p>
+              <p className="text-[14px] text-primary-100 leading-snug">
+                {toast.message}
+              </p>
             </div>
             <button
               type="button"
@@ -691,6 +876,9 @@ export default function ConfiguracoesPage() {
         .custom-scrollbar::-webkit-scrollbar-thumb {
           background-color: var(--primary-500);
           border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
         }
         @keyframes fadeIn {
           from {

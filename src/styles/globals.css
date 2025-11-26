@@ -1,4 +1,4 @@
-@import url("./variables.css");
+@import "./variables.css";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -38,4 +38,17 @@ select.flow-select {
     -moz-appearance: none;
     appearance: none !important;
     background-image: none !important;
+}
+
+:root {
+  --icon-color: var(--gray-200);
+}
+
+.icon path,
+.icon line,
+.icon circle,
+.icon polyline,
+.icon rect {
+  stroke: var(--icon-color) !important;
+  fill: var(--icon-color) !important;
 }

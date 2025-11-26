@@ -7,7 +7,7 @@ export interface Cliente {
   empresa?: string | null;
   email?: string | null;
   telefone?: string | null;
-  observacoes?: string | null;
+  foto_url?: string | null;
   created_at: string;
 }
 
@@ -44,7 +44,7 @@ export async function addCliente(
         empresa: cliente.empresa ?? null,
         email: cliente.email ?? null,
         telefone: cliente.telefone ?? null,
-        observacoes: cliente.observacoes ?? null,
+        foto_url: cliente.foto_url ?? null,
       },
     ])
     .select()
@@ -65,7 +65,10 @@ export async function updateCliente(
 
   const { data, error } = await supabase
     .from("clientes")
-    .update(updates)
+    .update({
+      ...updates,
+      foto_url: updates.foto_url ?? undefined,
+    })
     .eq("id", id)
     .eq("user_id", user.id)
     .select()
