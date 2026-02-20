@@ -12,7 +12,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         data: { session },
       } = await supabase.auth.getSession();
 
-      // Se não estiver logado → redireciona pro login
       if (!session) {
         router.replace("/login");
       } else {
@@ -22,7 +21,6 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
     checkUser();
 
-    // Listener pra detectar logout em tempo real
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {

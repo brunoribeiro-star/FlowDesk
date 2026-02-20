@@ -79,7 +79,6 @@ export default function Template2({
 
   return (
     <div className="w-full bg-white text-slate-900">
-      {/* CAPA */}
       <section className={`${pageClass}`} style={bgCoverStyle}>
         <div className={`${pageInnerClass}`}>
           <div className="bg-white/95 rounded-[26px] shadow-[0_18px_40px_rgba(15,23,42,0.18)] px-8 md:px-12 py-10 md:py-12 flex flex-col justify-between min-h-[360px] gap-10">
@@ -155,7 +154,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* CONTEÚDO DA PROPOSTA */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <div className="flex flex-col items-center text-center gap-3">
@@ -232,7 +230,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* SOBRE NÓS / VALORES */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <div className="grid grid-cols-1 md:grid-cols-[0.9fr,1.4fr] gap-10">
@@ -316,7 +313,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* ETAPAS DE CRIAÇÃO */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <div className="flex flex-col items-center text-center gap-3">
@@ -404,7 +400,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* PROJETO 100% RESPONSIVO */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <div className="grid grid-cols-1 md:grid-cols-[0.9fr,1.4fr] gap-10 items-center">
@@ -510,7 +505,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* DESCRIÇÃO DA PROPOSTA */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <h2
@@ -548,7 +542,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* PRAZOS E ENTREGAS */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <div className="flex flex-col items-center text-center gap-3">
@@ -631,7 +624,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* TECNOLOGIAS */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <h2
@@ -672,7 +664,6 @@ export default function Template2({
         </div>
       </section>
 
-      {/* INVESTIMENTO */}
       <section className={pageClass}>
         <div className={pageInnerClass}>
           <div className="flex items-center justify-between gap-4 mb-4">

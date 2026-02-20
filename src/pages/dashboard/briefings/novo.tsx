@@ -4,14 +4,154 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Pencil,
   SlidersHorizontal,
   Crown,
   ChevronDown,
   ChevronUp,
+  CheckSquare,
+  Trash2,
+  X,
+  Plus,
+  Copy,
+  // Icons for Picker
+  Star,
+  Heart,
+  Zap,
+  Flag,
+  Bookmark,
+  MessageCircle,
+  Hash,
+  Link,
+  Info,
+  AlertCircle,
+  Settings,
+  User,
+  Users,
+  Briefcase,
+  Folder,
+  FileText,
+  Image as ImageIcon,
+  Calendar,
+  Clock,
+  MapPin,
+  Globe,
+  Sun,
+  Moon,
+  Smile,
+  ThumbsUp,
+  Award,
+  // More Icons
+  Layout,
+  LayoutGrid,
+  List,
+  Target,
+  TrendingUp,
+  PieChart,
+  BarChart,
+  Activity,
+  Box,
+  Package,
+  Truck,
+  ShoppingBag,
+  CreditCard,
+  DollarSign,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Camera,
+  Video,
+  Music,
+  Mic,
+  Speaker,
+  Headphones,
+  Bell,
+  Mail,
+  Phone,
+  Send as SendIcon,
+  Share2,
+  Printer,
+  Download,
+  Upload,
+  Cloud,
+  Database,
+  Server,
+  Lock,
+  Unlock,
+  Key,
+  Shield,
+  Eye as EyeIcon,
 } from "lucide-react";
+
+const ICON_LIST = {
+  FileText,
+  Star,
+  Heart,
+  Zap,
+  Flag,
+  Bookmark,
+  MessageCircle,
+  Hash,
+  Link,
+  Info,
+  AlertCircle,
+  Settings,
+  User,
+  Users,
+  Briefcase,
+  Folder,
+  ImageIcon,
+  Calendar,
+  Clock,
+  MapPin,
+  Globe,
+  Sun,
+  Moon,
+  Smile,
+  ThumbsUp,
+  Award,
+  Layout,
+  LayoutGrid,
+  List,
+  Target,
+  TrendingUp,
+  PieChart,
+  BarChart,
+  Activity,
+  Box,
+  Package,
+  Truck,
+  ShoppingBag,
+  CreditCard,
+  DollarSign,
+  Monitor,
+  Smartphone,
+  Tablet,
+  Camera,
+  Video,
+  Music,
+  Mic,
+  Speaker,
+  Headphones,
+  Bell,
+  Mail,
+  Phone,
+  SendIcon,
+  Share2,
+  Printer,
+  Download,
+  Upload,
+  Cloud,
+  Database,
+  Server,
+  Lock,
+  Unlock,
+  Key,
+  Shield,
+  EyeIcon,
+};
 
 type QuestionType = "short" | "long" | "single" | "multi";
 
@@ -31,8 +171,18 @@ function mapTipoToDb(tipo: QuestionType) {
   return "checkboxes";
 }
 
+function mapDbToTipo(dbTipo: string): QuestionType {
+  if (dbTipo === "short_text") return "short";
+  if (dbTipo === "long_text") return "long";
+  if (dbTipo === "multiple_choice") return "single";
+  return "multi";
+}
+
 export default function NovoBriefingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("edit");
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [user, setUser] = useState<any>(null);
@@ -43,6 +193,10 @@ export default function NovoBriefingPage() {
 
   const [cardBgColor, setCardBgColor] = useState("#0f172a");
   const [cardTextColor, setCardTextColor] = useState("#ffffff");
+  
+  const [coverIcon, setCoverIcon] = useState<string>("FileText");
+  const [coverIconColor, setCoverIconColor] = useState<string>("#ffffff");
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
 
   const [questions, setQuestions] = useState<LocalQuestion[]>([
     {
@@ -69,9 +223,51 @@ export default function NovoBriefingPage() {
       setUser(u);
       setLoadingUser(false);
       if (!u) router.push("/login");
+
+      if (u && editId) {
+        // Carregar dados para edição
+        const { data: tpl, error: tplErr } = await supabase
+          .from("briefings_templates")
+          .select("*")
+          .eq("id", editId)
+          .single();
+
+        if (tpl && !tplErr) {
+          setTitulo(tpl.titulo);
+          setDescricao(tpl.descricao || "");
+          setCardBgColor(tpl.card_bg_color || "#0f172a");
+          setCardTextColor(tpl.card_text_color || "#ffffff");
+          setCoverIcon(tpl.cover_icon || "FileText");
+          setCoverIconColor(tpl.cover_icon_color || "#ffffff");
+
+          const { data: fields } = await supabase
+            .from("briefings_campos")
+            .select("*")
+            .eq("template_id", editId)
+            .order("ordem");
+
+          if (fields && fields.length > 0) {
+            const mapped: LocalQuestion[] = fields.map((f: any) => ({
+              id: String(f.id), // usar ID original para chaves
+              titulo: f.titulo_pergunta,
+              descricao: f.descricao_pergunta || "",
+              tipo: mapDbToTipo(f.tipo),
+              opcoes: f.opcoes || [],
+              obrigatorio: f.obrigatorio,
+            }));
+            setQuestions(mapped);
+          } else {
+             // Se não tiver campos (raro), começar com um vazio?
+             // Melhor não fazer nada ou manter o default vazio se fosse o caso.
+             // Mas o default state já tem 1 pergunts.
+             // Se vier vazio do DB, setQuestions([])?
+             setQuestions([]);
+          }
+        }
+      }
     }
     carregarUser();
-  }, [router]);
+  }, [router, editId]);
 
   useEffect(() => {
     function outside(e: MouseEvent) {
@@ -233,18 +429,48 @@ export default function NovoBriefingPage() {
     setSaving(true);
 
     try {
-      const { data: templateData, error: tplError } = await supabase
-        .from("briefings_templates")
-        .insert({
-          user_id: user.id,
-          titulo: tituloTrim,
-          descricao: descricao.trim() || null,
-          updated_at: new Date().toISOString(),
-          card_bg_color: cardBgColor || "#0f172a",
-          card_text_color: cardTextColor || "#ffffff",
-        })
-        .select("id")
-        .single();
+      let templateData;
+      let tplError;
+
+      if (editId) {
+        // UPDATE
+        const { data, error } = await supabase
+          .from("briefings_templates")
+          .update({
+             titulo: tituloTrim,
+             descricao: descricao.trim() || null,
+             updated_at: new Date().toISOString(),
+             card_bg_color: cardBgColor || "#0f172a",
+             card_text_color: cardTextColor || "#ffffff",
+             cover_icon: coverIcon,
+             cover_icon_color: coverIconColor,
+          })
+          .eq("id", editId)
+          .select("id")
+          .single();
+        
+        templateData = data;
+        tplError = error;
+      } else {
+        // INSERT
+        const { data, error } = await supabase
+          .from("briefings_templates")
+          .insert({
+            user_id: user.id,
+            titulo: tituloTrim,
+            descricao: descricao.trim() || null,
+            updated_at: new Date().toISOString(),
+            card_bg_color: cardBgColor || "#0f172a",
+            card_text_color: cardTextColor || "#ffffff",
+            cover_icon: coverIcon,
+            cover_icon_color: coverIconColor,
+          })
+          .select("id")
+          .single();
+          
+          templateData = data;
+          tplError = error;
+      }
 
       if (tplError || !templateData) {
         setFormError(tplError?.message || "Erro ao criar template.");
@@ -253,6 +479,15 @@ export default function NovoBriefingPage() {
       }
 
       const templateId = String(templateData.id);
+
+      // Se for edição, remover campos antigos antes de inserir novos
+      // (Estratégia mais simples para lidar com reordenação/deleção)
+      if (editId) {
+         await supabase
+           .from("briefings_campos")
+           .delete()
+           .eq("template_id", templateId);
+      }
 
       const payloadCampos = questions.map((q, index) => ({
         user_id: user.id,
@@ -291,7 +526,10 @@ export default function NovoBriefingPage() {
   if (loadingUser) {
     return (
       <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center text-[18px]">
-        Carregando...
+        <div className="flex flex-col items-center gap-3 animate-pulse">
+            <div className="w-8 h-8 rounded-full border-2 border-primary-500 border-t-transparent animate-spin"/>
+            <span className="text-gray-400 text-sm">Carregando editor...</span>
+        </div>
       </div>
     );
   }
@@ -299,437 +537,450 @@ export default function NovoBriefingPage() {
   return (
     <>
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center">
-          <div className="bg-primary-800 border border-primary-600 rounded-2xl p-8 w-[90%] max-w-md text-center flex flex-col gap-6 animate-fade-in">
-            <h2 className="text-[22px] font-semibold text-primary-50">
-              Briefing criado com sucesso!
-            </h2>
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fade-in">
+          <div className="bg-primary-900 border border-gray-700 rounded-2xl p-8 w-[90%] max-w-md text-center flex flex-col gap-6 shadow-2xl">
+            <div className="w-16 h-16 rounded-full bg-primary-500/10 flex items-center justify-center mx-auto mb-2 text-primary-400">
+                <CheckSquare size={32} />
+            </div>
+            
+            <div className="flex flex-col gap-2">
+                <h2 className="text-[22px] font-semibold text-gray-100">
+                Briefing {editId ? "atualizado" : "criado"}!
+                </h2>
+                <p className="text-gray-400 text-sm">
+                    {editId 
+                        ? "As alterações foram salvas com sucesso." 
+                        : "Seu novo modelo de briefing está pronto para uso."}
+                </p>
+            </div>
 
             <button
               onClick={() => router.push("/dashboard/briefings")}
-              className="px-6 py-2.5 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold transition"
+              className="w-full px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-white font-semibold transition-all shadow-lg shadow-primary-500/20"
             >
-              OK
+              Voltar para a lista
             </button>
           </div>
         </div>
       )}
 
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
+      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
         <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
-        <div className="flex flex-col flex-1 gap-8 pr-6 py-8 overflow-hidden">
-          <header className="w-full flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => router.push("/dashboard/briefings")}
-                className="flex items-center gap-2 px-3 py-2 border border-primary-700 text-gray-300 rounded-lg hover:bg-primary-800 transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-                <span className="text-[14px]">Voltar</span>
-              </button>
-
-              <div className="flex flex-col">
-                <h1 className="text-[28px] md:text-[32px] font-semibold text-gray-100">
-                  Novo briefing
-                </h1>
-                <p className="text-[15px] md:text-[16px] text-gray-300">
-                  Monte um formulário no estilo Google Forms para enviar aos seus
-                  clientes.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className={`rounded-lg px-6 py-2.5 text-[15px] font-semibold transition-colors ${
-                  saving
-                    ? "bg-primary-700 text-primary-100 cursor-not-allowed"
-                    : "bg-primary-500 hover:bg-primary-300 text-primary-900"
-                }`}
-              >
-                {saving ? "Salvando..." : "Salvar briefing"}
-              </button>
-
-              <div className="relative" ref={profileRef}>
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen((v) => !v)}
-                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-800 border border-primary-700/70 transition-colors"
-                >
-                  <Image
-                    src={avatarSrc}
-                    alt="Perfil"
-                    width={35}
-                    height={35}
-                    className="rounded-full object-cover border border-primary-600"
-                  />
-
-                  {profileOpen ? (
-                    <ChevronUp size={18} className="text-primary-100" />
-                  ) : (
-                    <ChevronDown size={18} className="text-primary-100" />
-                  )}
-                </button>
-
-                {profileOpen && (
-                  <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in">
+        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+            {/* Header */}
+            <header className="h-16 border-b border-gray-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
+                <div className="flex items-center gap-4">
                     <button
-                      className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
-                      onClick={() => {
-                        setProfileOpen(false);
-                        router.push("/dashboard/perfil");
-                      }}
+                        onClick={() => router.push("/dashboard/briefings")}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-800 text-gray-400 hover:text-gray-200 transition-colors"
+                        title="Voltar"
                     >
-                      <Pencil size={20} className="text-primary-200" />
-                      Editar perfil
+                        <ChevronDown className="rotate-90" size={20} />
                     </button>
+                    
+                    <div className="h-6 w-px bg-primary-800 mx-1" />
 
-                    <button
-                      className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
-                      onClick={() => {
-                        setProfileOpen(false);
-                        router.push("/dashboard/tema");
-                      }}
-                    >
-                      <SlidersHorizontal size={20} className="text-primary-200" />
-                      Personalizar tema
-                    </button>
-
-                    <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300">
-                      <Crown size={20} />
-                      Assinatura
-                    </button>
-
-                    <button
-                      className="flex items-center gap-3 text-red-400 hover:text-red-300 pt-2"
-                      onClick={async () => {
-                        await supabase.auth.signOut();
-                        router.push("/login");
-                      }}
-                    >
-                      <svg
-                        width="20"
-                        height="20"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" y1="12" x2="9" y2="12" />
-                      </svg>
-                      Sair da plataforma
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </header>
-
-          {formError && (
-            <div className="px-4 py-2 rounded-lg bg-rose-900/40 border border-rose-500/70 text-rose-100 text-[14px]">
-              {formError}
-            </div>
-          )}
-
-          <section className="flex-1 min-h-0 overflow-hidden">
-            <div className="h-full bg-primary-900/60 border border-primary-700 rounded-2xl flex flex-col overflow-hidden">
-              <div className="px-6 py-4 border-b border-primary-700 flex flex-col gap-4">
-                <div className="flex flex-col gap-3">
-                  <input
-                    value={titulo}
-                    onChange={(e) => setTitulo(e.target.value)}
-                    placeholder="Título do briefing"
-                    className="bg-transparent border-b border-primary-600 focus:border-primary-400 outline-none text-[22px] md:text-[24px] text-gray-100 pb-1"
-                  />
-                  <textarea
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                    placeholder="Descrição ou instruções para o cliente (opcional)"
-                    rows={2}
-                    className="bg-transparent resize-none outline-none text-[14px] text-gray-300 placeholder-gray-500"
-                  />
+                    <h1 className="text-[16px] font-medium text-gray-200">
+                         {editId ? "Editar Briefing" : "Novo Modelo de Briefing"}
+                    </h1>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-primary-700 bg-primary-900/70">
-                    <div
-                      className="px-3 py-1 rounded-lg text-[12px] font-medium max-w-[220px] truncate"
-                      style={{
-                        backgroundColor: cardBgColor,
-                        color: cardTextColor,
-                      }}
+                <div className="flex items-center gap-3">
+                     <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className={`px-5 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center gap-2 ${
+                        saving
+                            ? "bg-primary-800 text-gray-500 cursor-not-allowed"
+                            : "bg-primary-500 hover:bg-primary-400 text-white shadow-lg shadow-primary-500/20"
+                        }`}
                     >
-                      {titulo || "Título do briefing"}
-                    </div>
-                    <span className="text-[11px] text-gray-400">
-                      Campos: {questions.length}
-                    </span>
-                  </div>
+                        {saving ? (
+                            <>
+                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                Salvando...
+                            </>
+                        ) : (
+                            "Salvar alterações"
+                        )}
+                    </button>
 
-                  <div className="flex flex-wrap items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[13px] text-gray-300">
-                        Cor de fundo do card
-                      </span>
-                      <input
-                        type="color"
-                        value={cardBgColor}
-                        onChange={(e) => setCardBgColor(e.target.value)}
-                        className="w-8 h-8 rounded-md border border-primary-700 bg-transparent cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-[13px] text-gray-300">
-                        Cor do título
-                      </span>
-                      <input
-                        type="color"
-                        value={cardTextColor}
-                        onChange={(e) => setCardTextColor(e.target.value)}
-                        className="w-8 h-8 rounded-md border border-primary-700 bg-transparent cursor-pointer"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto novo-briefing-scroll px-6 py-5 flex flex-col gap-4">
-                {questions.map((q, idx) => (
-                  <div
-                    key={q.id}
-                    className="bg-primary-800 border border-primary-700 rounded-2xl px-4 py-4 flex flex-col gap-4 shadow-[0_0_0_1px_rgba(15,23,42,0.8)]"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="flex flex-col items-center pt-1 gap-2">
+                    <div className="relative" ref={profileRef}>
                         <button
-                          type="button"
-                          onClick={() => handleMoveUp(q.id)}
-                          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-primary-700 text-gray-400 text-[11px]"
+                        type="button"
+                        onClick={() => setProfileOpen((v) => !v)}
+                        className="w-9 h-9 rounded-full overflow-hidden border border-primary-700 hover:border-primary-500 transition-colors"
                         >
-                          ▲
-                        </button>
-                        <span className="text-[11px] text-gray-500">
-                          {idx + 1}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleMoveDown(q.id)}
-                          className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-primary-700 text-gray-400 text-[11px]"
-                        >
-                          ▼
-                        </button>
-                      </div>
-
-                      <div className="flex-1 flex flex-col gap-3">
-                        <div className="flex flex-wrap gap-3 items-start">
-                          <input
-                            value={q.titulo}
-                            onChange={(e) =>
-                              updateQuestion(q.id, { titulo: e.target.value })
-                            }
-                            placeholder="Pergunta"
-                            className="flex-1 min-w-[180px] bg-transparent border-b border-primary-600 focus:border-primary-400 outline-none text-[15px] text-gray-100 pb-1"
-                          />
-
-                          <div className="relative w-[210px]">
-                            <select
-                              value={q.tipo}
-                              onChange={(e) =>
-                                handleChangeTipo(q.id, e.target.value)
-                              }
-                              className="w-full bg-primary-900 border border-primary-700 rounded-lg px-3 py-2 pr-9 text-[13px] text-gray-100 appearance-none"
-                            >
-                              <option value="short">Resposta curta</option>
-                              <option value="long">Parágrafo</option>
-                              <option value="single">Múltipla escolha</option>
-                              <option value="multi">
-                                Caixas de seleção (múltiplas)
-                              </option>
-                            </select>
-                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">
-                              ▼
-                            </span>
-                          </div>
-                        </div>
-
-                        <input
-                          value={q.descricao}
-                          onChange={(e) =>
-                            updateQuestion(q.id, { descricao: e.target.value })
-                          }
-                          placeholder="Descrição da pergunta (opcional)"
-                          className="bg-transparent outline-none text-[13px] text-gray-300 placeholder-gray-500"
+                        <Image
+                            src={avatarSrc}
+                            alt="Perfil"
+                            width={36}
+                            height={36}
+                            className="w-full h-full object-cover"
                         />
-
-                        {(q.tipo === "single" || q.tipo === "multi") && (
-                          <div className="flex flex-col gap-2 mt-1">
-                            {q.opcoes.map((op, index) => (
-                              <div
-                                key={index}
-                                className="flex items-center gap-2 group"
-                              >
-                                <div className="w-4 flex items-center justify-center">
-                                  {q.tipo === "single" ? (
-                                    <div className="w-3.5 h-3.5 rounded-full border border-gray-500" />
-                                  ) : (
-                                    <div className="w-3.5 h-3.5 rounded-[4px] border border-gray-500" />
-                                  )}
-                                </div>
-                                <input
-                                  value={op}
-                                  onChange={(e) =>
-                                    updateOpcao(q.id, index, e.target.value)
-                                  }
-                                  placeholder={`Opção ${index + 1}`}
-                                  className="flex-1 bg-transparent border-b border-transparent group-hover:border-primary-600 focus:border-primary-400 outline-none text-[13px] text-gray-100 pb-0.5"
-                                />
+                        </button>
+                        {/* Dropdown Profile ... (mantido igual ou simplificado) */}
+                         {profileOpen && (
+                            <div className="absolute right-0 mt-3 w-56 bg-primary-900 border border-gray-700 rounded-xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-fade-in-down origin-top-right">
                                 <button
-                                  type="button"
-                                  onClick={() => removeOpcao(q.id, index)}
-                                  className="text-[11px] text-gray-500 hover:text-rose-400 px-2 py-1 rounded-md hover:bg-primary-900/70"
+                                    className="w-full text-left px-3 py-2 text-[13px] text-gray-300 hover:text-gray-100 hover:bg-primary-700/50 rounded-lg transition-colors flex items-center gap-2"
+                                    onClick={() => {
+                                        setProfileOpen(false);
+                                        router.push("/dashboard/perfil");
+                                    }}
                                 >
-                                  Remover
+                                    <Pencil size={14} /> Editar perfil
                                 </button>
-                              </div>
-                            ))}
-
-                            <button
-                              type="button"
-                              onClick={() => addOpcao(q.id)}
-                              className="mt-1 w-fit text-[13px] text-primary-200 hover:text-primary-50 px-2 py-1 rounded-md hover:bg-primary-900/70"
-                            >
-                              + Adicionar opção
-                            </button>
-                          </div>
-                        )}
-
-                        {(q.tipo === "short" || q.tipo === "long") && (
-                          <div className="mt-1">
-                            {q.tipo === "short" ? (
-                              <div className="w-full max-w-xs h-10 rounded-lg border border-primary-700 bg-primary-900/60 flex items-center px-3 text-[12px] text-gray-400">
-                                Campo de resposta curta de exemplo
-                              </div>
-                            ) : (
-                              <div className="w-full max-w-[420px] h-20 rounded-lg border border-primary-700 bg-primary-900/60 flex items-start px-3 py-2 text-[12px] text-gray-400">
-                                Campo de resposta longa de exemplo
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col items-end gap-3">
-                        <div className="flex items-center gap-2 text-[12px] text-gray-300">
-                          <span>Obrigatória</span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateQuestion(q.id, {
-                                obrigatorio: !q.obrigatorio,
-                              })
-                            }
-                            className={`w-9 h-5 rounded-full flex items-center px-[2px] transition-colors ${
-                              q.obrigatorio
-                                ? "bg-primary-500"
-                                : "bg-primary-700"
-                            }`}
-                          >
-                            <div
-                              className={`w-4 h-4 rounded-full bg-primary-900 shadow-sm transform transition-transform ${
-                                q.obrigatorio
-                                  ? "translate-x-4"
-                                  : "translate-x-0"
-                              }`}
-                            />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleDuplicateQuestion(q.id)}
-                            className="px-2 py-1 rounded-md text-[12px] text-gray-300 hover:text-primary-50 hover:bg-primary-700/70"
-                          >
-                            Duplicar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveQuestion(q.id)}
-                            className="px-2 py-1 rounded-md text-[12px] text-rose-300 hover:text-rose-100 hover:bg-rose-900/40"
-                          >
-                            Excluir
-                          </button>
-                        </div>
-                      </div>
+                                <button
+                                    className="w-full text-left px-3 py-2 text-[13px] text-rose-400 hover:text-rose-300 hover:bg-rose-900/10 rounded-lg transition-colors flex items-center gap-2 border-t border-primary-700/50 mt-1 pt-2"
+                                    onClick={async () => {
+                                        await supabase.auth.signOut();
+                                        router.push("/login");
+                                    }}
+                                >
+                                    <Trash2 size={14} /> Sair
+                                </button>
+                            </div>
+                         )}
                     </div>
-                  </div>
-                ))}
+                </div>
+            </header>
 
-                <button
-                  type="button"
-                  onClick={handleAddQuestion}
-                  className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-full border border-dashed border-primary-600 text-[14px] text-primary-100 hover:bg-primary-800/60"
-                >
-                  <span className="text-[18px] leading-none">＋</span>
-                  <span>Adicionar pergunta</span>
-                </button>
-              </div>
-            </div>
-          </section>
+            {/* Main Content Scrollable */}
+            <main className="flex-1 overflow-y-auto novo-briefing-scroll p-6 md:p-8">
+                <div className="max-w-4xl mx-auto flex flex-col gap-8 pb-20">
+                    
+                    {formError && (
+                        <div className="px-5 py-4 rounded-xl bg-rose-950/30 border border-rose-500/30 text-rose-200 text-[14px] flex items-center gap-3 animate-fade-in">
+                            <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                            {formError}
+                        </div>
+                    )}
 
-          <style jsx global>{`
-            .novo-briefing-scroll::-webkit-scrollbar {
-              width: 10px;
-            }
-            .novo-briefing-scroll::-webkit-scrollbar-track {
-              background: rgba(15, 23, 42, 0.9);
-            }
-            .novo-briefing-scroll::-webkit-scrollbar-thumb {
-              background: var(--primary-500);
-              border-radius: 999px;
-              border: 2px solid rgba(15, 23, 42, 0.9);
-            }
-            .novo-briefing-scroll::-webkit-scrollbar-thumb:hover {
-              background: var(--primary-400);
-            }
-            .novo-briefing-scroll {
-              scrollbar-width: thin;
-              scrollbar-color: var(--primary-500) rgba(15, 23, 42, 0.9);
-            }
-            .animate-fade-in {
-              animation: fadeIn 0.15s ease-out forwards;
-            }
-            @keyframes fadeIn {
-              from {
-                opacity: 0;
-                transform: translateY(-4px);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0);
-              }
-            }
-          `}</style>
+                    {/* Section: Configurações do Briefing */}
+                    <div className="bg-primary-900 border border-gray-700 rounded-2xl shadow-sm group focus-within:border-gray-500 transition-colors">
+                        <div className="h-2 bg-gradient-to-r from-primary-600 to-primary-400 rounded-t-2xl" />
+                        <div className="p-6 md:p-8 flex flex-col gap-6">
+                            <input
+                                value={titulo}
+                                onChange={(e) => setTitulo(e.target.value)}
+                                placeholder="Título do Briefing"
+                                className="w-full bg-transparent text-[32px] font-bold text-gray-100 placeholder-gray-600 outline-none border-none p-0 focus:ring-0"
+                            />
+                            <textarea
+                                value={descricao}
+                                onChange={(e) => setDescricao(e.target.value)}
+                                placeholder="Adicione uma descrição ou instruções para o cliente preencher este briefing..."
+                                rows={2}
+                                className="w-full bg-transparent text-[15px] text-gray-300 placeholder-gray-500 outline-none border-none p-0 focus:ring-0 resize-none"
+                            />
+
+                            {/* Divider */}
+                            <div className="w-full h-px bg-gray-700 my-2" />
+
+                            <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 relative z-20">
+                                
+                                {/* LEFT COLUMN: Inputs */}
+                                <div className="flex flex-col justify-center gap-6 w-fit h-full">
+                                     
+                                     {/* Color Pickers Group */}
+                                     <div className="flex flex-col gap-6">
+                                        
+                                        {/* Row 1: Colors */}
+                                        <div className="flex items-center gap-6">
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Cor de Fundo</label>
+                                                <div className="flex items-center gap-2 bg-transparent p-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors">
+                                                    <input
+                                                        type="color"
+                                                        value={cardBgColor}
+                                                        onChange={(e) => setCardBgColor(e.target.value)}
+                                                        className="w-8 h-8 rounded cursor-pointer border-none bg-transparent p-0"
+                                                        title="Escolher cor de fundo"
+                                                    />
+                                                    <span className="text-[13px] text-gray-300 font-mono pr-1 uppercase">{cardBgColor}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col gap-2">
+                                                <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Cor do Texto</label>
+                                                <div className="flex items-center gap-2 bg-transparent p-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors">
+                                                    <input
+                                                        type="color"
+                                                        value={cardTextColor}
+                                                        onChange={(e) => setCardTextColor(e.target.value)}
+                                                        className="w-8 h-8 rounded cursor-pointer border-none bg-transparent p-0"
+                                                        title="Escolher cor do texto"
+                                                    />
+                                                    <span className="text-[13px] text-gray-300 font-mono pr-1 uppercase">{cardTextColor}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Row 2: Icon Picker */}
+                                        <div className="flex flex-col gap-2 relative z-30">
+                                            <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Ícone da Capa</label>
+                                            <div className="flex gap-2 relative">
+                                                <button 
+                                                    onClick={() => setIconPickerOpen(!iconPickerOpen)}
+                                                    className="h-[46px] px-3 bg-transparent border border-gray-700 hover:border-gray-500 rounded-lg flex items-center gap-2 text-gray-300 transition-colors min-w-[140px] justify-between"
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        {ICON_LIST[coverIcon as keyof typeof ICON_LIST] ? (
+                                                            <>
+                                                                {(() => {
+                                                                    const SelectedIcon = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
+                                                                    return <SelectedIcon size={18} style={{ color: coverIconColor }} />;
+                                                                })()}
+                                                                <span className="text-[13px]">{coverIcon}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-[13px] text-gray-500">Selecionar</span>
+                                                        )}
+                                                    </div>
+                                                    <ChevronDown size={14} className="text-gray-500" />
+                                                </button>
+
+                                                <div className="flex items-center gap-2 bg-transparent p-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors h-[46px]">
+                                                    <input
+                                                        type="color"
+                                                        value={coverIconColor}
+                                                        onChange={(e) => setCoverIconColor(e.target.value)}
+                                                        className="w-8 h-8 rounded cursor-pointer border-none bg-transparent p-0"
+                                                        title="Cor do Ícone"
+                                                    />
+                                                </div>
+
+                                                {iconPickerOpen && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-40" onClick={() => setIconPickerOpen(false)} />
+                                                        <div className="absolute top-full mt-2 left-0 w-[360px] bg-primary-900 border border-gray-700 shadow-2xl rounded-xl p-4 z-50 grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto novo-briefing-scroll animate-fade-in-down">
+                                                            {Object.keys(ICON_LIST).map((iconName) => {
+                                                                const IconComp = ICON_LIST[iconName as keyof typeof ICON_LIST];
+                                                                return (
+                                                                    <button
+                                                                        key={iconName}
+                                                                        onClick={() => {
+                                                                            setCoverIcon(iconName);
+                                                                            setIconPickerOpen(false);
+                                                                        }}
+                                                                        className={`p-2 rounded-lg flex items-center justify-center transition-colors ${
+                                                                            coverIcon === iconName 
+                                                                                ? "bg-primary-700 text-white ring-2 ring-primary-500" 
+                                                                                : "text-gray-400 hover:bg-primary-800 hover:text-white"
+                                                                        }`}
+                                                                        title={iconName}
+                                                                    >
+                                                                        <IconComp size={20} />
+                                                                    </button>
+                                                                )
+                                                            })}
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                     </div>
+                                </div>
+                                
+                                {/* RIGHT COLUMN: Live Preview */}
+                                <div className="h-full flex flex-col justify-center relative">
+                                     <div 
+                                        className="w-full h-full min-h-[220px] rounded-xl shadow-lg flex flex-col items-center justify-center gap-3 p-6 text-center transition-all duration-300"
+                                        style={{ backgroundColor: cardBgColor, color: cardTextColor }}
+                                     >
+                                        {coverIcon && ICON_LIST[coverIcon as keyof typeof ICON_LIST] && (
+                                            (() => {
+                                                const IconComp = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
+                                                return <IconComp size={48} style={{ color: coverIconColor }} />;
+                                            })()
+                                        )}
+                                        <div className="font-bold text-[24px] leading-tight line-clamp-2 max-w-[80%]">
+                                            {titulo || "Título do Briefing"}
+                                        </div>
+                                        <div className="text-[13px] opacity-80 uppercase tracking-wider font-medium mt-1">Briefing</div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Perguntas */}
+                    <div className="flex flex-col gap-6">
+                        {questions.map((q, idx) => (
+                            <div 
+                                key={q.id}
+                                className="bg-primary-900 border border-gray-700 rounded-2xl transition-all duration-200 hover:border-gray-500 hover:shadow-lg group"
+                            >
+                                <div className="p-6 md:p-8 flex flex-col gap-6">
+                                    {/* Header da Pergunta */}
+                                    <div className="flex flex-col md:flex-row gap-4 items-start">
+                                        <div className="bg-primary-800/50 w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-bold text-gray-400 border border-gray-700 shrink-0 mt-1">
+                                            {idx + 1}
+                                        </div>
+
+                                        <div className="flex-1 w-full flex flex-col gap-4">
+                                            <div className="flex flex-col md:flex-row gap-4">
+                                                <input 
+                                                    value={q.titulo}
+                                                    onChange={(e) => updateQuestion(q.id, { titulo: e.target.value })}
+                                                    placeholder="Digite a pergunta aqui"
+                                                    className="flex-1 bg-transparent border border-gray-700 rounded-xl px-4 py-3 text-[15px] text-gray-100 placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 outline-none transition-all"
+                                                />
+                                                
+                                                <div className="relative md:w-64 shrink-0">
+                                                    <select
+                                                        value={q.tipo}
+                                                        onChange={(e) => handleChangeTipo(q.id, e.target.value)}
+                                                        className="w-full bg-transparent border border-gray-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-200 outline-none focus:border-primary-500 appearance-none cursor-pointer hover:bg-gray-700/20 transition-colors"
+                                                    >
+                                                        <option value="short" className="bg-primary-900">Resposta Curta</option>
+                                                        <option value="long" className="bg-primary-900">Parágrafo</option>
+                                                        <option value="single" className="bg-primary-900">Múltipla Escolha</option>
+                                                        <option value="multi" className="bg-primary-900">Caixas de Seleção</option>
+                                                    </select>
+                                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
+                                                </div>
+                                            </div>
+
+                                            <input 
+                                                value={q.descricao}
+                                                onChange={(e) => updateQuestion(q.id, { descricao: e.target.value })}
+                                                placeholder="Descrição auxiliar (opcional)"
+                                                className="text-[13px] bg-transparent border-none p-0 text-gray-400 placeholder-gray-600 focus:ring-0 w-full"
+                                            />
+
+                                            {/* Área de Opções (se aplicável) */}
+                                            {(q.tipo === "single" || q.tipo === "multi") && (
+                                                <div className="mt-2 flex flex-col gap-2 pl-1">
+                                                    {q.opcoes.map((op, opIdx) => (
+                                                        <div key={opIdx} className="flex items-center gap-3 group/opt">
+                                                            {q.tipo === "single" 
+                                                                ? <div className="w-4 h-4 rounded-full border border-primary-600 shrink-0" />
+                                                                : <div className="w-4 h-4 rounded-sm border border-primary-600 shrink-0" />
+                                                            }
+                                                            <input 
+                                                                value={op}
+                                                                onChange={(e) => updateOpcao(q.id, opIdx, e.target.value)}
+                                                                placeholder={`Opção ${opIdx + 1}`}
+                                                                className="flex-1 bg-transparent border-b border-transparent hover:border-primary-700 focus:border-primary-500 text-[14px] text-gray-200 py-1 outline-none transition-colors"
+                                                            />
+                                                            <button 
+                                                                onClick={() => removeOpcao(q.id, opIdx)}
+                                                                className="opacity-0 group-hover/opt:opacity-100 p-1.5 text-rose-400 hover:bg-rose-900/20 rounded-lg transition-all"
+                                                                title="Remover opção"
+                                                            >
+                                                                <X size={14} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button 
+                                                        onClick={() => addOpcao(q.id)}
+                                                        className="mt-2 w-fit flex items-center gap-2 text-[13px] font-medium text-primary-400 hover:text-primary-300 px-2 py-1 -ml-2 rounded-lg hover:bg-primary-800/50 transition-colors"
+                                                    >
+                                                        <Plus size={16} /> Adicionar Opção
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Footer da Pergunta (Ações) */}
+                                    <div className="pt-4 mt-2 border-t border-gray-700 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                             <button 
+                                                onClick={() => handleDuplicateQuestion(q.id)}
+                                                className="p-2 text-gray-400 hover:text-primary-200 hover:bg-primary-800 rounded-lg transition-colors"
+                                                title="Duplicar pergunta"
+                                             >
+                                                <Copy size={18} />
+                                             </button>
+                                             <button 
+                                                onClick={() => handleRemoveQuestion(q.id)}
+                                                className="p-2 text-gray-400 hover:text-rose-300 hover:bg-rose-900/20 rounded-lg transition-colors"
+                                                title="Excluir pergunta"
+                                             >
+                                                <Trash2 size={18} />
+                                             </button>
+                                             <div className="w-px h-4 bg-gray-700 mx-1" />
+                                              <div className="flex items-center gap-1">
+                                                 <button 
+                                                    onClick={() => handleMoveUp(q.id)}
+                                                    className="p-2 text-gray-500 hover:text-gray-300 hover:bg-primary-800 rounded-lg"
+                                                    title="Mover para cima"
+                                                >
+                                                    <ChevronUp size={18} />
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleMoveDown(q.id)}
+                                                    className="p-2 text-gray-500 hover:text-gray-300 hover:bg-primary-800 rounded-lg"
+                                                    title="Mover para baixo"
+                                                >
+                                                    <ChevronDown size={18} />
+                                                </button>
+                                              </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-3 pl-4 border-l border-gray-700">
+                                            <label className="text-[13px] text-gray-300 cursor-pointer select-none" htmlFor={`req-${q.id}`}>Obrigatória</label>
+                                            <button
+                                                id={`req-${q.id}`}
+                                                type="button"
+                                                onClick={() => updateQuestion(q.id, { obrigatorio: !q.obrigatorio })}
+                                                className={`w-10 h-6 rounded-full flex items-center px-1 transition-colors duration-200 ${
+                                                    q.obrigatorio ? "bg-primary-500" : "bg-primary-700"
+                                                }`}
+                                            >
+                                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${
+                                                    q.obrigatorio ? "translate-x-4" : "translate-x-0"
+                                                }`} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <button
+                        onClick={handleAddQuestion}
+                        className="w-full py-4 border-2 border-dashed border-primary-700 hover:border-primary-500 rounded-2xl text-gray-400 hover:text-primary-300 hover:bg-primary-800/30 transition-all flex items-center justify-center gap-2 group"
+                    >
+                        <div className="w-8 h-8 rounded-full bg-primary-800 group-hover:bg-primary-600 flex items-center justify-center text-gray-300 group-hover:text-white transition-colors">
+                            <Plus size={18} />
+                        </div>
+                        <span className="font-medium">Adicionar nova pergunta</span>
+                    </button>
+
+                </div>
+            </main>
         </div>
       </div>
+      
+      <style jsx global>{`
+        .novo-briefing-scroll::-webkit-scrollbar {
+          width: 8px;
+        }
+        .novo-briefing-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .novo-briefing-scroll::-webkit-scrollbar-thumb {
+          background: var(--primary-700);
+          border-radius: 99px;
+        }
+        .novo-briefing-scroll::-webkit-scrollbar-thumb:hover {
+          background: var(--primary-600);
+        }
+        .animate-fade-in-down {
+            animation: fadeInDown 0.2s ease-out forwards;
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+      `}</style>
     </>
   );
 }

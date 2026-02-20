@@ -18,6 +18,9 @@ import {
   LayoutTemplate,
   ChevronLeft,
   ChevronRight,
+  Clock,
+  CheckSquare,
+  DollarSign,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -39,6 +42,9 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
     { name: "Projetos", href: "/dashboard/projetos", icon: FolderKanban },
     { name: "Clientes", href: "/dashboard/clientes", icon: Users },
     { name: "Templates", href: "/dashboard/templates", icon: LayoutTemplate },
+    { name: "Time Tracker", href: "/dashboard/cronometro", icon: Clock },
+    { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare },
+    { name: "Pagamentos", href: "/dashboard/pagamentos", icon: DollarSign },
   ];
 
   const utilLinks = [
@@ -77,7 +83,12 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
         )}
       </button>
 
-      <div className="flex flex-col w-full py-6 px-2 overflow-y-auto overflow-x-visible">
+      <div
+        className={clsx(
+          "flex flex-col w-full py-6 px-2 overflow-x-visible",
+          open ? "overflow-y-auto" : "overflow-visible"
+        )}
+      >
 
         <div className="w-full px-4 mb-6 flex items-center">
           {open ? (
@@ -103,17 +114,21 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
                   key={name}
                   href={href}
                   className={clsx(
-                    "flex items-center px-4 py-3 rounded-lg text-primary-100 hover:bg-primary-700 transition-colors",
+                    "flex items-center px-4 py-3 rounded-lg text-primary-100 hover:bg-primary-700 transition-colors relative group",
                     "transition-all duration-300 ease-in-out",
                     active && "bg-gradient-to-r from-primary-800 to-primary-600 border-l border-primary-400",
                     open ? "gap-3" : "gap-0 justify-center"
                   )}
                 >
                   <Icon size={24} className="text-primary-100" />
-                  {open && (
+                  {open ? (
                     <span className="text-[18px] font-normal leading-none">
                       {name}
                     </span>
+                  ) : (
+                    <div className="absolute left-full ml-4 px-2 py-1 bg-gray-900 border border-primary-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                      {name}
+                    </div>
                   )}
                 </Link>
               );
@@ -128,7 +143,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
                 key={name}
                 href={href}
                 className={clsx(
-                  "flex items-center px-4 py-3 rounded-lg text-primary-100 hover:bg-primary-700 transition-colors",
+                  "flex items-center px-4 py-3 rounded-lg text-primary-100 hover:bg-primary-700 transition-colors relative group",
                   "transition-all duration-300 ease-in-out",
                   pathname === href &&
                     "bg-gradient-to-r from-primary-800 to-primary-600 border-l border-primary-400",
@@ -136,10 +151,14 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
                 )}
               >
                 <Icon size={24} className="text-primary-100" />
-                {open && (
+                {open ? (
                   <span className="text-[18px] font-normal leading-none">
                     {name}
                   </span>
+                ) : (
+                  <div className="absolute left-full ml-4 px-2 py-1 bg-gray-900 border border-primary-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                    {name}
+                  </div>
                 )}
               </Link>
             ))}
@@ -150,16 +169,20 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
           <button
             onClick={handleLogout}
             className={clsx(
-              "flex items-center px-4 py-3 rounded-lg text-primary-100 hover:bg-primary-700 transition-colors w-full",
+              "flex items-center px-4 py-3 rounded-lg text-primary-100 hover:bg-primary-700 transition-colors w-full relative group",
               "transition-all duration-300 ease-in-out",
               open ? "gap-3" : "gap-0 justify-center"
             )}
           >
             <LogOut size={24} className="text-primary-100" />
-            {open && (
+            {open ? (
               <span className="text-[18px] font-normal leading-none">
                 Sair
               </span>
+            ) : (
+              <div className="absolute left-full ml-4 px-2 py-1 bg-gray-900 border border-primary-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                Sair
+              </div>
             )}
           </button>
         </div>

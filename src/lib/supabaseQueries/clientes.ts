@@ -8,6 +8,7 @@ export interface Cliente {
   email?: string | null;
   telefone?: string | null;
   foto_url?: string | null;
+  observacoes?: string | null;
   created_at: string;
 }
 

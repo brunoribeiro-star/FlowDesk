@@ -14,15 +14,12 @@ export default function App({ Component, pageProps, router }: AppProps) {
     if (typeof window === "undefined") return;
 
     const loadTheme = () => {
-      // nome correto do tema padrão:
       const selectedTheme =
         localStorage.getItem("flowdesk_theme") || "default";
 
-      // remove tema antigo
       const old = document.getElementById("flowdesk-theme");
       if (old) old.remove();
 
-      // cria novo <link>
       const link = document.createElement("link");
       link.rel = "stylesheet";
       link.id = "flowdesk-theme";
@@ -32,15 +29,12 @@ export default function App({ Component, pageProps, router }: AppProps) {
       document.head.appendChild(link);
     };
 
-    // carregar tema ao iniciar
     loadTheme();
 
-    // recarregar tema sempre que o seletor emitir o evento
     const handler = () => loadTheme();
 
     window.addEventListener("flowdesk:theme-updated", handler);
 
-    // limpeza
     return () =>
       window.removeEventListener("flowdesk:theme-updated", handler);
   }, []);

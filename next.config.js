@@ -7,11 +7,15 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "hcnssdxsajfdwvbcfxkq.supabase.co",
-        port: "",
         pathname: "/storage/v1/object/public/avatars/**",
+      },
+      {
+        protocol: "https",
+        hostname: "hcnssdxsajfdwvbcfxkq.supabase.co",
+        pathname: "/storage/v1/object/public/project-covers/**",
       },
     ],
   },
 };
 
-module.exports = nextConfig;
+module.exports = nextConfig;  

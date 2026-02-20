@@ -6,6 +6,8 @@ import Sidebar from "@/components/Sidebar";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { addCliente } from "@/lib/supabaseQueries/clientes";
+import { User, Pencil } from "lucide-react";
+import HeaderProfile from "@/components/HeaderProfile";
 
 const COUNTRIES = [
   { code: "BR", name: "Brasil", dial: "+55", flag: "🇧🇷" },
@@ -38,9 +40,6 @@ export default function NovoClientePage() {
     cpf_cnpj: "",
   });
 
-  // --------------------------
-  // VALIDAÇÕES
-  // --------------------------
   const validateEmail = (email: string) =>
     /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.toLowerCase());
 
@@ -56,7 +55,6 @@ export default function NovoClientePage() {
     let digits = value.replace(/\D/g, "");
 
     if (digits.length <= 11) {
-      // CPF
       digits = digits.slice(0, 11);
       return digits
         .replace(/^(\d{3})(\d)/, "$1.$2")
@@ -64,7 +62,6 @@ export default function NovoClientePage() {
         .replace(/\.(\d{3})(\d)/, ".$1-$2");
     }
 
-    // CNPJ
     digits = digits.slice(0, 14);
     return digits
       .replace(/^(\d{2})(\d)/, "$1.$2")
@@ -73,9 +70,6 @@ export default function NovoClientePage() {
       .replace(/(\d{4})(\d)/, "$1-$2");
   };
 
-  // --------------------------
-  // SELECT DE PAÍS (DDD)
-  // --------------------------
   function handleCountryChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const selected = COUNTRIES.find((c) => c.code === e.target.value);
     if (!selected) return;
@@ -93,9 +87,6 @@ export default function NovoClientePage() {
     }));
   }
 
-  // --------------------------
-  // CAMPOS
-  // --------------------------
   function handleChange(
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) {
@@ -142,9 +133,6 @@ export default function NovoClientePage() {
     setForm({ ...form, [name]: value });
   }
 
-  // --------------------------
-  // FOTO
-  // --------------------------
   async function enviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -188,9 +176,6 @@ export default function NovoClientePage() {
     setFotoUrl(null);
   }
 
-  // --------------------------
-  // SUBMIT
-  // --------------------------
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -216,181 +201,176 @@ export default function NovoClientePage() {
     setLoading(false);
   }
 
-  // --------------------------
-  // UI
-  // --------------------------
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
+    <div className="h-screen w-full bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
       <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
-      <div className="flex flex-col flex-1 gap-8 pr-6 py-8 w-full overflow-hidden">
+      <div className="flex flex-col flex-1 gap-8 pr-6 py-8 w-full h-screen overflow-hidden">
 
-        {/* BOTÃO VOLTAR */}
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard/clientes")}
-          className="flex items-center gap-2 text-gray-300 hover:text-primary-200 transition-colors w-fit"
-        >
-          <span className="text-[20px]">←</span>
-          <span className="text-[16px]">Voltar</span>
-        </button>
+        <div className="flex items-center justify-between shrink-0 mb-6">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/clientes")}
+            className="flex items-center gap-2 text-gray-400 hover:text-primary-400 transition-colors w-fit group"
+          >
+            <span className="text-lg group-hover:-translate-x-1 transition-transform">←</span>
+            <span className="text-sm font-medium">Voltar para Clientes</span>
+          </button>
+          
+          <HeaderProfile />
+        </div>
 
-        <header>
-          <h1 className="text-[32px] text-gray-200 font-semibold">Novo Cliente</h1>
-          <p className="text-[18px] text-gray-300">
+        <header className="shrink-0">
+          <h1 className="text-2xl text-gray-100 font-bold mb-1">Novo Cliente</h1>
+          <p className="text-sm text-gray-400">
             Adicione um novo cliente ao seu portfólio.
           </p>
         </header>
 
-        {/* FORM */}
-        <section className="flex-1 bg-primary-800 border border-primary-700 rounded-lg p-6 overflow-y-auto">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-8 max-w-2xl mx-auto">
+        <section className="flex-1 bg-primary-900 border border-primary-800 rounded-2xl p-6 overflow-y-auto shadow-sm w-full">
+          <form id="cliente-form" onSubmit={handleSubmit} className="flex flex-col gap-6 w-full h-full">
+            
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+                {/* Left Column */}
+                <div className="flex flex-col gap-6">
+                    {/* Photo - Horizontal Compact Box */}
+                    <div className="bg-transparent border border-primary-700 rounded-xl p-4 flex items-center gap-6">
+                        <div className="relative group shrink-0">
+                            <div className="w-20 h-20 rounded-full border-2 border-primary-700 overflow-hidden bg-primary-800 flex items-center justify-center shadow-lg">
+                            {fotoUrl ? (
+                                <Image src={fotoUrl} alt="Foto" width={80} height={80} className="object-cover w-full h-full" />
+                            ) : (
+                                <User size={32} className="text-primary-600" />
+                            )}
+                            </div>
+                            <label className="absolute bottom-0 right-0 p-1.5 bg-primary-500 rounded-full text-primary-900 cursor-pointer shadow-lg hover:bg-primary-400 transition-colors">
+                                <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={enviarFoto}
+                                disabled={uploadingImage}
+                                />
+                                {uploadingImage ? (
+                                    <div className="w-3 h-3 border-2 border-primary-900 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                    <Pencil size={10} strokeWidth={3} />
+                                )}
+                            </label>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <h3 className="text-sm font-medium text-gray-200">Foto de Perfil</h3>
+                            <p className="text-xs text-gray-500">Formats: JPG, PNG. Max 5MB.</p>
+                        </div>
+                    </div>
 
-            {/* FOTO */}
-            <div className="flex flex-col gap-3">
-              <span className="text-[18px] text-gray-200">Foto do cliente (opcional)</span>
+                    {/* Nome */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Nome Completo *</label>
+                        <input
+                            type="text"
+                            name="nome"
+                            value={form.nome}
+                            onChange={handleChange}
+                            placeholder="Ex: João Silva"
+                            className="bg-transparent border border-primary-700 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-primary-500 transition-all placeholder:text-gray-600 text-sm"
+                        />
+                    </div>
 
-              <div className="flex items-center gap-6">
-
-                <div className="w-[110px] h-[110px] rounded-full border border-primary-600 overflow-hidden bg-primary-900 flex items-center justify-center">
-                  {fotoUrl ? (
-                    <Image src={fotoUrl} alt="Foto" width={110} height={110} className="object-cover" />
-                  ) : (
-                    <span className="text-gray-500 text-[40px]">👤</span>
-                  )}
+                    {/* Empresa */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Empresa</label>
+                        <input
+                            type="text"
+                            name="empresa"
+                            value={form.empresa}
+                            onChange={handleChange}
+                            placeholder="Ex: Acme Corp"
+                            className="bg-transparent border border-primary-700 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-primary-500 transition-all placeholder:text-gray-600 text-sm"
+                        />
+                    </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-2 cursor-pointer hover:bg-primary-600 text-[15px]">
-                    <span className="text-primary-100">
-                      {uploadingImage ? "Enviando..." : "Enviar foto"}
-                    </span>
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={enviarFoto}
-                      disabled={uploadingImage}
-                    />
-                  </label>
+                {/* Right Column */}
+                <div className="flex flex-col gap-6">
+                    {/* CPF/CNPJ */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">CPF / CNPJ</label>
+                        <input
+                            type="text"
+                            name="cpf_cnpj"
+                            value={form.cpf_cnpj}
+                            onChange={handleChange}
+                            placeholder="000.000.000-00"
+                            className={`bg-transparent border rounded-xl px-4 py-3 text-gray-200 focus:outline-none transition-all placeholder:text-gray-600 text-sm ${
+                            errors.cpf_cnpj 
+                                ? "border-red-500 focus:border-red-500" 
+                                : "border-primary-700 focus:border-primary-500"
+                            }`}
+                        />
+                         {errors.cpf_cnpj && <span className="text-red-400 text-xs">{errors.cpf_cnpj}</span>}
+                    </div>
 
-                  {fotoUrl && (
-                    <button
-                      type="button"
-                      onClick={removerFoto}
-                      className="text-red-400 text-sm hover:text-red-300"
-                    >
-                      Remover foto
-                    </button>
-                  )}
+                    {/* Email */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">E-mail</label>
+                        <input
+                            type="email"
+                            name="email"
+                            value={form.email}
+                            onChange={handleChange}
+                            placeholder="exemplo@email.com"
+                            className={`bg-transparent border rounded-xl px-4 py-3 text-gray-200 focus:outline-none transition-all placeholder:text-gray-600 text-sm ${
+                            errors.email 
+                                ? "border-red-500 focus:border-red-500" 
+                                : "border-primary-700 focus:border-primary-500"
+                            }`}
+                        />
+                        {errors.email && <span className="text-red-400 text-xs">{errors.email}</span>}
+                    </div>
+
+                    {/* Telefone */}
+                    <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Telefone</label>
+                        <div className="flex gap-2">
+                            <div className="relative w-[90px]">
+                                <select
+                                    value={country.code}
+                                    onChange={handleCountryChange}
+                                    className="w-full appearance-none bg-transparent border border-primary-700 text-gray-200 rounded-xl h-[46px] pl-2 pr-6 text-sm focus:outline-none focus:border-primary-500 transition-all cursor-pointer"
+                                >
+                                    {COUNTRIES.map((c) => (
+                                    <option key={c.code} value={c.code}>
+                                        {c.flag} {c.dial}
+                                    </option>
+                                    ))}
+                                </select>
+                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▼</span>
+                            </div>
+
+                            <input
+                                type="text"
+                                name="telefone"
+                                value={form.telefone}
+                                onChange={handleChange}
+                                placeholder={`${country.dial} ...`}
+                                className={`flex-1 bg-transparent border rounded-xl px-4 py-3 text-gray-200 focus:outline-none transition-all placeholder:text-gray-600 text-sm h-[46px] ${
+                                errors.telefone 
+                                    ? "border-red-500 focus:border-red-500" 
+                                    : "border-primary-700 focus:border-primary-500"
+                                }`}
+                            />
+                        </div>
+                        {errors.telefone && <span className="text-red-400 text-xs">{errors.telefone}</span>}
+                    </div>
                 </div>
-              </div>
             </div>
 
-            {/* NOME */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[18px] text-gray-200">Nome completo *</label>
-              <input
-                type="text"
-                name="nome"
-                value={form.nome}
-                onChange={handleChange}
-                className="h-[58px] rounded-lg bg-primary-900 border border-primary-700 px-5 text-gray-100"
-              />
-            </div>
-
-            {/* EMPRESA */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[18px] text-gray-200">Empresa</label>
-              <input
-                type="text"
-                name="empresa"
-                value={form.empresa}
-                onChange={handleChange}
-                className="h-[58px] rounded-lg bg-primary-900 border border-primary-700 px-5 text-gray-100"
-              />
-            </div>
-
-            {/* CPF / CNPJ */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[18px] text-gray-200">CPF / CNPJ</label>
-              <input
-                type="text"
-                name="cpf_cnpj"
-                value={form.cpf_cnpj}
-                onChange={handleChange}
-                placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                className={`h-[58px] rounded-lg bg-primary-900 border px-5 text-gray-100 ${
-                  errors.cpf_cnpj ? "border-red-500" : "border-primary-700"
-                }`}
-              />
-              {errors.cpf_cnpj && (
-                <span className="text-red-400 text-[14px]">{errors.cpf_cnpj}</span>
-              )}
-            </div>
-
-            {/* EMAIL */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[18px] text-gray-200">E-mail</label>
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                className={`h-[58px] rounded-lg bg-primary-900 border px-5 text-gray-100 ${
-                  errors.email ? "border-red-500" : "border-primary-700"
-                }`}
-              />
-              {errors.email && (
-                <span className="text-red-400 text-[14px]">{errors.email}</span>
-              )}
-            </div>
-
-            {/* TELEFONE */}
-            <div className="flex flex-col gap-2">
-              <label className="text-[18px] text-gray-200">Telefone</label>
-
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <select
-                    value={country.code}
-                    onChange={handleCountryChange}
-                    className="appearance-none bg-primary-900 border border-primary-700 text-gray-100 rounded-lg h-[58px] pl-4 pr-10 text-[16px] cursor-pointer"
-                  >
-                    {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.flag} {c.dial}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300">
-                    ▼
-                  </span>
-                </div>
-
-                <input
-                  type="text"
-                  name="telefone"
-                  value={form.telefone}
-                  onChange={handleChange}
-                  placeholder={`${country.dial} ...`}
-                  className={`h-[58px] flex-1 rounded-lg bg-primary-900 border px-5 text-gray-100 ${
-                    errors.telefone ? "border-red-500" : "border-primary-700"
-                  }`}
-                />
-              </div>
-
-              {errors.telefone && (
-                <span className="text-red-400 text-[14px]">{errors.telefone}</span>
-              )}
-            </div>
-
-            {/* BOTÕES */}
-            <div className="flex items-center justify-end gap-4 mt-6">
+            <div className="flex items-center justify-end gap-3 pt-4 mt-auto border-t border-primary-800">
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/clientes")}
-                className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 px-6 text-[20px]"
+                className="px-6 py-2.5 rounded-xl bg-transparent border border-primary-700 text-gray-300 hover:bg-primary-800 transition-colors font-medium text-sm"
               >
                 Cancelar
               </button>
@@ -398,7 +378,7 @@ export default function NovoClientePage() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`bg-primary-500 text-primary-900 rounded-lg py-3 px-6 text-[20px] font-semibold ${
+                className={`px-6 py-2.5 rounded-xl bg-primary-500 text-primary-900 font-bold hover:bg-primary-400 transition-colors text-sm shadow-lg shadow-primary-500/20 ${
                   loading ? "opacity-50 cursor-not-allowed" : ""
                 }`}
               >

@@ -10,7 +10,7 @@ export type ThemeSlug =
   | "one"
   | "lucy";
 
-const THEME_STORAGE_KEY = "flowdesk_theme"; // CORRIGIDO p/ usar o mesmo nome do _app.tsx
+const THEME_STORAGE_KEY = "flowdesk_theme";
 
 export const THEME_FILES: Record<ThemeSlug, string> = {
   default: "/styles/themes/default.css",
@@ -40,7 +40,6 @@ export function applyTheme(slug: ThemeSlug) {
 
   const href = THEME_FILES[slug];
 
-  // 🔥 Usa o MESMO ID que seu _app.tsx
   let link = document.getElementById("flowdesk-theme") as HTMLLinkElement | null;
 
   if (!link) {
@@ -52,10 +51,8 @@ export function applyTheme(slug: ThemeSlug) {
 
   link.href = href;
 
-  // 🔥 Salva exatamente como seu _app.tsx espera:
   window.localStorage.setItem(THEME_STORAGE_KEY, slug);
 
-  // opcional para CSS global
   document.documentElement.setAttribute("data-theme", slug);
 }
 

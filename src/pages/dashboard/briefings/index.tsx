@@ -12,6 +12,18 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
+  MoreVertical,
+  ClipboardList,
+  FileText,
+  Calendar,
+  Copy,
+  Send,
+  Eye,
+  Plus,
+  Search,
+  CheckSquare,
+  Square,
+  X,
 } from "lucide-react";
 import { encode } from "punycode";
 
@@ -83,6 +95,7 @@ type BriefingCampo = {
 
 type FiltroEnvioStatus = "" | "pendente" | "respondido";
 type ActiveTab = "modelos" | "envios";
+type ViewMode = "list" | "board";
 
 function formatarDataCurta(dateStr: string | null | undefined) {
   if (!dateStr) return "—";
@@ -136,6 +149,19 @@ export default function BriefingsPage() {
   const [filtroEnvioStatus, setFiltroEnvioStatus] =
     useState<FiltroEnvioStatus>("");
   const [activeTab, setActiveTab] = useState<ActiveTab>("modelos");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("briefingsViewMode");
+    if (saved === "list" || saved === "board") {
+      setViewMode(saved);
+    }
+  }, []);
+
+  const changeViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem("briefingsViewMode", mode);
+  };
 
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
@@ -664,11 +690,280 @@ export default function BriefingsPage() {
       setEnvios((prev) => [...normalizadosInseridos, ...prev]);
       setSending(false);
       setSendModalOpen(false);
-      setActiveTab("envios");
       alert("Briefing enviado com sucesso.");
     } catch (err: any) {
       setSendError(err.message || "Erro inesperado ao enviar briefing.");
       setSending(false);
+    }
+  }
+
+  async function updateEnvioStatus(envioId: string, novoStatus: string) {
+    const { error } = await supabase
+      .from("briefings_envios")
+      .update({ status: novoStatus })
+      .eq("id", envioId);
+
+    if (error) {
+      console.error("Erro ao atualizar status do envio:", error);
+      alert("Erro ao atualizar status. Tente novamente.");
+      return;
+    }
+
+    setEnvios((prev) =>
+      prev.map((e) => (e.id === envioId ? { ...e, status: novoStatus } : e))
+    );
+  }
+
+  function renderBoardView() {
+    const colunas = [
+      { id: "pendente", title: "Enviado", color: "bg-blue-500" },
+      { id: "respondido", title: "Respondido", color: "bg-emerald-500" },
+    ];
+
+    const enviosPorColuna = {
+      pendente: enviosFiltrados.filter((e) => {
+        const status = classificarEnvio(e, respostasPorProjeto);
+        return status === "pendente";
+      }),
+      respondido: enviosFiltrados.filter((e) => {
+        const status = classificarEnvio(e, respostasPorProjeto);
+        return status === "respondido";
+      }),
+    };
+
+    const handleDrop = (e: React.DragEvent, targetCol: string) => {
+      e.preventDefault();
+      const envioId = e.dataTransfer.getData("application/x-envio-id");
+      if (!envioId) return;
+
+      const envio = envios.find((ev) => ev.id === envioId);
+      if (!envio) return;
+
+      const currentStatus = classificarEnvio(envio, respostasPorProjeto);
+      if (currentStatus === targetCol) return;
+
+      // Se mover de Respondido para Enviado (não faz muito sentido, mas ok)
+      // Se mover de Enviado para Respondido (ok, marca como concluído manual)
+      if (targetCol === "respondido") {
+        updateEnvioStatus(envioId, "respondido");
+      } else {
+        updateEnvioStatus(envioId, "pendente");
+      }
+    };
+
+    const EnvioBoardCard = ({ envio }: { envio: BriefingEnvio }) => {
+      const projeto = projetoDoEnvio(envio);
+      const cliente = projeto?.clientes || null;
+      const foto = cliente?.foto_url || "/cliente_placeholder.svg";
+      const enviadoEm = formatarDataCurta(envio.created_at);
+      const prazoResStr = envio.prazo_resposta
+        ? formatarDataCurta(envio.prazo_resposta)
+        : null;
+
+       const status = statusEnvioVisual(envio);
+
+      return (
+        <div
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData("application/x-envio-id", envio.id);
+          }}
+          className="bg-primary-800 border border-primary-700/50 rounded-xl p-4 shadow-sm hover:border-primary-500 transition-colors cursor-move group relative"
+        >
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Image
+                src={foto}
+                alt="Cliente"
+                width={28}
+                height={28}
+                className="rounded-full object-cover border border-primary-600"
+              />
+              <div className="flex flex-col">
+                <span className="text-[13px] font-medium text-gray-100 line-clamp-1">
+                  {cliente?.nome || "Cliente"}
+                </span>
+                <span className="text-[11px] text-gray-400 line-clamp-1">
+                  {cliente?.empresa}
+                </span>
+              </div>
+            </div>
+             <div className="relative">
+                <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenMenuEnvioId((cur) =>
+                    cur === envio.id ? null : envio.id
+                    );
+                }}
+                className="p-1 hover:bg-primary-700 rounded-md text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                <MoreVertical size={16} />
+                </button>
+                    {openMenuEnvioId === envio.id && (
+                        <div className="absolute right-0 top-6 w-40 bg-gray-800 border border-gray-700 rounded shadow-xl z-20 flex flex-col py-1">
+                             {envio.status === 'respondido' || envio.responded_at ? (
+                                <button
+                                onClick={() => {
+                                  setOpenMenuEnvioId(null);
+                                  router.push(
+                                    `/dashboard/briefings/${envio.id}/respostas`
+                                  )
+                                }}
+                                className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-gray-700 flex items-center gap-2"
+                                >
+                                <Eye size={13} /> Ver respostas
+                                </button>
+                             ) : (
+                                <button
+                                onClick={() => {
+                                    setOpenMenuEnvioId(null);
+                                    reenviarEnvio(envio);
+                                }}
+                                className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-gray-700 flex items-center gap-2"
+                                >
+                                <Send size={13} /> Reenviar
+                                </button>
+                             )}
+                            <button
+                            onClick={() => {
+                                setOpenMenuEnvioId(null);
+                                excluirEnvio(envio.id);
+                            }}
+                            className="px-4 py-2 text-left text-xs text-red-400 hover:bg-gray-700 flex items-center gap-2"
+                            >
+                            <Trash2 size={13} /> Excluir
+                            </button>
+                        </div>
+                    )}
+            </div>
+          </div>
+
+          <div className="mb-3">
+             <div className="text-[13px] text-gray-200 font-medium mb-0.5">
+                {envio.template?.titulo || "Briefing"}
+             </div>
+             <div className="text-[12px] text-primary-400">
+                {projeto?.titulo}
+             </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-primary-700/50">
+             <div className="flex flex-col text-[11px] text-gray-400">
+                <span>Enviado: {enviadoEm}</span>
+                {prazoResStr && <span>Prazo: {prazoResStr}</span>}
+             </div>
+              <span className={`w-2 h-2 rounded-full ${status.bg.replace('bg-opacity-10', 'bg-opacity-100')}`} title={status.label} />
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="flex-1 overflow-x-auto overflow-y-hidden">
+        <div className="h-full flex gap-4 min-w-[600px] px-1 pb-2">
+          {colunas.map((col) => (
+            <div
+              key={col.id}
+              className="flex-1 flex flex-col min-w-[280px] bg-primary-800/20 rounded-xl border border-primary-800/50 h-full backdrop-blur-sm"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(e) => handleDrop(e, col.id)}
+            >
+              <div className="p-3 flex items-center justify-between border-b border-primary-800/50">
+                <div className="flex items-center gap-2">
+                   <div className={`w-2 h-2 rounded-full ${col.color}`} />
+                   <span className="text-[13px] font-medium text-gray-200">{col.title}</span>
+                   <span className="text-[11px] text-gray-500 bg-primary-800 px-1.5 py-0.5 rounded-full">
+                     {enviosPorColuna[col.id as keyof typeof enviosPorColuna]?.length || 0}
+                   </span>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 briefings-scroll">
+                {enviosPorColuna[col.id as keyof typeof enviosPorColuna]?.map((envio) => (
+                    <EnvioBoardCard key={envio.id} envio={envio} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  async function duplicarTemplate(templateId: string) {
+    if (!user) return;
+    
+    // 1. Encontrar o template original na lista
+    const original = templates.find(t => t.id === templateId);
+    if (!original) return;
+
+    const novoTitulo = `${original.titulo} (Cópia)`;
+
+    try {
+      // 2. Criar novo template
+      const { data: newTplData, error: newTplError } = await supabase
+        .from("briefings_templates")
+        .insert({
+          user_id: user.id,
+          titulo: novoTitulo,
+          descricao: original.descricao,
+          card_bg_color: original.card_bg_color,
+          card_text_color: original.card_text_color
+        })
+        .select()
+        .single();
+
+      if (newTplError) throw newTplError;
+
+      // 3. Buscar campos do original
+      const { data: camposOriginais, error: camposError } = await supabase
+        .from("briefings_campos")
+        .select("*")
+        .eq("template_id", original.id);
+
+      if (camposError) throw camposError;
+
+      if (camposOriginais && camposOriginais.length > 0) {
+        // 4. Inserir campos no novo template
+        const novosCampos = camposOriginais.map((c: any) => ({
+          template_id: newTplData.id,
+          user_id: user.id,
+          ordem: c.ordem,
+          tipo: c.tipo,
+          titulo_pergunta: c.titulo_pergunta,
+          descricao_pergunta: c.descricao_pergunta,
+          opcoes: c.opcoes,
+          obrigatorio: c.obrigatorio
+        }));
+
+        const { error: insertCamposError } = await supabase
+          .from("briefings_campos")
+          .insert(novosCampos);
+        
+        if (insertCamposError) throw insertCamposError;
+      }
+
+      // 5. Atualizar estado local
+      const novoTemplate: BriefingTemplate = {
+        id: String(newTplData.id),
+        user_id: String(newTplData.user_id),
+        titulo: newTplData.titulo,
+        descricao: newTplData.descricao,
+        created_at: newTplData.created_at,
+        updated_at: newTplData.updated_at,
+        campos_count: original.campos_count, // assumindo sucesso na cópia dos campos
+        card_bg_color: newTplData.card_bg_color,
+        card_text_color: newTplData.card_text_color
+      };
+
+      setTemplates(prev => [novoTemplate, ...prev]);
+
+    } catch (err: any) {
+      alert("Erro ao duplicar modelo: " + err.message);
     }
   }
 
@@ -831,29 +1126,18 @@ export default function BriefingsPage() {
               </svg>
             </button>
 
-            <div className="flex flex-col">
-              <h1 className="text-[28px] md:text-[32px] font-semibold text-gray-100">
-                Briefings
-              </h1>
-              <p className="text-[15px] md:text-[16px] text-gray-300">
-                Modelos práticos e envios feitos para seus clientes.
-              </p>
-            </div>
+
           </div>
+
+
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/dashboard/briefings/novo")}
-              className="bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg px-5 py-2.5 text-[14px]"
+              className="bg-primary-500 hover:bg-primary-400 text-white font-semibold rounded-lg px-5 py-2.5 text-[14px] flex items-center gap-2 shadow-lg shadow-primary-500/20 transition-all"
             >
-              + Criar briefing
-            </button>
-
-            <button
-              onClick={() => abrirModalEnvio()}
-              className="bg-primary-800 hover:bg-primary-700 border border-primary-600 text-gray-100 rounded-lg px-5 py-2.5 text-[14px]"
-            >
-              Enviar briefing
+              <Plus size={18} />
+              Criar briefing
             </button>
 
             <div className="relative" ref={profileRef}>
@@ -934,14 +1218,14 @@ export default function BriefingsPage() {
           </div>
         </header>
 
-        <div className="flex items-center gap-3 border-b border-primary-800 pb-2">
+        <div className="flex p-1 bg-primary-900 border border-gray-700 rounded-xl w-fit">
           <button
             type="button"
             onClick={() => setActiveTab("modelos")}
-            className={`px-4 py-2 text-[14px] rounded-xl border transition-colors ${
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === "modelos"
-                ? "bg-primary-500 border-primary-500 text-primary-900 font-semibold shadow-[0_0_0_1px_rgba(15,23,42,0.8)]"
-                : "border-transparent text-gray-400 hover:text-gray-200 hover:bg-primary-900/60"
+                ? "bg-primary-500 text-primary-900 shadow-sm"
+                : "text-gray-400 hover:text-gray-200"
             }`}
           >
             Modelos de briefing
@@ -949,88 +1233,48 @@ export default function BriefingsPage() {
           <button
             type="button"
             onClick={() => setActiveTab("envios")}
-            className={`px-4 py-2 text-[14px] rounded-xl border transition-colors ${
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
               activeTab === "envios"
-                ? "bg-primary-500 border-primary-500 text-primary-900 font-semibold shadow-[0_0_0_1px_rgba(15,23,42,0.8)]"
-                : "border-transparent text-gray-400 hover:text-gray-200 hover:bg-primary-900/60"
+                ? "bg-primary-500 text-primary-900 shadow-sm"
+                : "text-gray-400 hover:text-gray-200"
             }`}
           >
             Briefings enviados
           </button>
-
-          <div className="flex-1" />
         </div>
 
         <section className="flex-1 min-h-0 flex flex-col gap-4">
           {activeTab === "modelos" && (
             <div className="flex-1 bg-primary-900 border border-primary-800 rounded-2xl flex flex-col">
               <div className="px-6 py-4 border-b border-primary-800 flex items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[15px] text-gray-100 font-medium">
-                    Modelos de briefing
-                  </span>
-                  <span className="text-[13px] text-gray-400">
-                    Estruturas reutilizáveis que você pode enviar para
-                    diferentes clientes.
-                  </span>
-                </div>
+                 <div className="flex items-center gap-2">
+                    <span className="text-[14px] text-gray-400">
+                      Mostrando {templates.length} modelos
+                    </span>
+                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="text-[13px] text-gray-400">
-                      {totalTemplates === 0
-                        ? "Nenhum modelo criado"
-                        : totalTemplates === 1
-                        ? "1 modelo criado"
-                        : `${totalTemplates} modelos criados`}
-                    </div>
-
-                    {totalTemplates > 0 && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectionMode((prev) => {
-                            const next = !prev;
-                            if (!next) {
-                              setSelectedTemplateIds([]);
-                            }
-                            return next;
-                          })
-                        }
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[12px] border transition-colors ${
-                          selectionMode
-                            ? "border-rose-400/80 bg-rose-500/10 text-rose-200"
-                            : "border-primary-700 bg-primary-900/40 text-gray-400 hover:bg-primary-800/70"
-                        }`}
-                      >
-                        <Trash2 size={14} />
-                        <span>
-                          {selectionMode
-                            ? "Cancelar seleção"
-                            : "Selecionar para excluir"}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-
-                  {selectionMode && algumModeloSelecionado && (
-                    <div className="flex items-center gap-2 text-[12px]">
-                      <span className="text-gray-300">
-                        {selectedTemplateIds.length} modelo
-                        {selectedTemplateIds.length > 1 ? "s" : ""} selecionado
-                        {selectedTemplateIds.length > 1 ? "s" : ""}
-                      </span>
-                      <button
-                        onClick={() =>
-                          abrirModalExcluirModelos(selectedTemplateIds)
-                        }
-                        className="px-3 py-1.5 rounded-lg bg-rose-600/90 hover:bg-rose-500 text-[12px] text-white font-medium"
-                      >
-                        Excluir selecionados
-                      </button>
-                    </div>
-                  )}
-                </div>
+                 {totalTemplates > 0 && (
+                   <button
+                     onClick={() => {
+                       setSelectionMode((prev) => {
+                         if (prev) setSelectedTemplateIds([]);
+                         return !prev;
+                       });
+                     }}
+                     className={`ml-2 p-1.5 rounded-md border transition-colors ${
+                       selectionMode
+                         ? "bg-primary-700 border-primary-500 text-primary-100"
+                         : "bg-primary-800 border-primary-700 text-gray-400 hover:border-gray-500"
+                     }`}
+                     title={selectionMode ? "Sair da seleção" : "Selecionar vários"}
+                   >
+                     {selectionMode ? (
+                       <CheckSquare size={16} />
+                     ) : (
+                       <Square size={16} />
+                     )}
+                   </button>
+                 )}
               </div>
 
               <div className="flex-1 max-h-full overflow-y-auto briefings-scroll px-6 py-4">
@@ -1047,91 +1291,166 @@ export default function BriefingsPage() {
                     Nenhum modelo de briefing criado ainda.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {templates.map((t) => {
                       const selected = selectedTemplateIds.includes(t.id);
+                      const isMenuOpen = openMenuTemplateId === t.id;
 
                       return (
                         <div
                           key={t.id}
-                          className="relative w-full rounded-2xl border border-primary-800 bg-primary-900 flex flex-col overflow-hidden"
+                          className="group bg-primary-800 border border-primary-700 rounded-xl hover:border-primary-500 transition-all flex flex-col relative"
                         >
-                          {selectionMode && (
-                            <button
-                              type="button"
-                              onClick={() => toggleTemplateSelecionado(t.id)}
-                              className={`absolute top-3 left-3 z-20 w-6 h-6 rounded-full border flex items-center justify-center text-[11px] transition-colors ${
-                                selected
-                                  ? "border-primary-300 bg-primary-500 text-primary-900"
-                                  : "border-primary-500/60 bg-black/30 text-primary-100/70 hover:bg-black/60"
-                              }`}
-                            >
-                              {selected ? "✓" : ""}
-                            </button>
-                          )}
-
                           <div
-                            className="w-full min-h-[90px] flex items-end px-4 pb-3 border-b border-primary-800"
+                            className="h-40 relative rounded-t-xl cursor-pointer overflow-hidden"
+                            onClick={() => abrirModalVisualizar(t.id)}
                             style={{
                               backgroundColor: t.card_bg_color || "#0f172a",
                             }}
                           >
-                            <span
-                              className="text-[20px] md:text-[22px] font-semibold leading-tight line-clamp-3"
-                              style={{
-                                color: t.card_text_color || "#ffffff",
-                              }}
-                            >
-                              {t.titulo}
-                            </span>
+                            <div className="absolute inset-0 flex items-center justify-center opacity-30 group-hover:opacity-40 transition-opacity">
+                              <ClipboardList
+                                size={48}
+                                color={t.card_text_color || "#ffffff"}
+                              />
+                            </div>
+
+                            {/* Seleção Checkbox (se ativo) */}
+                            {selectionMode && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleTemplateSelecionado(t.id);
+                                }}
+                                className={`absolute top-3 left-3 z-30 w-6 h-6 rounded-md border flex items-center justify-center text-[11px] transition-colors ${
+                                  selected
+                                    ? "border-primary-300 bg-primary-500 text-primary-900"
+                                    : "border-white/30 bg-black/40 text-white/70 hover:bg-black/60"
+                                }`}
+                              >
+                                {selected ? "✓" : ""}
+                              </button>
+                            )}
+
+                            {/* Menu de Ações MOVIDO para fora do header overflow-hidden */}
                           </div>
 
-                          <div className="flex-1 flex flex-col justify-between px-4 py-3 text-[12px] bg-primary-900">
-                            <div className="flex flex-col gap-1 text-gray-300">
-                              <span>
-                                Campos:{" "}
-                                <strong>{t.campos_count ?? 0}</strong>
-                              </span>
-                              <span className="text-gray-400">
-                                Atualizado em:{" "}
-                                {t.updated_at
-                                  ? formatarDataCurta(t.updated_at)
-                                  : formatarDataCurta(t.created_at)}
-                              </span>
-                              {t.descricao && (
-                                <span className="text-[11px] text-gray-500 line-clamp-2 mt-1">
+                          {/* Menu de Ações (Posicionado Absolutamente sobre o card) */}
+                          <div
+                            className="absolute top-3 right-3 z-30"
+                            data-template-menu-trigger
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() =>
+                                setOpenMenuTemplateId(
+                                  isMenuOpen ? null : t.id
+                                )
+                              }
+                              className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-sm flex items-center justify-center text-white transition-colors"
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+
+                            {isMenuOpen && (
+                              <div
+                                className="absolute right-0 mt-2 w-48 bg-primary-800 border border-primary-600 rounded-lg shadow-xl py-1 z-50 animate-fade-in overflow-hidden"
+                                data-template-menu
+                              >
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuTemplateId(null);
+                                    abrirModalVisualizar(t.id);
+                                  }}
+                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                >
+                                  <Eye size={14} className="text-gray-400" />
+                                  Visualizar
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuTemplateId(null);
+                                    router.push(
+                                      `/dashboard/briefings/novo?edit=${t.id}`
+                                    );
+                                  }}
+                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                >
+                                  <Pencil size={14} className="text-gray-400" />
+                                  Editar
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuTemplateId(null);
+                                    abrirModalEnvio(t.id);
+                                  }}
+                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                >
+                                  <Send size={14} className="text-gray-400" />
+                                  Enviar
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuTemplateId(null);
+                                    duplicarTemplate(t.id);
+                                  }}
+                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                >
+                                  <Copy size={14} className="text-gray-400" />
+                                  Duplicar
+                                </button>
+
+                                <div className="h-px bg-primary-700 my-1 mx-2" />
+
+                                <button
+                                  onClick={() => {
+                                    setOpenMenuTemplateId(null);
+                                    abrirModalExcluirModelos([t.id]);
+                                  }}
+                                  className="w-full text-left px-3 py-2.5 text-[13px] text-rose-300 hover:bg-rose-500/10 flex items-center gap-2"
+                                >
+                                  <Trash2 size={14} />
+                                  Excluir
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          <div
+                            className="p-5 flex flex-col gap-3 flex-1 cursor-pointer rounded-b-xl"
+                            onClick={() => abrirModalVisualizar(t.id)}
+                          >
+                            <div>
+                              <h3 className="font-semibold text-lg leading-tight group-hover:text-primary-400 transition-colors line-clamp-2 text-gray-100">
+                                {t.titulo}
+                              </h3>
+                              {t.descricao ? (
+                                <p className="text-slate-400 text-xs mt-2 line-clamp-2 min-h-[32px]">
                                   {t.descricao}
-                                </span>
+                                </p>
+                              ) : (
+                                <p className="text-slate-500 text-xs mt-2 italic min-h-[32px]">
+                                  Sem descrição definida.
+                                </p>
                               )}
                             </div>
 
-                            <div className="mt-3 flex items-center justify-between gap-2 text-[12px]">
-                              <button
-                                onClick={() => abrirModalVisualizar(t.id)}
-                                className="px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-500 text-primary-50"
-                              >
-                                Visualizar modelo
-                              </button>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => abrirModalEnvio(t.id)}
-                                  className="px-3 py-1.5 rounded-lg bg-primary-800 hover:bg-primary-700 border border-primary-600 text-gray-100"
-                                >
-                                  Enviar
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    router.push(
-                                      `/dashboard/briefings/novo?tipo=${encodeURIComponent(
-                                        t.titulo
-                                      )}`
-                                    )
-                                  }
-                                  className="px-3 py-1.5 rounded-lg border border-primary-700 text-gray-200 hover:bg-primary-800/70"
-                                >
-                                  Criar a partir deste
-                                </button>
+                            <div className="mt-auto pt-4 border-t border-primary-700/50 flex items-center justify-between text-xs text-slate-500">
+                              <div className="flex items-center gap-1.5" title="Quantidade de campos">
+                                <FileText className="w-3.5 h-3.5" />
+                                <span>{t.campos_count ?? 0} campos</span>
+                              </div>
+                              <div className="flex items-center gap-1.5" title="Data de atualização">
+                                <Calendar className="w-3.5 h-3.5" />
+                                <span>
+                                  {t.updated_at
+                                    ? formatarDataCurta(t.updated_at)
+                                    : formatarDataCurta(t.created_at)}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -1147,22 +1466,74 @@ export default function BriefingsPage() {
           {activeTab === "envios" && (
             <div className="flex-1 bg-primary-900 border border-primary-800 rounded-2xl overflow-hidden flex flex-col">
               <div className="px-6 py-4 border-b border-primary-800 flex items-center justify-between gap-4">
-                <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-4">
                   <span className="text-[15px] text-gray-100 font-medium">
                     Briefings enviados
                   </span>
-                  <span className="text-[13px] text-gray-400">
-                    Acompanhe o status de cada envio e visualize as respostas.
-                  </span>
+
+                  <div className="flex bg-primary-800 rounded-lg p-1 border border-primary-700">
+                    <button
+                      onClick={() => changeViewMode("list")}
+                      className={`p-1.5 rounded-md transition-all ${
+                        viewMode === "list"
+                          ? "bg-primary-600 text-gray-100 shadow-sm"
+                          : "text-gray-400 hover:text-gray-200"
+                      }`}
+                      title="Lista"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => changeViewMode("board")}
+                      className={`p-1.5 rounded-md transition-all ${
+                        viewMode === "board"
+                          ? "bg-primary-600 text-gray-100 shadow-sm"
+                          : "text-gray-400 hover:text-gray-200"
+                      }`}
+                      title="Quadros"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="7" height="9" />
+                        <rect x="14" y="3" width="7" height="5" />
+                        <rect x="14" y="12" width="7" height="9" />
+                        <rect x="3" y="16" width="7" height="5" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-3">
                   <div className="text-[13px] text-gray-400">
                     {totalEnvios === 0
-                      ? "Nenhum envio registrado"
+                      ? "Nenhum envio"
                       : totalEnvios === 1
-                      ? "1 envio registrado"
-                      : `${totalEnvios} envios registrados`}
+                      ? "1 envio"
+                      : `${totalEnvios} envios`}
                   </div>
 
                   <div className="relative">
@@ -1175,7 +1546,7 @@ export default function BriefingsPage() {
                       }
                       className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 pr-10 text-[13px] text-gray-100 appearance-none"
                     >
-                      <option value="">Todos os status</option>
+                      <option value="">Todos</option>
                       <option value="pendente">Pendentes</option>
                       <option value="respondido">Respondidos</option>
                     </select>
@@ -1186,13 +1557,15 @@ export default function BriefingsPage() {
                 </div>
               </div>
 
-              <div className="px-6 py-3 border-b border-primary-800 text-[13px] text-gray-400 grid grid-cols-[2.2fr,1.4fr,1.2fr,1fr,1.2fr] gap-4">
-                <div>Cliente</div>
-                <div>Projeto</div>
-                <div>Briefing</div>
-                <div>Status</div>
-                <div className="text-right">Enviado / Prazo / Ações</div>
-              </div>
+              {viewMode === "list" && (
+                <div className="px-6 py-3 border-b border-primary-800 text-[13px] text-gray-400 grid grid-cols-[2.2fr,1.4fr,1.2fr,1fr,1.2fr] gap-4">
+                  <div>Cliente</div>
+                  <div>Projeto</div>
+                  <div>Briefing</div>
+                  <div>Status</div>
+                  <div className="text-right">Enviado / Prazo / Ações</div>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto briefings-scroll">
                 {loading ? (
                   <div className="py-16 text-center text-gray-400 text-sm">
@@ -1206,6 +1579,8 @@ export default function BriefingsPage() {
                   <div className="py-16 text-center text-gray-500 text-sm">
                     Nenhum envio encontrado com os filtros atuais.
                   </div>
+                ) : viewMode === "board" ? (
+                  renderBoardView()
                 ) : (
                   <div className="divide-y divide-primary-800/80">
                     {enviosFiltrados.map((envio) => {
@@ -1225,6 +1600,10 @@ export default function BriefingsPage() {
                       const prazoResStr = envio.prazo_resposta
                         ? formatarDataCurta(envio.prazo_resposta)
                         : null;
+                      
+                      const templateTitulo = envio.template?.titulo || "Briefing";
+                      const projetoTitulo = projeto?.titulo || "Projeto";
+                      const isRespondido = tipoEnvio === "respondido";
 
                       return (
                         <div
@@ -1312,64 +1691,57 @@ export default function BriefingsPage() {
                                     cur === envio.id ? null : envio.id
                                   );
                                 }}
-                                className="p-1.5 rounded-lg hover:bg-primary-700 text-gray-400"
+                                className="p-1.5 hover:bg-primary-700 rounded-md transition-colors"
                               >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="w-5 h-5"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth={2}
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <circle cx="12" cy="5" r="1" />
-                                  <circle cx="12" cy="12" r="1" />
-                                  <circle cx="12" cy="19" r="1" />
-                                </svg>
+                                <MoreVertical size={16} className="text-gray-400" />
                               </button>
 
                               {openMenuEnvioId === envio.id && (
-                                <div
-                                  className="absolute right-0 mt-2 w-44 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20 overflow-hidden"
-                                  data-envio-menu
-                                  onClick={(e) => e.stopPropagation()}
-                                >
+                                <div className="absolute right-8 top-8 w-48 bg-primary-800 border border-primary-600 rounded-xl shadow-xl z-20 flex flex-col overflow-hidden animate-fade-in">
+                                  {isRespondido &&
+                                    envio.projeto_id &&
+                                    envio.template_id && (
+                                      <button
+                                        onClick={() => {
+                                          setOpenMenuEnvioId(null);
+                                          abrirModalVisualizar(envio.template_id);
+                                        }}
+                                        className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2 border-b border-primary-700/50"
+                                      >
+                                        <Eye
+                                          size={14}
+                                          className="text-gray-400"
+                                        />
+                                        Ver respostas
+                                      </button>
+                                    )}
+
                                   <button
                                     onClick={() => {
+                                      const msg = `Olá! Estou enviando o link do briefing "${templateTitulo}" para o projeto "${projetoTitulo}".\n\nAcesse e responda para darmos continuidade:\n(Link Indisponível)`;
+                                      navigator.clipboard.writeText(msg);
+                                      alert(
+                                        "Mensagem copiada para a área de transferência!"
+                                      );
                                       setOpenMenuEnvioId(null);
-                                      if (projeto?.id) {
-                                        router.push(
-                                          `/dashboard/projetos/${projeto.id}`
-                                        );
-                                      }
                                     }}
-                                    className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700"
+                                    className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
                                   >
-                                    Ver projeto
+                                    <Copy
+                                      size={14}
+                                      className="text-gray-400"
+                                    />
+                                    Copiar mensagem
                                   </button>
-
-                                  {tipoEnvio === "respondido" && (
-                                    <button
-                                      onClick={() => {
-                                        setOpenMenuEnvioId(null);
-                                        router.push(
-                                          `/dashboard/briefings/${envio.id}/respostas`
-                                        );
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700"
-                                    >
-                                      Ver respostas
-                                    </button>
-                                  )}
 
                                   <button
                                     onClick={() => {
                                       setOpenMenuEnvioId(null);
                                       excluirEnvio(envio.id);
                                     }}
-                                    className="w-full text-left px-4 py-2.5 text-[13px] text-red-400 hover:bg-primary-700"
+                                    className="w-full text-left px-4 py-3 text-[13px] text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 border-t border-primary-700/50"
                                   >
+                                    <Trash2 size={14} />
                                     Excluir envio
                                   </button>
                                 </div>
@@ -1385,6 +1757,35 @@ export default function BriefingsPage() {
             </div>
           )}
         </section>
+
+        {/* Barra de Ações em Massa (Floating Action Bar) */}
+        {selectionMode && algumModeloSelecionado && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-6 py-3 rounded-2xl bg-primary-800 border border-primary-600 shadow-2xl animate-fade-in-up">
+            <span className="text-[14px] text-gray-200 font-medium">
+              {selectedTemplateIds.length} selecionado{selectedTemplateIds.length > 1 ? "s" : ""}
+            </span>
+            
+            <div className="h-6 w-px bg-primary-600" />
+
+            <button
+              onClick={() => abrirModalExcluirModelos(selectedTemplateIds)}
+              className="flex items-center gap-2 text-rose-300 hover:text-rose-200 font-medium text-[14px] px-2 py-1 rounded-lg hover:bg-rose-500/10 transition-colors"
+            >
+              <Trash2 size={16} />
+              Excluir
+            </button>
+            
+            <button
+              onClick={() => {
+                 setSelectionMode(false);
+                 setSelectedTemplateIds([]);
+              }}
+               className="ml-2 text-gray-400 hover:text-gray-200"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
 
         {sendModalOpen && (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
@@ -1403,15 +1804,16 @@ export default function BriefingsPage() {
                 <button
                   type="button"
                   onClick={fecharModalEnvio}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary-800 text-gray-400"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-800 text-gray-400 transition-colors"
                 >
-                  ✕
+                  <X size={20} />
                 </button>
               </div>
 
               {sendError && (
-                <div className="px-3 py-2 rounded-lg bg-rose-900/40 border border-rose-500/70 text-rose-100 text-[13px]">
-                  {sendError}
+                <div className="px-4 py-3 rounded-xl bg-rose-900/20 border border-rose-500/50 text-rose-200 text-[13px] flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                   {sendError}
                 </div>
               )}
 
@@ -1429,7 +1831,7 @@ export default function BriefingsPage() {
                           e.target.value ? e.target.value : null
                         )
                       }
-                      className="w-full bg-primary-800 border border-primary-700 rounded-lg px-4 py-2.5 pr-10 text-[14px] text-gray-100 appearance-none"
+                      className="w-full bg-primary-800 border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all appearance-none"
                     >
                       <option value="">Selecione um modelo</option>
                       {templates.map((t) => (
@@ -1483,7 +1885,7 @@ export default function BriefingsPage() {
                         value={sendSearchProjeto}
                         onChange={(e) => setSendSearchProjeto(e.target.value)}
                         placeholder="Buscar por nome do projeto ou cliente..."
-                        className="flex-1 bg-transparent outline-none text-[13px] text-gray-100 placeholder-gray-500"
+                        className="flex-1 bg-transparent outline-none text-[14px] text-gray-100 placeholder-primary-400"
                       />
                     </div>
 
@@ -1541,7 +1943,7 @@ export default function BriefingsPage() {
                     type="date"
                     value={sendPrazo}
                     onChange={(e) => setSendPrazo(e.target.value)}
-                    className="w-[220px] bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100"
+                    className="w-full bg-primary-800 border-primary-700 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
                   />
                 </div>
               </div>
@@ -1568,10 +1970,10 @@ export default function BriefingsPage() {
                     type="button"
                     onClick={handleEnviarBriefingModal}
                     disabled={sending}
-                    className={`px-5 py-2 rounded-lg text-[14px] font-semibold ${
+                    className={`px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-all ${
                       sending
-                        ? "bg-primary-700 text-primary-100 cursor-not-allowed"
-                        : "bg-primary-500 hover:bg-primary-300 text-primary-900"
+                        ? "bg-primary-700 text-primary-200 cursor-not-allowed"
+                        : "bg-primary-500 hover:bg-primary-400 text-white shadow-lg shadow-primary-500/20"
                     }`}
                   >
                     {sending ? "Enviando..." : "Enviar briefing"}
@@ -1583,126 +1985,125 @@ export default function BriefingsPage() {
         )}
 
         {viewModalOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
-            <div className="w-full max-w-3xl max-h-[85vh] bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 overflow-hidden">
-              <div className="flex items-start justify-between gap-4">
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="w-full max-w-3xl max-h-[85vh] bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="px-6 py-5 border-b border-primary-800 flex items-start justify-between gap-4 bg-primary-900/50">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[16px] font-semibold text-gray-100">
-                    {viewTemplate?.titulo || "Modelo de briefing"}
-                  </span>
+                  <div className="flex items-center gap-3">
+                     <span className="p-2 rounded-lg bg-primary-800 text-primary-200">
+                        <FileText size={20} />
+                     </span>
+                     <span className="text-[18px] font-semibold text-gray-100">
+                       {viewTemplate?.titulo || "Modelo de briefing"}
+                     </span>
+                  </div>
                   {viewTemplate?.descricao && (
-                    <span className="text-[13px] text-gray-400">
+                    <span className="ml-[52px] text-[14px] text-gray-400 leading-relaxed max-w-xl">
                       {viewTemplate.descricao}
                     </span>
                   )}
-                  <span className="text-[12px] text-gray-500 mt-1">
-                    Este é o preview completo do briefing que o cliente verá.
-                  </span>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={fecharModalVisualizar}
-                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary-800 text-gray-400"
-                >
-                  ✕
-                </button>
+                <div className="flex items-center gap-2">
+                   <button
+                     type="button"
+                     onClick={() => {
+                        fecharModalVisualizar();
+                        if (viewTemplate?.id) {
+                            router.push(`/dashboard/briefings/novo?edit=${viewTemplate.id}`);
+                        }
+                     }}
+                     className="p-2.5 rounded-xl hover:bg-primary-800 text-gray-400 hover:text-primary-100 transition-colors"
+                     title="Editar este modelo"
+                   >
+                     <Pencil size={18} />
+                   </button>
+                   <button
+                     type="button"
+                     onClick={fecharModalVisualizar}
+                     className="p-2.5 rounded-xl hover:bg-primary-800 text-gray-400 hover:text-gray-100 transition-colors"
+                   >
+                     <X size={20} />
+                   </button>
+                </div>
               </div>
 
               {viewError && (
-                <div className="px-3 py-2 rounded-lg bg-rose-900/40 border border-rose-500/70 text-rose-100 text-[13px]">
-                  {viewError}
+                <div className="m-6 px-4 py-3 rounded-xl bg-rose-900/20 border border-rose-500/50 text-rose-200 text-[13px] flex items-center gap-2">
+                   <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                   {viewError}
                 </div>
               )}
 
-              <div className="flex-1 overflow-y-auto briefings-scroll mt-1 pr-1">
+              <div className="flex-1 overflow-y-auto briefings-scroll p-6 bg-primary-950/30">
                 {viewLoading ? (
-                  <div className="py-12 text-center text-gray-400 text-sm">
-                    Carregando perguntas do briefing...
+                  <div className="flex flex-col items-center justify-center py-20 gap-3">
+                    <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-gray-400 text-sm">Carregando formulário...</span>
                   </div>
                 ) : viewCampos.length === 0 ? (
-                  <div className="py-12 text-center text-gray-500 text-sm">
-                    Nenhuma pergunta configurada neste modelo ainda.
+                  <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-500">
+                    <ClipboardList size={32} strokeWidth={1.5} className="opacity-50" />
+                    <span className="text-sm">Nenhuma pergunta configurada neste modelo.</span>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-4">
+                  <div className="max-w-2xl mx-auto flex flex-col gap-6">
                     {viewCampos.map((campo, index) => (
                       <div
                         key={campo.id}
-                        className="bg-primary-900/70 border border-primary-700 rounded-2xl px-4 py-3 flex flex-col gap-2"
+                        className="group bg-primary-900 border border-primary-800 hover:border-primary-700 rounded-2xl p-5 shadow-sm transition-all"
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex flex-col">
-                            <span className="text-[13px] text-gray-500">
-                              Pergunta {index + 1} ·{" "}
-                              {labelTipoCampo(campo.tipo)}
-                            </span>
-                            <span className="text-[15px] text-gray-100 font-medium">
-                              {campo.titulo_pergunta}
-                              {campo.obrigatorio && (
-                                <span className="text-rose-400 ml-1">*</span>
+                        <div className="flex flex-col gap-3">
+                           <div className="flex items-start justify-between gap-4">
+                              <span className="text-[16px] text-gray-100 font-medium leading-tight">
+                                {campo.titulo_pergunta}
+                                {campo.obrigatorio && (
+                                  <span className="text-rose-400 ml-1" title="Obrigatório">*</span>
+                                )}
+                              </span>
+                              
+                              <span className="shrink-0 text-[11px] uppercase tracking-wider font-semibold text-primary-400 bg-primary-950/50 px-2 py-1 rounded-md border border-gray-700">
+                                {labelTipoCampo(campo.tipo)}
+                              </span>
+                           </div>
+                           
+                           {campo.descricao_pergunta && (
+                             <span className="text-[13px] text-gray-400 -mt-1">
+                               {campo.descricao_pergunta}
+                             </span>
+                           )}
+
+                           <div className="pt-2">
+                              {campo.tipo === "short_text" && (
+                                <div className="w-full h-11 rounded-xl border border-primary-700 bg-primary-950/50 px-4 flex items-center text-[13px] text-gray-500 italic pointer-events-none">
+                                  Resposta curta...
+                                </div>
                               )}
-                            </span>
-                          </div>
+
+                              {campo.tipo === "long_text" && (
+                                <div className="w-full h-24 rounded-xl border border-primary-700 bg-primary-950/50 px-4 py-3 text-[13px] text-gray-500 italic pointer-events-none">
+                                  Resposta longa...
+                                </div>
+                              )}
+
+                              {(campo.tipo === "multiple_choice" || campo.tipo === "checkboxes") && (
+                                <div className="flex flex-col gap-2.5">
+                                  {campo.opcoes && campo.opcoes.length > 0 ? (
+                                    campo.opcoes.map((op, i) => (
+                                      <div key={i} className="flex items-center gap-3">
+                                        <div className={`w-5 h-5 rounded flex items-center justify-center border border-primary-600 bg-primary-800/50 ${campo.tipo === "multiple_choice" ? "rounded-full" : "rounded-md"}`} />
+                                        <span className="text-[14px] text-gray-300">{op}</span>
+                                      </div>
+                                    ))
+                                  ) : (
+                                    <span className="text-[12px] text-gray-500 italic">
+                                      Sem opções definidas.
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                           </div>
                         </div>
-
-                        {campo.descricao_pergunta && (
-                          <span className="text-[13px] text-gray-400">
-                            {campo.descricao_pergunta}
-                          </span>
-                        )}
-
-                        {campo.tipo === "short_text" && (
-                          <div className="mt-2 w-full max-w-md h-9 rounded-md border border-primary-700 bg-primary-900/60 flex items-center px-3 text-[12px] text-gray-500">
-                            Campo de resposta curta (visualização)
-                          </div>
-                        )}
-
-                        {campo.tipo === "long_text" && (
-                          <div className="mt-2 w-full max-w-lg h-20 rounded-md border border-primary-700 bg-primary-900/60 flex items-start px-3 py-2 text-[12px] text-gray-500">
-                            Campo de resposta longa (visualização)
-                          </div>
-                        )}
-
-                        {campo.tipo === "multiple_choice" && (
-                          <div className="mt-2 flex flex-col gap-2 text-[13px] text-gray-100">
-                            {campo.opcoes && campo.opcoes.length > 0 ? (
-                              campo.opcoes.map((op, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center gap-2"
-                                >
-                                  <div className="w-4 h-4 rounded-full border border-gray-500" />
-                                  <span>{op}</span>
-                                </div>
-                              ))
-                            ) : (
-                              <span className="text-[12px] text-gray-500">
-                                Nenhuma opção configurada.
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        {campo.tipo === "checkboxes" && (
-                          <div className="mt-2 flex flex-col gap-2 text-[13px] text-gray-100">
-                            {campo.opcoes && campo.opcoes.length > 0 ? (
-                              campo.opcoes.map((op, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center gap-2"
-                                >
-                                  <div className="w-4 h-4 rounded-[4px] border border-gray-500" />
-                                  <span>{op}</span>
-                                </div>
-                              ))
-                            ) : (
-                              <span className="text-[12px] text-gray-500">
-                                Nenhuma opção configurada.
-                              </span>
-                            )}
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>

@@ -1,335 +1,407 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Editor } from "@tiptap/react";
-import { EditorContent, useEditor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import { useRouter } from "next/router";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
-import { addTask } from "@/lib/supabaseQueries/tasks";
-
-import Underline from "@tiptap/extension-underline";
+import { useRouter } from "next/navigation";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import Highlight from "@tiptap/extension-highlight";
+import Underline from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
-import Heading from "@tiptap/extension-heading";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Circle,
+  Calendar,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  List,
+  ListOrdered,
+  Quote,
+} from "lucide-react";
 
 interface Projeto {
   id: string;
   titulo: string;
 }
 
-type UrgenciaOption = "" | "Baixa" | "Normal" | "Urgente" | "Muito urgente";
+const MenuBar = ({ editor }: { editor: any }) => {
+  if (!editor) return null;
+
+  const baseBtn =
+    "p-1.5 rounded hover:bg-primary-700 text-gray-300 transition-colors";
+  const activeBtn = "bg-primary-600 text-white";
+  const divider = <div className="w-px h-6 bg-primary-700 mx-1" />;
+
+  return (
+    <div className="flex flex-wrap gap-1 p-2 border-b border-primary-700 bg-primary-800/30 rounded-t-lg">
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        disabled={!editor.can().chain().focus().toggleBold().run()}
+        className={`${baseBtn} ${editor.isActive("bold") ? activeBtn : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
+        title="Negrito"
+      >
+        <Bold size={16} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        disabled={!editor.can().chain().focus().toggleItalic().run()}
+        className={`${baseBtn} ${editor.isActive("italic") ? activeBtn : ""} disabled:opacity-40 disabled:cursor-not-allowed`}
+        title="Itálico"
+      >
+        <Italic size={16} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={`${baseBtn} ${editor.isActive("underline") ? activeBtn : ""}`}
+        title="Sublinhado"
+      >
+        <UnderlineIcon size={16} />
+      </button>
+
+      {divider}
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setTextAlign("left").run()}
+        className={`${baseBtn} ${editor.isActive({ textAlign: "left" }) ? activeBtn : ""}`}
+        title="Alinhar à Esquerda"
+      >
+        <AlignLeft size={16} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setTextAlign("center").run()}
+        className={`${baseBtn} ${editor.isActive({ textAlign: "center" }) ? activeBtn : ""}`}
+        title="Centralizar"
+      >
+        <AlignCenter size={16} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().setTextAlign("right").run()}
+        className={`${baseBtn} ${editor.isActive({ textAlign: "right" }) ? activeBtn : ""}`}
+        title="Alinhar à Direita"
+      >
+        <AlignRight size={16} />
+      </button>
+
+      {divider}
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        className={`${baseBtn} ${editor.isActive("bulletList") ? activeBtn : ""}`}
+        title="Lista com Marcadores"
+      >
+        <List size={16} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        className={`${baseBtn} ${editor.isActive("orderedList") ? activeBtn : ""}`}
+        title="Lista Numerada"
+      >
+        <ListOrdered size={16} />
+      </button>
+
+      {divider}
+
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        className={`${baseBtn} ${editor.isActive("blockquote") ? activeBtn : ""}`}
+        title="Citação"
+      >
+        <Quote size={16} />
+      </button>
+    </div>
+  );
+};
 
 export default function NovaTarefaPage() {
-  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const router = useRouter();
 
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [loadingProjetos, setLoadingProjetos] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const [titulo, setTitulo] = useState("");
-  const [subtarefas, setSubtarefas] = useState<string[]>([""]);
   const [projetoId, setProjetoId] = useState("");
-  const [urgencia, setUrgencia] = useState<UrgenciaOption>("");
+  const [urgencia, setUrgencia] = useState("");
   const [vencimento, setVencimento] = useState("");
-  const [salvando, setSalvando] = useState(false);
-
-  const [linkModalOpen, setLinkModalOpen] = useState(false);
-  const [linkUrl, setLinkUrl] = useState("");
+  const [subtasks, setSubtasks] = useState<{ id: string; titulo: string }[]>([]);
+  const [newSubtask, setNewSubtask] = useState("");
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: false,
-      }),
-      Heading.configure({
-        levels: [1, 2, 3],
+        bulletList: { keepMarks: true, keepAttributes: false },
+        orderedList: { keepMarks: true, keepAttributes: false },
       }),
       Underline,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        linkOnPaste: true,
-      }),
-      Highlight,
-      TextAlign.configure({
-        types: ["heading", "paragraph"],
-      }),
+      Link.configure({ openOnClick: false }),
+      TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
     content: "",
-    autofocus: false,
+    editorProps: {
+      attributes: {
+        class:
+          "tiptap-editor focus:outline-none min-h-[150px] p-4 text-gray-200",
+      },
+    },
     immediatelyRender: false,
   });
 
   useEffect(() => {
-    async function carregarProjetos() {
-      try {
-        setLoadingProjetos(true);
-        const { data: auth } = await supabase.auth.getUser();
-        const user = auth?.user;
-
-        if (!user) {
-          router.push("/login");
-          return;
-        }
-
-        const { data } = await supabase
-          .from("projetos")
-          .select("id, titulo")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        setProjetos(data || []);
-      } catch (e) {
-        console.error(e);
-      } finally {
+    async function loadProjetos() {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) {
         setLoadingProjetos(false);
+        return;
       }
+
+      const { data } = await supabase
+        .from("projetos")
+        .select("id, titulo")
+        .eq("user_id", auth.user.id)
+        .order("created_at", { ascending: false });
+
+      if (data) setProjetos(data as Projeto[]);
+      setLoadingProjetos(false);
+    }
+    loadProjetos();
+  }, []);
+
+  useEffect(() => {
+    if (!urgencia) return;
+
+    const today = new Date();
+    const addDays = (days: number) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + days);
+      return d.toISOString().split("T")[0];
+    };
+
+    let newDate = "";
+    switch (urgencia) {
+      case "Muito urgente":
+        newDate = addDays(1);
+        break;
+      case "Urgente":
+        newDate = addDays(2);
+        break;
+      case "Normal":
+        newDate = addDays(5);
+        break;
+      case "Baixa":
+        newDate = addDays(14);
+        break;
+      default:
+        newDate = "";
     }
 
-    carregarProjetos();
-  }, [router]);
+    if (newDate) setVencimento(newDate);
+  }, [urgencia]);
 
-  function handleSubtarefaChange(index: number, value: string) {
-    const copia = [...subtarefas];
-    copia[index] = value;
-    setSubtarefas(copia);
+  const addSubtask = () => {
+    if (!newSubtask.trim()) return;
+    setSubtasks([...subtasks, { id: crypto.randomUUID(), titulo: newSubtask }]);
+    setNewSubtask("");
+  };
 
-    if (index === subtarefas.length - 1 && value.trim() !== "") {
-      setSubtarefas([...copia, ""]);
-    }
-  }
+  const removeSubtask = (id: string) => {
+    setSubtasks(subtasks.filter((s) => s.id !== id));
+  };
 
-  function handleRemoverSubtarefa(index: number) {
-    if (subtarefas.length === 1) {
-      setSubtarefas([""]);
-      return;
-    }
-    const nova = subtarefas.filter((_, i) => i !== index);
-    setSubtarefas(nova.length ? nova : [""]);
-  }
-
-  async function handleSalvar() {
+  const handleSave = async () => {
     if (!titulo.trim()) {
-      alert("Informe o nome da tarefa.");
-      return;
-    }
-    if (!projetoId) {
-      alert("Selecione um projeto.");
+      alert("Digite o título da tarefa");
       return;
     }
 
-    try {
-      setSalvando(true);
+    setSaving(true);
+    const { data: auth } = await supabase.auth.getUser();
 
-      const jsonContent = editor?.getJSON();
-      const plainText = editor?.getText().trim() || "";
+    if (!auth.user) {
+      setSaving(false);
+      return;
+    }
 
-      const subtarefasValidas = subtarefas
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
+    const descricaoJson = editor?.getJSON();
 
-      await addTask({
+    const { data: taskData, error: taskError } = await supabase
+      .from("tasks")
+      .insert({
+        user_id: auth.user.id,
         titulo,
-        descricao: editor?.getJSON(),
-        projeto_id: projetoId,
+        projeto_id: projetoId || null,
         due_date: vencimento || null,
-      } as any);
+        status: "para_fazer",
+        descricao: descricaoJson,
+      })
+      .select()
+      .single();
 
-      console.log("Conteúdo rich JSON da tarefa:", jsonContent);
-      console.log("Subtarefas:", subtarefasValidas);
-      console.log("Urgência:", urgencia);
-
-      router.push("/dashboard/tarefas");
-    } catch (e) {
-      console.error(e);
-      alert("Erro ao salvar tarefa.");
-    } finally {
-      setSalvando(false);
+    if (taskError) {
+      alert("Erro ao criar tarefa");
+      setSaving(false);
+      return;
     }
-  }
 
-  function handleVoltar() {
+    if (subtasks.length > 0 && taskData) {
+      const subtasksPayload = subtasks.map((s) => ({
+        user_id: auth.user.id,
+        task_id: taskData.id,
+        titulo: s.titulo,
+        concluida: false,
+      }));
+
+      await supabase.from("subtasks").insert(subtasksPayload);
+    }
+
     router.push("/dashboard/tarefas");
-  }
+  };
 
-  function openLinkModal() {
-    if (!editor) return;
-    const attrs = editor.getAttributes("link");
-    const currentHref = attrs?.href || "";
-    setLinkUrl(currentHref);
-    setLinkModalOpen(true);
-  }
-
-  function handleConfirmLink() {
-    if (!editor) return;
-    if (!linkUrl.trim()) {
-      editor.chain().focus().unsetLink().run();
-    } else {
-      editor
-        .chain()
-        .focus()
-        .extendMarkRange("link")
-        .setLink({ href: linkUrl.trim() })
-        .run();
-    }
-    setLinkModalOpen(false);
-  }
-
-  function handleRemoveLink() {
-    if (!editor) return;
-    editor.chain().focus().unsetLink().run();
-  }
+  const fieldBase =
+    "w-full bg-transparent border border-primary-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-primary-500";
+  const selectBase =
+    "w-full bg-transparent border border-primary-700 rounded-xl px-4 py-3 text-sm text-gray-200 focus:outline-none focus:border-primary-500 appearance-none cursor-pointer";
+  const caret = (
+    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+  );
 
   return (
     <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
       <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
-      <div className="flex flex-col flex-1 gap-8 pr-6 py-8 overflow-hidden">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={handleVoltar}
-              className="w-9 h-9 rounded-full border border-primary-700 flex items-center justify-center text-gray-300 hover:bg-primary-800"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-4 h-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-
-            <div className="flex flex-col">
-              <span className="text-[26px] text-gray-100 font-semibold">
-                Nova tarefa
-              </span>
-              <span className="text-[15px] text-gray-400">
-                Defina os detalhes da tarefa e organize subtarefas, projeto e
-                vencimento.
-              </span>
+      <div className="flex flex-col flex-1 h-full overflow-hidden relative">
+        <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-2 group text-gray-400 hover:text-white transition-colors"
+          >
+            <div className="p-2 rounded-full border border-primary-700 group-hover:bg-primary-800 transition-colors">
+              <ArrowLeft size={18} />
             </div>
-          </div>
+            <span className="text-sm font-medium">Voltar</span>
+          </button>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleVoltar}
-              className="px-5 py-2.5 rounded-lg border border-primary-700 text-gray-200 text-[15px] hover:bg-primary-800"
-            >
-              Voltar
-            </button>
-            <button
-              type="button"
-              onClick={handleSalvar}
-              disabled={salvando}
-              className="px-6 py-2.5 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[15px] disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {salvando ? "Salvando..." : "Salvar tarefa"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold px-6 py-2.5 rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? (
+              <span className="w-5 h-5 border-2 border-primary-900 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <CheckCircle2 size={18} />
+            )}
+            <span>Salvar</span>
+          </button>
         </header>
 
-        <section className="flex-1 overflow-y-auto pr-2 pb-4 custom-scrollbar">
-          <div className="bg-primary-800 border border-primary-700 rounded-2xl p-8 flex flex-col gap-8">
-            <div className="flex flex-col gap-4">
-              <div>
-                <label className="block text-[13px] text-gray-300 mb-1">
-                  Nome da tarefa
-                </label>
+        <div className="flex-1 overflow-y-auto custom-scroll">
+          <div className="max-w-4xl mx-auto px-8 py-10 flex flex-col gap-10">
+            <div className="space-y-6">
+              <div className="flex items-start gap-4">
+                <div className="mt-4 text-gray-500">
+                  <Circle size={24} strokeWidth={1.5} />
+                </div>
                 <input
-                  placeholder="Ex: Finalizar protótipo da landing page"
+                  type="text"
+                  placeholder="Nome da tarefa"
+                  className="w-full bg-transparent text-3xl font-medium text-gray-100 placeholder:text-gray-600 focus:outline-none border-b border-transparent focus:border-primary-700 pb-2 transition-colors"
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  className="w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 text-[15px] text-gray-100 placeholder-gray-500"
+                  autoFocus
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <span className="text-[13px] text-gray-300">
-                  Subtarefas <span className="text-gray-500">(opcional)</span>
-                </span>
-
-                <div className="flex flex-col gap-2">
-                  {subtarefas.map((sub, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 bg-primary-900 border border-primary-700 rounded-xl px-4 py-2.5"
+              <div className="flex flex-col gap-3 pl-10">
+                {subtasks.map((sub) => (
+                  <div key={sub.id} className="flex items-center gap-3 group">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+                    <span className="text-gray-300 text-sm flex-1">{sub.titulo}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeSubtask(sub.id)}
+                      className="text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"
                     >
-                      <span className="text-gray-500 cursor-grab select-none">
-                        ⋮⋮
-                      </span>
+                      ×
+                    </button>
+                  </div>
+                ))}
 
-                      <div className="w-4 h-4 rounded-full border border-gray-600" />
-
-                      <input
-                        value={sub}
-                        onChange={(e) =>
-                          handleSubtarefaChange(index, e.target.value)
-                        }
-                        placeholder={
-                          index === 0
-                            ? "Nome da subtarefa"
-                            : "Outra subtarefa..."
-                        }
-                        className="flex-1 bg-transparent outline-none text-[14px] text-gray-100 placeholder-gray-500"
-                      />
-
-                      {subtarefas.length > 1 && sub.trim() !== "" && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoverSubtarefa(index)}
-                          className="text-gray-500 hover:text-red-400 text-[13px]"
-                        >
-                          Remover
-                        </button>
-                      )}
+                <div className="flex items-center gap-3">
+                  <div className="text-gray-600">
+                    <div className="w-5 h-5 rounded-full border border-gray-700 flex items-center justify-center">
+                      <span className="text-xs">+</span>
                     </div>
-                  ))}
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Adicionar subtarefa"
+                    className="flex-1 bg-transparent text-sm text-gray-300 placeholder:text-gray-600 focus:outline-none"
+                    value={newSubtask}
+                    onChange={(e) => setNewSubtask(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addSubtask()}
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-[2fr,1.2fr,1.2fr] gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] text-gray-300">Projeto</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 pl-10">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-200">Projeto</label>
                 <div className="relative">
                   <select
                     value={projetoId}
                     onChange={(e) => setProjetoId(e.target.value)}
-                    className="flow-select w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 cursor-pointer"
+                    className={selectBase}
+                    style={{ colorScheme: "dark" }}
                   >
-                    <option value="">
-                      {loadingProjetos
-                        ? "Carregando projetos..."
-                        : "Selecionar"}
-                    </option>
+                    <option value="">Selecionar</option>
                     {projetos.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.titulo}
                       </option>
                     ))}
                   </select>
-                  <ChevronDown />
+                  {caret}
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] text-gray-300">Urgência</label>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-200 flex items-center gap-1">
+                  Urgência <span className="text-rose-400">*</span>
+                </label>
                 <div className="relative">
                   <select
                     value={urgencia}
-                    onChange={(e) =>
-                      setUrgencia(e.target.value as UrgenciaOption)
-                    }
-                    className="flow-select w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 cursor-pointer"
+                    onChange={(e) => setUrgencia(e.target.value)}
+                    className={selectBase}
+                    style={{ colorScheme: "dark" }}
                   >
                     <option value="">Selecionar</option>
                     <option value="Baixa">Baixa</option>
@@ -337,392 +409,130 @@ export default function NovaTarefaPage() {
                     <option value="Urgente">Urgente</option>
                     <option value="Muito urgente">Muito urgente</option>
                   </select>
-                  <ChevronDown />
+                  {caret}
                 </div>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[13px] text-gray-300">Vencimento</label>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-200">Vencimento</label>
                 <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                    <Calendar size={16} />
+                  </div>
                   <input
                     type="date"
                     value={vencimento}
                     onChange={(e) => setVencimento(e.target.value)}
-                    className="w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100"
+                    className={`${fieldBase} pl-12 pr-4`}
+                    style={{ colorScheme: "dark", backgroundColor: "transparent" }}
                   />
-                  <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4 text-gray-400"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M7 2a1 1 0 0 0-1 1v1H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-1V3a1 1 0 1 0-2 0v1H9V3a1 1 0 0 0-1-1Zm-2 8h14v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" />
-                    </svg>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-200">Tecnologias</label>
+                <div className="relative">
+                  <select className={selectBase} style={{ colorScheme: "dark" }} defaultValue="">
+                    <option value="">Selecionar</option>
+                    <option value="React">React</option>
+                    <option value="Node.js">Node.js</option>
+                    <option value="TypeScript">TypeScript</option>
+                  </select>
+                  {caret}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-8 pl-10">
+
+
+              <div className="space-y-2">
+                <div className="border border-primary-700 rounded-xl overflow-hidden bg-primary-800/20 focus-within:border-primary-500 transition-colors">
+                  <MenuBar editor={editor} />
+                  <EditorContent editor={editor} />
+                  <div className="px-4 py-2 border-t border-primary-700/50 text-xs text-gray-500">
+                    Escreva aqui...
                   </div>
                 </div>
               </div>
             </div>
-
-            <div className="flex flex-col gap-2">
-              <span className="text-[13px] text-gray-300">
-                Descrição / notas
-              </span>
-
-              <div className="bg-primary-900 border border-primary-700 rounded-xl overflow-hidden">
-                {editor && (
-                  <EditorToolbar
-                    editor={editor}
-                    onOpenLinkModal={openLinkModal}
-                    onRemoveLink={handleRemoveLink}
-                  />
-                )}
-
-                <div className="border-t border-primary-700">
-                  {editor && (
-                    <EditorContent
-                      editor={editor}
-                      className="tiptap px-4 py-3 text-[15px] text-gray-100 custom-editor"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
-        </section>
-
-        {linkModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-md rounded-2xl bg-primary-800 border border-primary-600 shadow-[0_24px_60px_rgba(0,0,0,0.6)] p-6">
-              <h2 className="text-[18px] text-gray-100 font-semibold mb-3">
-                Inserir link
-              </h2>
-              <p className="text-[14px] text-gray-300 mb-4">
-                Cole a URL que deseja vincular ao texto selecionado.
-              </p>
-
-              <input
-                autoFocus
-                type="text"
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="https://..."
-                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 mb-5"
-              />
-
-              <div className="flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setLinkModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-primary-800 border border-primary-600 text-gray-200 text-[14px] hover:bg-primary-700"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmLink}
-                  className="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[14px]"
-                >
-                  Aplicar link
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
 
         <style jsx global>{`
-          .custom-scrollbar::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
+          select,
+          input,
+          textarea {
+            background-color: transparent !important;
+            -webkit-text-fill-color: currentColor;
           }
-          .custom-scrollbar::-webkit-scrollbar-track {
-            background-color: var(--primary-800);
+          select option {
+            background: rgb(15 23 42);
+            color: rgb(226 232 240);
           }
-          .custom-scrollbar::-webkit-scrollbar-thumb {
-            background-color: var(--primary-500);
-            border-radius: 9999px;
-            border: 2px solid var(--primary-800);
-          }
-          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background-color: var(--primary-400);
+          input[type="date"]::-webkit-calendar-picker-indicator {
+            background: transparent;
+            bottom: 0;
+            color: transparent;
+            cursor: pointer;
+            height: auto;
+            left: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: auto;
+            opacity: 0;
           }
 
-          .tiptap {
-            min-height: 160px;
-            outline: none;
+          .tiptap-editor {
+            line-height: 1.6;
           }
-          .tiptap p {
-            margin-bottom: 0.4rem;
+          .tiptap-editor strong {
+            font-weight: 700;
           }
-          .tiptap h1 {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin: 0.75rem 0 0.4rem;
-          }
-          .tiptap h2 {
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin: 0.7rem 0 0.35rem;
-          }
-          .tiptap h3 {
-            font-size: 1.05rem;
-            font-weight: 600;
-            margin: 0.6rem 0 0.3rem;
-          }
-          .tiptap ul {
-            list-style-type: disc;
-            padding-left: 1.25rem;
-            margin: 0.25rem 0;
-          }
-          .tiptap ol {
-            list-style-type: decimal;
-            padding-left: 1.25rem;
-            margin: 0.25rem 0;
-          }
-          .tiptap blockquote {
-            border-left: 3px solid rgba(148, 163, 184, 0.8);
-            padding-left: 0.75rem;
-            margin: 0.5rem 0;
-            color: #e5e7eb;
+          .tiptap-editor em {
             font-style: italic;
           }
-          .tiptap a {
-            color: #38bdf8;
+          .tiptap-editor u {
             text-decoration: underline;
           }
-
-          /* Remove seta nativa dos selects só nesta página */
-          .flow-select {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background-image: none;
+          .tiptap-editor ul {
+            list-style: disc;
+            padding-left: 1.25rem;
+          }
+          .tiptap-editor ol {
+            list-style: decimal;
+            padding-left: 1.25rem;
+          }
+          .tiptap-editor li {
+            margin: 0.15rem 0;
+          }
+          .tiptap-editor blockquote {
+            border-left: 3px solid rgba(148, 163, 184, 0.35);
+            padding-left: 0.9rem;
+            color: rgba(203, 213, 225, 0.9);
+            margin: 0.75rem 0;
+          }
+          .tiptap-editor a {
+            color: var(--primary-400);
+            text-decoration: underline;
+            text-underline-offset: 2px;
+          }
+          .tiptap-editor p {
+            margin: 0.35rem 0;
+          }
+          .tiptap-editor h1,
+          .tiptap-editor h2,
+          .tiptap-editor h3 {
+            margin: 0.6rem 0 0.35rem;
+            line-height: 1.25;
+            font-weight: 700;
+          }
+          .tiptap-editor.ProseMirror-focused {
+            outline: none;
           }
         `}</style>
       </div>
-    </div>
-  );
-}
-
-function ChevronDown() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="w-4 h-4 text-gray-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      strokeWidth={1.75}
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-    </svg>
-  );
-}
-
-function EditorToolbar({
-  editor,
-  onOpenLinkModal,
-  onRemoveLink,
-}: {
-  editor: Editor;
-  onOpenLinkModal: () => void;
-  onRemoveLink: () => void;
-}) {
-  const [, forceUpdate] = useState(0);
-
-  useEffect(() => {
-    if (!editor) return;
-
-    const update = () => {
-      forceUpdate((v) => v + 1);
-    };
-
-    editor.on("selectionUpdate", update);
-    editor.on("transaction", update);
-    editor.on("update", update);
-
-    return () => {
-      editor.off("selectionUpdate", update);
-      editor.off("transaction", update);
-      editor.off("update", update);
-    };
-  }, [editor]);
-
-  if (!editor) return null;
-
-  const isActiveClass = (fn: () => boolean) =>
-    fn()
-      ? "bg-primary-700 text-primary-100"
-      : "text-gray-300";
-
-  const buttonBase =
-    "px-2.5 py-1.5 text-[13px] rounded-md border border-transparent hover:bg-primary-800 flex items-center justify-center gap-1";
-
-  const headingValue = editor.isActive("heading", { level: 1 })
-    ? "h1"
-    : editor.isActive("heading", { level: 2 })
-    ? "h2"
-    : editor.isActive("heading", { level: 3 })
-    ? "h3"
-    : "p";
-
-  return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-primary-900/80">
-      <select
-        className="bg-primary-800 border border-primary-700 rounded-md px-3 pr-7 py-1.5 text-[13px] text-gray-100 cursor-pointer"
-        value={headingValue}
-        onChange={(e) => {
-          const value = e.target.value;
-          if (value === "h1") {
-            editor.chain().focus().setHeading({ level: 1 }).run();
-          } else if (value === "h2") {
-            editor.chain().focus().setHeading({ level: 2 }).run();
-          } else if (value === "h3") {
-            editor.chain().focus().setHeading({ level: 3 }).run();
-          } else {
-            editor.chain().focus().setParagraph().run();
-          }
-        }}
-      >
-        <option value="p">Normal</option>
-        <option value="h1">Título 1</option>
-        <option value="h2">Título 2</option>
-        <option value="h3">Título 3</option>
-      </select>
-
-      <div className="w-px h-6 bg-primary-700 mx-1" />
-
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        className={`${buttonBase} ${isActiveClass(() => editor.isActive("bold"))}`}
-      >
-        <span className="font-semibold">B</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("italic")
-        )}`}
-      >
-        <span className="italic">I</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("underline")
-        )}`}
-      >
-        <span className="underline">U</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("strike")
-        )}`}
-      >
-        <span className="line-through">S</span>
-      </button>
-
-      <div className="w-px h-6 bg-primary-700 mx-1" />
-
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("bulletList")
-        )}`}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.85}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="6" cy="7" r="1.4" />
-          <circle cx="6" cy="12" r="1.4" />
-          <circle cx="6" cy="17" r="1.4" />
-          <line x1="10" y1="7" x2="18" y2="7" />
-          <line x1="10" y1="12" x2="18" y2="12" />
-          <line x1="10" y1="17" x2="18" y2="17" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("orderedList")
-        )}`}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.85}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 6l1.2-2H4" />
-          <path d="M5 11h1" />
-          <path d="M4.5 16.5h2L4.5 19h2" />
-          <line x1="10" y1="7" x2="18" y2="7" />
-          <line x1="10" y1="12" x2="18" y2="12" />
-          <line x1="10" y1="17" x2="18" y2="17" />
-        </svg>
-      </button>
-
-      <div className="w-px h-6 bg-primary-700 mx-1" />
-
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("blockquote")
-        )}`}
-      >
-        <span className="text-[12px]">“”</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={onOpenLinkModal}
-        className={`${buttonBase} ${
-          editor.isActive("link")
-            ? "bg-primary-700 text-primary-100"
-            : "text-gray-300"
-        }`}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1.85}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M8.5 12.75 13 8.25a2.5 2.5 0 1 1 3.54 3.54l-6.01 6.01a3.75 3.75 0 1 1-5.3-5.3l4.25-4.25" />
-        </svg>
-      </button>
-
-      <button
-        type="button"
-        onClick={onRemoveLink}
-        className={buttonBase + " text-gray-400 hover:text-primary-100"}
-      >
-        <span className="text-[11px]">Remover</span>
-      </button>
     </div>
   );
 }

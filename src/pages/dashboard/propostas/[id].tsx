@@ -1,7 +1,10 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import Template1, { ProposalContent, DEFAULT_CONTENT } from "@/components/proposals/Template1";
+import Template1, {
+  ProposalContent,
+  DEFAULT_CONTENT,
+} from "@/components/proposals/Template1";
 import Sidebar from "@/components/Sidebar";
 import Toast, { ToastType } from "@/components/Toast";
 import HeaderProfile from "@/components/HeaderProfile";
@@ -14,7 +17,9 @@ export default function ProposalDetail() {
   const [loading, setLoading] = useState(true);
   const [proposal, setProposal] = useState<any>(null);
   const [content, setContent] = useState<ProposalContent>(DEFAULT_CONTENT);
-  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(
+    null
+  );
 
   function showToast(message: string, type: ToastType) {
     setToast({ message, type });
@@ -74,10 +79,13 @@ export default function ProposalDetail() {
   }
 
   async function handleDownloadPDF() {
-    const sections = document.querySelectorAll(".pdf-section");
+    const sections = Array.from(
+      document.querySelectorAll(".pdf-section")
+    ) as HTMLElement[];
+
     const container = document.getElementById("proposal-content");
 
-    if (!sections || sections.length === 0 || !container) {
+    if (!sections.length || !container) {
       alert("Nenhuma seção encontrada para gerar o PDF.");
       return;
     }
@@ -86,44 +94,194 @@ export default function ProposalDetail() {
       const jsPDF = (await import("jspdf")).default;
       const html2canvas = (await import("html2canvas")).default;
 
-      const allImages = container.querySelectorAll("img");
-      await Promise.all(
-        Array.from(allImages).map((img) => {
-          if (img.complete) return Promise.resolve();
-          return new Promise((resolve) => {
-            img.onload = resolve;
-            img.onerror = resolve;
-          });
-        })
-      );
+      if (document.fonts?.ready) {
+        await document.fonts.ready;
+      }
+
+      const waitImages = async (root: HTMLElement) => {
+        const imgs = Array.from(root.querySelectorAll("img")) as HTMLImageElement[];
+        await Promise.all(
+          imgs.map((img) => {
+            img.setAttribute("crossorigin", "anonymous");
+            const src = img.getAttribute("src");
+            if (src && !src.startsWith("data:")) {
+              img.src = src;
+            }
+
+            if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+
+            return new Promise<void>((resolve) => {
+              img.onload = () => resolve();
+              img.onerror = () => resolve();
+            });
+          })
+        );
+      };
+
+      const fetchAsText = async (url: string) => {
+        const res = await fetch(url, { mode: "cors", cache: "no-cache" });
+        return await res.text();
+      };
+
+      const rasterizeSvgsToPng = async (root: HTMLElement) => {
+        const imgs = Array.from(root.querySelectorAll("img")) as HTMLImageElement[];
+
+        for (const img of imgs) {
+          const src = img.getAttribute("src") || "";
+          const looksSvg =
+            src.toLowerCase().endsWith(".svg") ||
+            src.startsWith("data:image/svg+xml") ||
+            src.includes("image/svg+xml");
+
+          if (!looksSvg) continue;
+
+          try {
+            let svgText = "";
+
+            if (src.startsWith("data:image/svg+xml")) {
+              const comma = src.indexOf(",");
+              const payload = comma >= 0 ? src.slice(comma + 1) : "";
+              svgText = decodeURIComponent(payload);
+            } else {
+              svgText = await fetchAsText(src);
+            }
+
+            if (!svgText.includes('xmlns="http://www.w3.org/2000/svg"')) {
+              svgText = svgText.replace(
+                "<svg",
+                '<svg xmlns="http://www.w3.org/2000/svg"'
+              );
+            }
+
+            const svgBlob = new Blob([svgText], {
+              type: "image/svg+xml;charset=utf-8",
+            });
+            const svgUrl = URL.createObjectURL(svgBlob);
+
+            await new Promise<void>((resolve) => {
+              const tmp = new Image();
+              tmp.crossOrigin = "anonymous";
+              tmp.onload = () => {
+                const w = tmp.naturalWidth || 600;
+                const h = tmp.naturalHeight || 200;
+
+                const c = document.createElement("canvas");
+                c.width = w;
+                c.height = h;
+
+                const ctx = c.getContext("2d");
+                if (ctx) {
+                  ctx.drawImage(tmp, 0, 0, w, h);
+                  const pngDataUrl = c.toDataURL("image/png", 1.0);
+                  img.src = pngDataUrl;
+                }
+
+                URL.revokeObjectURL(svgUrl);
+                resolve();
+              };
+              tmp.onerror = () => {
+                URL.revokeObjectURL(svgUrl);
+                resolve();
+              };
+              tmp.src = svgUrl;
+            });
+          } catch {
+          }
+        }
+      };
+      const injectPdfFixStyles = (mount: HTMLElement) => {
+        const style = document.createElement("style");
+        style.textContent = `
+          /* 1) FOOTER: mt-10 h-10 rounded-full flex items-center justify-between px-8 */
+          .pdf-export .mt-10.h-10.rounded-full.flex {
+            display: flex !important;
+            align-items: center !important;
+          }
+          /* Garante line-height igual à altura (40px) nos spans do footer */
+          .pdf-export .mt-10.h-10.rounded-full.flex > span {
+            line-height: 40px !important;
+          }
+
+          /* 2) BOLINHAS TECNOLOGIAS: w-9 h-9 rounded-full */
+          .pdf-export .w-9.h-9.rounded-full {
+            display: grid !important;
+            place-items: center !important;
+            line-height: 36px !important;
+          }
+
+          /* 3) BADGES: text-[11px] rounded-full */
+          .pdf-export .text-\\[11px\\].rounded-full {
+            display: grid !important;
+            place-items: center !important;
+            line-height: 1 !important;
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+          }
+        `;
+        mount.appendChild(style);
+      };
 
       let pdf: any = null;
 
       for (let i = 0; i < sections.length; i++) {
-        const section = sections[i] as HTMLElement;
+        const original = sections[i];
 
-        const canvas = await html2canvas(section, {
-          scale: 2, // Mantém alta qualidade
-          useCORS: true,
-          backgroundColor: "#ffffff",
-          logging: false,
-        });
+        const rect = original.getBoundingClientRect();
+        const pageW = Math.round(rect.width);
+        const pageH = Math.round(rect.height);
+        const mount = document.createElement("div");
+        mount.style.position = "fixed";
+        mount.style.left = "-10000px";
+        mount.style.top = "0";
+        mount.style.width = `${pageW}px`;
+        mount.style.height = `${pageH}px`;
+        mount.style.background = "#ffffff";
+        mount.style.zIndex = "-9999";
 
-        const imgWidth = canvas.width / 2;
-        const imgHeight = canvas.height / 2;
-        const imgData = canvas.toDataURL("image/jpeg", 1.0);
+        const clone = original.cloneNode(true) as HTMLElement;
+        clone.classList.add("pdf-export");
+        clone.style.width = "100%";
+        clone.style.height = "100%";
+        clone.style.margin = "0";
+        
+        mount.appendChild(clone);
+        document.body.appendChild(mount);
 
-        if (i === 0) {
-          pdf = new jsPDF({
-            orientation: imgWidth > imgHeight ? "landscape" : "portrait",
-            unit: "px",
-            format: [imgWidth, imgHeight],
-          });
-        } else {
-          pdf.addPage([imgWidth, imgHeight], imgWidth > imgHeight ? "landscape" : "portrait");
+        try {
+          injectPdfFixStyles(mount);
+          await rasterizeSvgsToPng(mount);
+          await waitImages(mount);
+          const canvas = await html2canvas(clone, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: false,
+            backgroundColor: "#ffffff",
+            logging: false,
+            width: pageW,
+            height: pageH,
+            windowWidth: pageW,
+            windowHeight: pageH,
+            scrollX: 0,
+            scrollY: 0,
+            foreignObjectRendering: true,
+          } as any);
+
+          const imgData = canvas.toDataURL("image/jpeg", 1.0);
+
+          if (i === 0) {
+            pdf = new jsPDF({
+              orientation: pageW > pageH ? "landscape" : "portrait",
+              unit: "px",
+              format: [pageW, pageH],
+            });
+          } else {
+            pdf.addPage([pageW, pageH], pageW > pageH ? "landscape" : "portrait");
+          }
+
+          pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
+        } finally {
+          document.body.removeChild(mount);
         }
-
-        pdf.addImage(imgData, "JPEG", 0, 0, imgWidth, imgHeight);
       }
 
       pdf.save(`proposta-${proposal.title.toLowerCase().replace(/\s+/g, "-")}.pdf`);
@@ -139,7 +297,6 @@ export default function ProposalDetail() {
       {toast && <Toast message={toast.message} type={toast.type} />}
 
       <div className="flex flex-col flex-1 min-w-0 gap-6 pr-6 py-8">
-        {/* HEADER */}
         <header className="flex items-center justify-between">
           <button
             onClick={() => router.push("/dashboard/propostas")}

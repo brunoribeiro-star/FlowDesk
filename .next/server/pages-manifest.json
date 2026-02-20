@@ -2,7 +2,8 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/dashboard/propostas": "pages/dashboard/propostas.js",
-  "/dashboard/propostas/[id]": "pages/dashboard/propostas/[id].js",
-  "/dashboard/propostas/nova": "pages/dashboard/propostas/nova.js"
+  "/": "pages/index.js",
+  "/dashboard": "pages/dashboard.js",
+  "/dashboard/tarefas/[id]": "pages/dashboard/tarefas/[id].js",
+  "/dashboard/tarefas": "pages/dashboard/tarefas.js"
 }

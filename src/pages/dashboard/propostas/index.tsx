@@ -1,9 +1,32 @@
-import { useEffect, useState, useRef } from "react";
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { Plus, Search, FileText, Calendar, User, ChevronDown } from "lucide-react";
+import { 
+  Plus, 
+  Search, 
+  FileText, 
+  Calendar, 
+  User, 
+  ChevronDown, 
+  LayoutList, 
+  LayoutGrid, 
+  ArrowLeft,
+  MoreHorizontal,
+  Trash2,
+  ExternalLink,
+  CheckCircle2,
+  XCircle,
+  Clock,
+  MessageCircle,
+  AlertCircle
+} from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
+import Image from "next/image";
+
+type ProposalStatus = "analisando" | "negociando" | "aceita" | "recusada" | "em_espera";
 
 type Proposal = {
   id: string;
@@ -19,13 +42,46 @@ type Proposal = {
   };
 };
 
-const STATUS_LABELS: Record<string, { label: string; color: string; dotColor: string }> = {
-  analisando: { label: "Analisando", color: "bg-blue-500/20 text-blue-300", dotColor: "bg-blue-500" },
-  negociando: { label: "Negociando", color: "bg-yellow-500/20 text-yellow-300", dotColor: "bg-yellow-500" },
-  aceita: { label: "Aceita", color: "bg-emerald-500/20 text-emerald-300", dotColor: "bg-emerald-500" },
-  recusada: { label: "Recusada", color: "bg-red-500/20 text-red-300", dotColor: "bg-red-500" },
-  em_espera: { label: "Em espera", color: "bg-purple-500/20 text-purple-300", dotColor: "bg-purple-500" },
+const STATUS_CONFIG: Record<string, { label: string; color: string; border: string; icon: any }> = {
+  analisando: { 
+    label: "Analisando", 
+    color: "text-blue-400 bg-blue-400/10", 
+    border: "border-blue-400/20",
+    icon: Clock 
+  },
+  negociando: { 
+    label: "Negociando", 
+    color: "text-amber-400 bg-amber-400/10", 
+    border: "border-amber-400/20",
+    icon: MessageCircle 
+  },
+  aceita: { 
+    label: "Aceita", 
+    color: "text-emerald-400 bg-emerald-400/10", 
+    border: "border-emerald-400/20",
+    icon: CheckCircle2 
+  },
+  recusada: { 
+    label: "Recusada", 
+    color: "text-rose-400 bg-rose-400/10", 
+    border: "border-rose-400/20",
+    icon: XCircle 
+  },
+  em_espera: { 
+    label: "Em espera", 
+    color: "text-purple-400 bg-purple-400/10", 
+    border: "border-purple-400/20",
+    icon: AlertCircle 
+  },
 };
+
+const COLUMNS: { id: ProposalStatus; label: string }[] = [
+  { id: "analisando", label: "Analisando" },
+  { id: "negociando", label: "Negociando" },
+  { id: "aceita", label: "Aceita" },
+  { id: "recusada", label: "Recusada" },
+  { id: "em_espera", label: "Em espera" },
+];
 
 export default function ProposalsList() {
   const router = useRouter();
@@ -33,7 +89,17 @@ export default function ProposalsList() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [openStatusMenuId, setOpenStatusMenuId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "board">("list");
+  
+  // Drag and Drop state
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedView = localStorage.getItem("proposalsViewMode");
+    if (savedView === "list" || savedView === "board") {
+      setViewMode(savedView);
+    }
+  }, []);
 
   useEffect(() => {
     async function loadProposals() {
@@ -72,20 +138,13 @@ export default function ProposalsList() {
     loadProposals();
   }, []);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as HTMLElement;
-      if (!target.closest("[data-status-menu]")) {
-        setOpenStatusMenuId(null);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const handleViewChange = (mode: "list" | "board") => {
+    setViewMode(mode);
+    localStorage.setItem("proposalsViewMode", mode);
+  };
 
   async function handleStatusChange(id: string, newStatus: string) {
-    setOpenStatusMenuId(null);
-    
+    // Current optimistic update
     setProposals((prev) =>
       prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
     );
@@ -97,172 +156,309 @@ export default function ProposalsList() {
 
     if (error) {
       console.error("Erro ao atualizar status:", error);
-      alert("Erro ao atualizar status.");
+      // Revert on error could be implemented here
     }
   }
 
-  const filteredProposals = proposals.filter((p) => {
-    const term = search.toLowerCase();
-    const clientName = p.description?.clientName?.toLowerCase() || "";
-    return (
-      p.title.toLowerCase().includes(term) ||
-      clientName.includes(term)
+  // DnD Handlers
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    setDraggingId(id);
+    e.dataTransfer.effectAllowed = "move";
+    // Transparent drag image or default
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, targetStatus: ProposalStatus) => {
+    e.preventDefault();
+    if (!draggingId) return;
+    
+    const proposal = proposals.find(p => p.id === draggingId);
+    if (proposal && proposal.status !== targetStatus) {
+        handleStatusChange(draggingId, targetStatus);
+    }
+    setDraggingId(null);
+  };
+
+  const filteredProposals = useMemo(() => {
+    if (!search) return proposals;
+    const lowerSearch = search.toLowerCase();
+    return proposals.filter(p => 
+      p.title.toLowerCase().includes(lowerSearch) ||
+      p.description?.clientName?.toLowerCase().includes(lowerSearch)
     );
-  });
+  }, [proposals, search]);
 
-  return (
-    <div className="min-h-screen w-full bg-primary-900 flex gap-6 overflow-hidden text-gray-100">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+  function formatDate(dateStr: string | null) {
+    if (!dateStr) return "—";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString("pt-BR");
+  }
 
-      <div className="flex flex-col flex-1 min-w-0 gap-6 pr-6 py-8">
-        <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-[32px] font-semibold">Propostas</h1>
-            <p className="text-slate-400 text-sm mt-1">
-              Gerencie suas propostas comerciais
-            </p>
-          </div>
+  // RENDER: Board View
+  const renderBoardView = () => (
+    <div className="flex-1 overflow-hidden flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto custom-scrollbar pb-4 px-1">
+          <div className="flex gap-4 w-full h-full">
+            {COLUMNS.map((col) => {
+                const colProposals = filteredProposals.filter(
+                (p) => (p.status || "analisando") === col.id
+                );
+                const config = STATUS_CONFIG[col.id];
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="relative flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              <input
-                type="text"
-                placeholder="Buscar proposta..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-primary-800 border border-primary-700 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:border-primary-500 transition-colors"
-              />
-            </div>
-            <button
-              onClick={() => router.push("/dashboard/propostas/nova")}
-              className="bg-primary-500 hover:bg-primary-400 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 text-sm whitespace-nowrap transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Nova Proposta
-            </button>
-            
-            <HeaderProfile />
-          </div>
-        </header>
-
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500" />
-          </div>
-        ) : filteredProposals.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-slate-500 bg-primary-800/30 rounded-2xl border border-primary-800 border-dashed">
-            <FileText className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-lg font-medium">Nenhuma proposta encontrada</p>
-            <p className="text-sm">Crie sua primeira proposta para começar</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-10">
-            {filteredProposals.map((proposal) => {
-              const statusInfo = STATUS_LABELS[proposal.status?.toLowerCase()] || {
-                label: proposal.status,
-                color: "bg-slate-700 text-slate-300",
-                dotColor: "bg-slate-500",
-              };
-
-              return (
-                <div
-                  key={proposal.id}
-                  className="group bg-primary-800 border border-primary-700 rounded-xl hover:border-primary-500 transition-all flex flex-col relative"
-                >
-                  <div 
-                    className="h-40 bg-primary-900 relative rounded-t-xl cursor-pointer"
-                    onClick={() => router.push(`/dashboard/propostas/${proposal.id}`)}
-                  >
-                    <div className="absolute inset-0 rounded-t-xl overflow-hidden">
-                      {proposal.cover_url ? (
-                        <img
-                          src={proposal.cover_url}
-                          alt={proposal.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary-900 text-primary-700">
-                          <FileText className="w-12 h-12 opacity-20" />
-                        </div>
-                      )}
-                    </div>
-                    
+                return (
                     <div 
-                      className="absolute top-3 right-3 z-20"
-                      data-status-menu
-                      onClick={(e) => e.stopPropagation()} 
+                        key={col.id}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, col.id)}
+                        className={`flex-1 min-w-0 flex flex-col gap-4 rounded-xl transition-colors h-fit`}
                     >
-                      <button
-                        onClick={() => setOpenStatusMenuId(openStatusMenuId === proposal.id ? null : proposal.id)}
-                        className={`text-[10px] uppercase font-bold px-2 py-1 rounded-full backdrop-blur-md flex items-center gap-1 hover:brightness-110 transition-all ${statusInfo.color}`}
-                      >
-                        {statusInfo.label}
-                        <ChevronDown size={12} />
-                      </button>
-
-                      {openStatusMenuId === proposal.id && (
-                        <div className="absolute right-0 mt-2 w-32 bg-primary-800 border border-primary-600 rounded-lg shadow-xl py-1 z-30 animate-fade-in overflow-hidden">
-                          {Object.entries(STATUS_LABELS).map(([key, info]) => (
-                            <button
-                              key={key}
-                              onClick={() => handleStatusChange(proposal.id, key)}
-                              className={`w-full text-left px-3 py-2 text-xs hover:bg-primary-700 transition-colors flex items-center gap-2 ${
-                                proposal.status === key ? "bg-primary-700/50" : ""
-                              }`}
-                            >
-                              <div className={`w-2 h-2 rounded-full ${info.dotColor}`} />
-                              <span className={proposal.status === key ? "text-primary-100 font-semibold" : "text-gray-300"}>
-                                {info.label}
-                              </span>
-                            </button>
-                          ))}
+                        {/* Column Header */}
+                        <div className="py-4 flex items-center justify-between border-b border-gray-700 mb-2">
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${config.color.split(' ')[0].replace('text-', 'bg-')}`} />
+                                <span className="font-semibold text-sm text-gray-200">{col.label}</span>
+                                <span className="text-xs text-gray-500 ml-1">{colProposals.length}</span>
+                            </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
 
-                  <div 
-                    className="p-5 flex flex-col gap-3 flex-1 cursor-pointer rounded-b-xl"
-                    onClick={() => router.push(`/dashboard/propostas/${proposal.id}`)}
-                  >
-                    <div>
-                      <h3 className="font-semibold text-lg leading-tight group-hover:text-primary-400 transition-colors line-clamp-2">
-                        {proposal.title}
-                      </h3>
-                      <div className="flex items-center gap-1.5 text-slate-400 text-xs mt-2">
-                        <User className="w-3.5 h-3.5" />
-                        <span className="truncate max-w-[200px]">
-                          {proposal.description?.clientName || "Cliente sem nome"}
-                        </span>
-                      </div>
-                    </div>
+                        {/* Cards Container */}
+                        <div className="flex flex-col gap-4">
+                            {colProposals.map((proposal) => (
+                                <div
+                                    key={proposal.id}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, proposal.id)}
+                                    onClick={() => router.push(`/dashboard/propostas/${proposal.id}`)}
+                                    className={`w-full bg-primary-900/40 border border-gray-700 rounded-2xl overflow-hidden cursor-pointer hover:border-primary-500 transition-colors ${
+                                        draggingId === proposal.id ? 'opacity-60 border-primary-500' : ''
+                                    }`}
+                                >
+                                    <div className="relative w-full h-[120px] bg-primary-900 border-b border-gray-700">
+                                        <Image 
+                                            src={proposal.cover_url || "/project-cover-placeholder.jpg"} 
+                                            alt="Cover" 
+                                            fill 
+                                            className="object-cover"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-primary-900/70 via-primary-900/10 to-transparent" />
+                                    </div>
+                                    
+                                    <div className="p-4">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="text-[15px] text-gray-100 font-medium line-clamp-2 mb-1">
+                                                    {proposal.title}
+                                                </h3>
+                                                {proposal.description?.clientName && (
+                                                    <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
+                                                        <User size={12} className="shrink-0" />
+                                                        <span className="truncate">{proposal.description.clientName}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
 
-                    <div className="mt-auto pt-4 border-t border-primary-700/50 flex items-center justify-between text-xs text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span>
-                          {proposal.due_date
-                            ? new Date(proposal.due_date).toLocaleDateString(
-                                "pt-BR"
-                              )
-                            : "Sem data"}
-                        </span>
-                      </div>
-                      <span>
-                        Criado em{" "}
-                        {new Date(proposal.created_at).toLocaleDateString(
-                          "pt-BR"
-                        )}
-                      </span>
+                                        <div className="mt-3 flex items-center justify-between pt-3 border-t border-gray-700">
+                                            <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
+                                                <Calendar size={12} />
+                                                <span>{formatDate(proposal.created_at)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                  </div>
-                </div>
-              );
+                );
             })}
           </div>
-        )}
       </div>
+    </div>
+  );
+
+  // RENDER: List View
+  const renderListView = () => (
+    <div className="bg-primary-900/40 border border-gray-700 rounded-2xl overflow-hidden shadow-sm flex-1 flex flex-col min-h-0">
+        <div className="overflow-auto custom-scrollbar flex-1">
+            <table className="w-full">
+                <thead className="sticky top-0 z-10 bg-primary-900 shadow-sm">
+                    <tr className="border-b border-gray-700">
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-[40%]">Projeto / Cliente</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Data</th>
+                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Ações</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-700">
+                    {filteredProposals.map((proposal) => {
+                         const config = STATUS_CONFIG[proposal.status] || STATUS_CONFIG['analisando'];
+                         const StatusIcon = config.icon;
+
+                         return (
+                            <tr 
+                                key={proposal.id} 
+                                className="group hover:bg-primary-800/40 transition-colors cursor-pointer"
+                                onClick={() => router.push(`/dashboard/propostas/${proposal.id}`)}
+                            >
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="font-medium text-gray-100 text-[15px]">{proposal.title}</span>
+                                        {proposal.description?.clientName && (
+                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                                                <User size={12} />
+                                                <span>{proposal.description.clientName}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.color} ${config.border} bg-opacity-10`}>
+                                        <StatusIcon size={12} />
+                                        <span>{config.label}</span>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className="text-sm text-gray-400">{formatDate(proposal.created_at)}</span>
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <button 
+                                        className="p-2 text-gray-400 hover:text-white hover:bg-primary-800 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            router.push(`/dashboard/propostas/${proposal.id}`);
+                                        }}
+                                    >
+                                        <ExternalLink size={16} />
+                                    </button>
+                                </td>
+                            </tr>
+                         )
+                    })}
+                    {filteredProposals.length === 0 && (
+                        <tr>
+                            <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
+                                Nenhuma proposta encontrada
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </div>
+  );
+
+  return (
+    <div className="flex h-screen bg-gray-900 text-gray-100 font-sans selection:bg-primary-500/30 overflow-hidden">
+      {/* Sidebar */}
+      <Sidebar defaultOpen={sidebarOpen} onOpenChange={setSidebarOpen} />
+
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+        {/* Header */}
+        <header className="h-16 border-b border-gray-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={() => router.push("/dashboard")}
+                    className="p-2 -ml-2 text-gray-400 hover:text-gray-100 hover:bg-primary-800 rounded-xl transition-all"
+                    title="Voltar"
+                >
+                    <ArrowLeft size={20} />
+                </button>
+                <div className="w-px h-6 bg-gray-700" />
+                <h1 className="text-xl font-bold text-gray-100 tracking-tight">Propostas</h1>
+            </div>
+
+            <div className="flex items-center gap-4">
+                <HeaderProfile />
+            </div>
+        </header>
+
+        {/* Toolbar */}
+        <div className="px-6 md:px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+            <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                <input 
+                    type="text"
+                    placeholder="Buscar propostas..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-primary-900 border border-gray-700 rounded-xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 transition-all"
+                />
+            </div>
+
+            <div className="flex items-center gap-3">
+                <div className="flex items-center bg-primary-900 border border-gray-700 rounded-xl p-1">
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => handleViewChange("list")}
+                            className={`p-2 rounded-lg transition-all ${
+                                viewMode === "list" 
+                                    ? "bg-primary-800 text-gray-100 shadow-sm" 
+                                    : "text-gray-400 hover:text-gray-200 hover:bg-primary-800/50"
+                            }`}
+                            title="Visualização em Lista"
+                        >
+                            <LayoutList size={18} />
+                        </button>
+                        <button
+                            onClick={() => handleViewChange("board")}
+                            className={`p-2 rounded-lg transition-all ${
+                                viewMode === "board" 
+                                    ? "bg-primary-800 text-gray-100 shadow-sm" 
+                                    : "text-gray-400 hover:text-gray-200 hover:bg-primary-800/50"
+                            }`}
+                            title="Visualização em Quadros"
+                        >
+                            <LayoutGrid size={18} />
+                        </button>
+                    </div>
+                </div>
+
+                <div className="w-px h-8 bg-gray-700" />
+
+                <button
+                    onClick={() => router.push("/dashboard/propostas/nova")}
+                    className="px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-primary-900/20 flex items-center gap-2"
+                >
+                    <Plus size={18} />
+                    <span className="hidden sm:inline">Nova Proposta</span>
+                </button>
+            </div>
+        </div>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-hidden px-6 md:px-8 pb-8 flex flex-col">
+            {loading ? (
+                <div className="flex items-center justify-center h-40">
+                    <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+            ) : (
+                viewMode === "list" ? renderListView() : renderBoardView()
+            )}
+        </main>
+      </div>
+
+       <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background-color: var(--primary-900);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background-color: var(--primary-500);
+          border-radius: 4px;
+          border: 2px solid var(--primary-900);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background-color: var(--primary-400);
+        }
+      `}</style>
     </div>
   );
 }

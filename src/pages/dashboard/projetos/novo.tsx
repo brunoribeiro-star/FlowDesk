@@ -58,6 +58,69 @@ export default function NovoProjetoPage() {
     forma_pagamento: "pix",
   });
 
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string>("");
+  const [coverUploading, setCoverUploading] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
+    };
+  }, [coverPreview]);
+
+  const handleCoverChange = (file: File | null) => {
+    if (!file) {
+      setCoverFile(null);
+      if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
+      setCoverPreview("");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      showPopup("❌ Envie um arquivo de imagem (png, jpg, webp).", "error");
+      return;
+    }
+
+    const maxMb = 6;
+    if (file.size > maxMb * 1024 * 1024) {
+      showPopup(`❌ A imagem é muito grande. Máximo: ${maxMb}MB.`, "error");
+      return;
+    }
+
+    setCoverFile(file);
+    if (coverPreview?.startsWith("blob:")) URL.revokeObjectURL(coverPreview);
+    setCoverPreview(URL.createObjectURL(file));
+  };
+
+  async function uploadProjectCover(userId: string, projectId: string) {
+    if (!coverFile) return null;
+
+    setCoverUploading(true);
+    try {
+      const ext = coverFile.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeExt = ["png", "jpg", "jpeg", "webp"].includes(ext) ? ext : "jpg";
+
+      const filePath = `${userId}/${projectId}/${Date.now()}.${safeExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("project-covers")
+        .upload(filePath, coverFile, {
+          cacheControl: "3600",
+          upsert: true,
+          contentType: coverFile.type,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from("project-covers").getPublicUrl(filePath);
+      const publicUrl = data?.publicUrl || null;
+
+      return publicUrl;
+    } finally {
+      setCoverUploading(false);
+    }
+  }
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false }),
@@ -232,6 +295,21 @@ export default function NovoProjetoPage() {
 
       if (error) throw error;
 
+      if (coverFile) {
+        const publicUrl = await uploadProjectCover(user.id, data.id);
+        if (publicUrl) {
+          const { error: upErr } = await supabase
+            .from("projetos")
+            .update({ cover_url: publicUrl })
+            .eq("id", data.id);
+
+          if (upErr) {
+            console.error(upErr);
+            showPopup("⚠️ Projeto criado, mas falhou ao salvar a capa.", "error");
+          }
+        }
+      }
+
       await criarPagamentos(data.id, user.id);
 
       showPopup("✨ Projeto criado com sucesso!", "success");
@@ -315,6 +393,56 @@ export default function NovoProjetoPage() {
 
             {step === 1 && (
               <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-2">
+                  <span className="text-[13px] text-gray-300">Imagem de capa do projeto</span>
+
+                  <div className="bg-primary-900 border border-primary-700 rounded-xl overflow-hidden">
+                    <div className="p-4 flex items-center gap-4">
+                      <div className="w-[140px] h-[90px] rounded-xl border border-primary-700 bg-primary-800/40 overflow-hidden flex items-center justify-center shrink-0">
+                        {coverPreview ? (
+                          <img
+                            src={coverPreview}
+                            alt="Capa do projeto"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-[12px] text-gray-500 px-3 text-center">
+                            Sem capa
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 flex flex-col gap-2">
+                        <div className="text-[13px] text-gray-400">
+                          PNG/JPG/WEBP. Recomendado: 1600×900.
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <label className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-primary-800 border border-primary-600 text-gray-200 text-[14px] hover:bg-primary-700 cursor-pointer">
+                            {coverUploading ? "Enviando..." : "Escolher imagem"}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handleCoverChange(e.target.files?.[0] || null)}
+                            />
+                          </label>
+
+                          {coverFile && (
+                            <button
+                              type="button"
+                              onClick={() => handleCoverChange(null)}
+                              className="px-4 py-2 rounded-lg bg-primary-800 border border-primary-600 text-gray-200 text-[14px] hover:bg-primary-700"
+                            >
+                              Remover
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <label className="flex flex-col gap-2">
                   <span className="text-[13px] text-gray-300">Título do projeto *</span>
                   <input
@@ -554,12 +682,12 @@ export default function NovoProjetoPage() {
                   <button
                     type="button"
                     onClick={handleSubmit}
-                    disabled={loading}
+                    disabled={loading || coverUploading}
                     className={`bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg py-3 px-6 text-[15px] ${
-                      loading ? "opacity-50 cursor-not-allowed" : ""
+                      loading || coverUploading ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                   >
-                    {loading ? "Salvando..." : "Concluir cadastro"}
+                    {loading || coverUploading ? "Salvando..." : "Concluir cadastro"}
                   </button>
                 )}
               </div>
@@ -781,27 +909,21 @@ function EditorToolbar({
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleItalic().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("italic")
-        )}`}
+        className={`${buttonBase} ${isActiveClass(() => editor.isActive("italic"))}`}
       >
         <span className="italic">I</span>
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleUnderline().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("underline")
-        )}`}
+        className={`${buttonBase} ${isActiveClass(() => editor.isActive("underline"))}`}
       >
         <span className="underline">U</span>
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleStrike().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("strike")
-        )}`}
+        className={`${buttonBase} ${isActiveClass(() => editor.isActive("strike"))}`}
       >
         <span className="line-through">S</span>
       </button>
@@ -811,9 +933,7 @@ function EditorToolbar({
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBulletList().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("bulletList")
-        )}`}
+        className={`${buttonBase} ${isActiveClass(() => editor.isActive("bulletList"))}`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -837,9 +957,7 @@ function EditorToolbar({
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleOrderedList().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("orderedList")
-        )}`}
+        className={`${buttonBase} ${isActiveClass(() => editor.isActive("orderedList"))}`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -865,9 +983,7 @@ function EditorToolbar({
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
-        className={`${buttonBase} ${isActiveClass(() =>
-          editor.isActive("blockquote")
-        )}`}
+        className={`${buttonBase} ${isActiveClass(() => editor.isActive("blockquote"))}`}
       >
         <span className="text-[12px]">“”</span>
       </button>

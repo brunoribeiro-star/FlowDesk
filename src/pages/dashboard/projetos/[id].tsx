@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
@@ -12,24 +12,21 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import {
-  Pencil,
-  SlidersHorizontal,
-  Crown,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp } from "lucide-react";
+
+type ProjetoStatus = "Em andamento" | "Concluído" | "Arquivado";
 
 type Projeto = {
   id: string;
   user_id: string;
   titulo: string;
   descricao: any;
+  cover_url: string | null;
   cliente_id: string | null;
   orcamento: number | null;
   data_inicio: string | null;
   prazo_entrega: string | null;
-  status: "Em andamento" | "Concluído" | "Arquivado";
+  status: ProjetoStatus;
   progresso: number | null;
   link_arquivos: string | null;
   etapa_atual: string | null;
@@ -91,10 +88,21 @@ type Briefing = {
 
 type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing";
 
-function calcularUrgencia(due_date: string | null): string {
-  if (!due_date) return "Sem prioridade";
+function safeParseJSON(value: any) {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value !== "string") return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function calcularUrgencia(data: string | null): string {
+  if (!data) return "Sem prioridade";
   const hoje = new Date();
-  const limite = new Date(due_date + "T00:00:00");
+  const limite = new Date(data + "T00:00:00");
   const diff = limite.getTime() - hoje.getTime();
   const dias = diff / (1000 * 60 * 60 * 24);
   if (dias < 0) return "Vencida";
@@ -120,15 +128,16 @@ function UrgenciaIndicator({ nivel }: { nivel: string }) {
     case "Baixa":
       ativos = 1;
       break;
+    default:
+      ativos = 0;
+      break;
   }
   return (
     <div className="flex items-end gap-[2px]">
       {Array.from({ length: total }).map((_, i) => (
         <div
           key={i}
-          className={`w-[3px] rounded-full ${
-            i < ativos ? "bg-primary-500" : "bg-primary-700"
-          }`}
+          className={`w-[3px] rounded-full ${i < ativos ? "bg-primary-500" : "bg-primary-700"}`}
           style={{ height: 6 + i * 3 }}
         />
       ))}
@@ -136,38 +145,64 @@ function UrgenciaIndicator({ nivel }: { nivel: string }) {
   );
 }
 
-function Modal({ open, title, children, onClose, actions }: any) {
+function timeAgoPtBR(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = Math.max(0, now.getTime() - d.getTime());
+  const mins = Math.floor(diff / (1000 * 60));
+  if (mins < 1) return "agora";
+  if (mins < 60) return `há ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `há ${hrs} h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `há ${days} dia${days > 1 ? "s" : ""}`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `há ${months} mês${months > 1 ? "es" : ""}`;
+  const years = Math.floor(months / 12);
+  return `há ${years} ano${years > 1 ? "s" : ""}`;
+}
+
+function statusLabel(status: ProjetoStatus) {
+  if (status === "Em andamento") return "Para fazer";
+  return status;
+}
+
+function statusPillClass(status: ProjetoStatus) {
+  if (status === "Concluído") return "bg-third-400/15 text-third-300 border-third-400/40";
+  if (status === "Arquivado") return "bg-gray-500/15 text-gray-200 border-gray-400/30";
+  return "bg-primary-500/15 text-primary-200 border-primary-500/35";
+}
+
+function Modal({
+  open,
+  title,
+  children,
+  onClose,
+  actions,
+}: {
+  open: boolean;
+  title?: string;
+  children: ReactNode;
+  onClose: () => void;
+  actions?: ReactNode;
+}) {
   if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg bg-primary-800 border border-primary-700 rounded-lg p-6"
+        className="w-full max-w-lg bg-primary-800 border border-primary-700 rounded-2xl p-6 shadow-[0_24px_60px_rgba(0,0,0,0.55)]"
         onClick={(e) => e.stopPropagation()}
       >
         {title ? (
           <div className="flex items-center justify-between mb-4">
-            <h4 className="text-[20px] text-primary-100 font-semibold">
-              {title}
-            </h4>
-            <button
-              onClick={onClose}
-              className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-3 py-1 hover:bg-primary-700"
-            >
+            <h4 className="text-[18px] text-primary-100 font-semibold">{title}</h4>
+            <button onClick={onClose} className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-3 py-1 hover:bg-primary-700">
               Fechar
             </button>
           </div>
         ) : null}
-
         <div className="text-gray-100">{children}</div>
-
-        {actions ? (
-          <div className="mt-6 flex items-center justify-end gap-3">
-            {actions}
-          </div>
-        ) : null}
+        {actions ? <div className="mt-6 flex items-center justify-end gap-3">{actions}</div> : null}
       </div>
     </div>
   );
@@ -175,41 +210,24 @@ function Modal({ open, title, children, onClose, actions }: any) {
 
 export default function ProjetoDetalhesPage() {
   const router = useRouter();
-  const { id } = router.query as { id: string };
+  const idRaw = router.query?.id;
+  const id = typeof idRaw === "string" ? idRaw : "";
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [subtasksByTask, setSubtasksByTask] = useState<
-    Record<string, Subtask[]>
-  >({});
+  const [subtasksByTask, setSubtasksByTask] = useState<Record<string, Subtask[]>>({});
   const [files, setFiles] = useState<ArquivoProjeto[]>([]);
   const [links, setLinks] = useState<LinkProjeto[]>([]);
   const [briefing, setBriefing] = useState<Briefing | null>(null);
 
-  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>(
-    {}
-  );
-
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [newLink, setNewLink] = useState({ titulo: "", url: "" });
-
-  const [confirm, setConfirm] = useState<{
-    open: boolean;
-    msg: string;
-    onYes?: () => void;
-  }>({
-    open: false,
-    msg: "",
-  });
-
-  const [notify, setNotify] = useState<{ open: boolean; msg: string }>({
-    open: false,
-    msg: "",
-  });
+  const [notify, setNotify] = useState<{ open: boolean; msg: string }>({ open: false, msg: "" });
 
   const [linkModalOpen, setLinkModalOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -220,16 +238,14 @@ export default function ProjetoDetalhesPage() {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
 
+  const [coverUploading, setCoverUploading] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false }),
       Heading.configure({ levels: [1, 2, 3] }),
       Underline,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        linkOnPaste: true,
-      }),
+      Link.configure({ openOnClick: false, autolink: true, linkOnPaste: true }),
       Highlight,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
     ],
@@ -240,7 +256,16 @@ export default function ProjetoDetalhesPage() {
   });
 
   useEffect(() => {
-    if (!id) return;
+    if (!editor) return;
+    const parsed = safeParseJSON(projeto?.descricao);
+    if (parsed) editor.commands.setContent(parsed);
+    else editor.commands.clearContent();
+  }, [editor, projeto?.descricao]);
+
+  useEffect(() => {
+    if (!id || !router.isReady) return;
+
+    let cancelled = false;
 
     (async () => {
       try {
@@ -250,11 +275,14 @@ export default function ProjetoDetalhesPage() {
         const authUser = auth?.user;
 
         if (!authUser) {
-          setUser(null);
-          router.push("/login");
+          if (!cancelled) {
+            setUser(null);
+            router.push("/login");
+          }
           return;
         }
 
+        if (cancelled) return;
         setUser(authUser);
 
         const { data: projetoData, error: projetoErr } = await supabase
@@ -273,29 +301,18 @@ export default function ProjetoDetalhesPage() {
           .single();
 
         if (projetoErr) throw projetoErr;
+        if (cancelled) return;
 
         const proj = projetoData as Projeto;
         setProjeto(proj);
 
-        if (editor) {
-          try {
-            let parsed =
-              typeof proj.descricao === "string"
-                ? JSON.parse(proj.descricao)
-                : proj.descricao;
-
-            if (parsed) editor.commands.setContent(parsed);
-            else editor.commands.clearContent();
-          } catch {
-            editor.commands.clearContent();
-          }
-        }
-
-        const { data: tasksData } = await supabase
+        const { data: tasksData, error: tasksErr } = await supabase
           .from("tasks")
           .select("*")
           .eq("projeto_id", id)
           .order("created_at", { ascending: true });
+
+        if (tasksErr) throw tasksErr;
 
         const tks = (tasksData || []) as Task[];
         setTasks(tks);
@@ -303,56 +320,64 @@ export default function ProjetoDetalhesPage() {
         if (tks.length) {
           const taskIds = tks.map((t) => t.id);
 
-          const { data: subsData } = await supabase
+          const { data: subsData, error: subsErr } = await supabase
             .from("subtasks")
             .select("*")
             .in("task_id", taskIds)
             .order("created_at", { ascending: true });
 
+          if (subsErr) throw subsErr;
+
           const grouped: Record<string, Subtask[]> = {};
-
           (subsData || []).forEach((s: any) => {
-            grouped[s.task_id] = grouped[s.task_id] || [];
-            grouped[s.task_id].push(s);
+            const key = String(s.task_id);
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(s as Subtask);
           });
-
           setSubtasksByTask(grouped);
         } else {
           setSubtasksByTask({});
         }
 
-        const { data: filesData } = await supabase
+        const { data: filesData, error: filesErr } = await supabase
           .from("arquivos_projeto")
           .select("*")
           .eq("projeto_id", id)
           .order("created_at", { ascending: false });
 
+        if (filesErr) throw filesErr;
         setFiles((filesData || []) as ArquivoProjeto[]);
 
-        const { data: linksData } = await supabase
+        const { data: linksData, error: linksErr } = await supabase
           .from("links_projeto")
           .select("*")
           .eq("projeto_id", id)
           .order("created_at", { ascending: false });
 
+        if (linksErr) throw linksErr;
         setLinks((linksData || []) as LinkProjeto[]);
 
-        const { data: briefData } = await supabase
+        const { data: briefData, error: briefErr } = await supabase
           .from("briefings")
           .select("*")
           .eq("projeto_id", id)
           .maybeSingle();
 
-        if (briefData) setBriefing(briefData as Briefing);
+        if (briefErr) throw briefErr;
+        setBriefing(briefData ? (briefData as Briefing) : null);
 
         setError(null);
       } catch (err: any) {
         setError(err.message || "Erro ao carregar o projeto.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [id, router, editor]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, router.isReady, router]);
 
   useEffect(() => {
     function handleClickOutside(e: any) {
@@ -360,17 +385,14 @@ export default function ProjetoDetalhesPage() {
         setProfileOpen(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const pct = useMemo(() => {
-    const flatDone = tasks.filter(
-      (t) => t.concluida || t.status === "concluida"
-    ).length;
-    const flatTotal = tasks.length;
-    if (flatTotal === 0) return 0;
+    const doneTasks = tasks.filter((t) => !!(t.concluida || (t.status || "").toLowerCase() === "concluida")).length;
+    const totalTasks = tasks.length;
+    if (totalTasks === 0) return 0;
 
     let subDone = 0;
     let subTotal = 0;
@@ -381,7 +403,7 @@ export default function ProjetoDetalhesPage() {
       subTotal += subs.length;
     }
 
-    const taskRatio = flatDone / flatTotal;
+    const taskRatio = doneTasks / totalTasks;
     const subRatio = subTotal > 0 ? subDone / subTotal : taskRatio;
 
     return Math.round(((taskRatio + subRatio) / 2) * 100);
@@ -395,16 +417,11 @@ export default function ProjetoDetalhesPage() {
 
       const descricaoJSON = editor.getJSON();
 
-      const { error: updateErr } = await supabase
-        .from("projetos")
-        .update({ descricao: descricaoJSON })
-        .eq("id", projeto.id);
+      const { error: updateErr } = await supabase.from("projetos").update({ descricao: descricaoJSON }).eq("id", projeto.id);
 
       if (updateErr) throw updateErr;
 
-      setProjeto((prev) =>
-        prev ? { ...prev, descricao: descricaoJSON } : prev
-      );
+      setProjeto((prev) => (prev ? { ...prev, descricao: descricaoJSON } : prev));
 
       try {
         await supabase.from("atividades").insert([
@@ -419,10 +436,7 @@ export default function ProjetoDetalhesPage() {
 
       setNotify({ open: true, msg: "Descrição atualizada com sucesso." });
     } catch (err: any) {
-      setNotify({
-        open: true,
-        msg: "Erro ao salvar descrição: " + err.message,
-      });
+      setNotify({ open: true, msg: "Erro ao salvar descrição: " + (err.message || "Erro desconhecido") });
     } finally {
       setSaving(false);
     }
@@ -430,9 +444,8 @@ export default function ProjetoDetalhesPage() {
 
   function openLinkModal() {
     if (!editor) return;
-
     const attrs = editor.getAttributes("link");
-    const currentHref = attrs?.href || "";
+    const currentHref = (attrs?.href as string) || "";
     setLinkUrl(currentHref);
     setLinkModalOpen(true);
   }
@@ -440,15 +453,12 @@ export default function ProjetoDetalhesPage() {
   function handleConfirmLink() {
     if (!editor) return;
 
-    if (!linkUrl.trim()) {
+    const clean = linkUrl.trim();
+
+    if (!clean) {
       editor.chain().focus().unsetLink().run();
     } else {
-      editor
-        .chain()
-        .focus()
-        .extendMarkRange("link")
-        .setLink({ href: linkUrl.trim() })
-        .run();
+      editor.chain().focus().extendMarkRange("link").setLink({ href: clean }).run();
     }
 
     setLinkModalOpen(false);
@@ -479,15 +489,10 @@ export default function ProjetoDetalhesPage() {
     try {
       setSaving(true);
 
-      const { error: upErr } = await supabase.storage
-        .from("projetos")
-        .upload(filePath, file);
-
+      const { error: upErr } = await supabase.storage.from("projetos").upload(filePath, file);
       if (upErr) throw upErr;
 
-      const { data: publicUrl } = supabase.storage
-        .from("projetos")
-        .getPublicUrl(filePath);
+      const { data: publicUrl } = supabase.storage.from("projetos").getPublicUrl(filePath);
 
       const { data, error: insErr } = await supabase
         .from("arquivos_projeto")
@@ -507,12 +512,55 @@ export default function ProjetoDetalhesPage() {
       setFiles((prev) => [data as ArquivoProjeto, ...prev]);
       setNotify({ open: true, msg: "Arquivo enviado com sucesso." });
     } catch (err: any) {
-      setNotify({
-        open: true,
-        msg: "Erro ao enviar arquivo: " + err.message,
-      });
+      setNotify({ open: true, msg: "Erro ao enviar arquivo: " + (err.message || "Erro desconhecido") });
     } finally {
       setSaving(false);
+      e.target.value = "";
+    }
+  }
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    if (!projeto) return;
+
+    const filesSel = e.target.files;
+    if (!filesSel || !filesSel.length) return;
+
+    const { data: auth } = await supabase.auth.getUser();
+    const authUser = auth?.user;
+
+    if (!authUser) {
+      setNotify({ open: true, msg: "Usuário não autenticado." });
+      return;
+    }
+
+    const file = filesSel[0];
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+    const uuid =
+      typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}_${Math.random()}`.replace(".", "");
+    const filePath = `${authUser.id}/${projeto.id}/${uuid}.${ext}`;
+
+    try {
+      setCoverUploading(true);
+
+      const { error: upErr } = await supabase.storage.from("project-covers").upload(filePath, file, {
+        upsert: false,
+        contentType: file.type || undefined,
+      });
+
+      if (upErr) throw upErr;
+
+      const { data: publicUrl } = supabase.storage.from("project-covers").getPublicUrl(filePath);
+      const nextUrl = publicUrl.publicUrl;
+
+      const { error: updErr } = await supabase.from("projetos").update({ cover_url: nextUrl }).eq("id", projeto.id);
+      if (updErr) throw updErr;
+
+      setProjeto((prev) => (prev ? { ...prev, cover_url: nextUrl } : prev));
+      setNotify({ open: true, msg: "Capa atualizada com sucesso." });
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao enviar capa: " + (err.message || "Erro desconhecido") });
+    } finally {
+      setCoverUploading(false);
       e.target.value = "";
     }
   }
@@ -527,13 +575,7 @@ export default function ProjetoDetalhesPage() {
     try {
       const { data, error } = await supabase
         .from("links_projeto")
-        .insert([
-          {
-            projeto_id: projeto.id,
-            titulo: newLink.titulo || null,
-            url,
-          },
-        ])
+        .insert([{ projeto_id: projeto.id, titulo: newLink.titulo.trim() || null, url }])
         .select()
         .single();
 
@@ -543,29 +585,20 @@ export default function ProjetoDetalhesPage() {
       setNewLink({ titulo: "", url: "" });
       setNotify({ open: true, msg: "Link adicionado." });
     } catch (err: any) {
-      setNotify({
-        open: true,
-        msg: "Erro ao adicionar link: " + err.message,
-      });
+      setNotify({ open: true, msg: "Erro ao adicionar link: " + (err.message || "Erro desconhecido") });
     }
   }
 
   function renderBriefing(respostas: any) {
-    if (!respostas)
-      return <div className="text-gray-400">Nenhum briefing preenchido.</div>;
+    if (!respostas) return <div className="text-gray-400">Nenhum briefing preenchido.</div>;
 
     if (Array.isArray(respostas)) {
       return (
         <ul className="flex flex-col gap-2">
           {respostas.map((item, idx) => (
-            <li
-              key={idx}
-              className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
-            >
-              <div className="text-primary-100 font-medium">
-                {item.pergunta ?? `Pergunta ${idx + 1}`}
-              </div>
-              <div className="text-gray-300">{item.resposta ?? "—"}</div>
+            <li key={idx} className="bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
+              <div className="text-primary-100 font-medium">{item?.pergunta ?? `Pergunta ${idx + 1}`}</div>
+              <div className="text-gray-300">{item?.resposta ?? "—"}</div>
             </li>
           ))}
         </ul>
@@ -576,10 +609,7 @@ export default function ProjetoDetalhesPage() {
       return (
         <ul className="flex flex-col gap-2">
           {Object.entries(respostas).map(([pergunta, resposta], idx) => (
-            <li
-              key={idx}
-              className="bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
-            >
+            <li key={idx} className="bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
               <div className="text-primary-100 font-medium">{pergunta}</div>
               <div className="text-gray-300">{String(resposta)}</div>
             </li>
@@ -588,15 +618,11 @@ export default function ProjetoDetalhesPage() {
       );
     }
 
-    return (
-      <div className="text-gray-300 whitespace-pre-wrap">
-        {String(respostas)}
-      </div>
-    );
+    return <div className="text-gray-300 whitespace-pre-wrap">{String(respostas)}</div>;
   }
 
   function isTaskDone(t: Task) {
-    return !!(t.concluida || t.status === "concluida");
+    return !!(t.concluida || (t.status || "").toLowerCase() === "concluida");
   }
 
   async function toggleTaskCompletion(task: Task) {
@@ -604,54 +630,33 @@ export default function ProjetoDetalhesPage() {
     const novoStatus = done ? "para_fazer" : "concluida";
 
     try {
-      await supabase
-        .from("tasks")
-        .update({ status: novoStatus })
-        .eq("id", task.id);
+      const { error } = await supabase.from("tasks").update({ status: novoStatus, concluida: novoStatus === "concluida" }).eq("id", task.id);
+      if (error) throw error;
 
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id
-            ? { ...t, status: novoStatus, concluida: novoStatus === "concluida" }
-            : t
-        )
-      );
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: novoStatus, concluida: novoStatus === "concluida" } : t)));
     } catch (err: any) {
-      setNotify({
-        open: true,
-        msg: "Erro ao atualizar tarefa: " + err.message,
-      });
+      setNotify({ open: true, msg: "Erro ao atualizar tarefa: " + (err.message || "Erro desconhecido") });
     }
   }
 
   async function toggleSubtaskCompletion(sub: Subtask) {
     const nova = !sub.concluida;
     try {
-      await supabase
-        .from("subtasks")
-        .update({ concluida: nova })
-        .eq("id", sub.id);
+      const { error } = await supabase.from("subtasks").update({ concluida: nova }).eq("id", sub.id);
+      if (error) throw error;
 
       setSubtasksByTask((prev) => {
         const current = prev[sub.task_id] || [];
-        const updated = current.map((s) =>
-          s.id === sub.id ? { ...s, concluida: nova } : s
-        );
+        const updated = current.map((s) => (s.id === sub.id ? { ...s, concluida: nova } : s));
         return { ...prev, [sub.task_id]: updated };
       });
     } catch (err: any) {
-      setNotify({
-        open: true,
-        msg: "Erro ao atualizar subtask: " + err.message,
-      });
+      setNotify({ open: true, msg: "Erro ao atualizar subtask: " + (err.message || "Erro desconhecido") });
     }
   }
 
   function toggleTaskExpanded(taskId: string) {
-    setExpandedTasks((prev) => ({
-      ...prev,
-      [taskId]: !prev[taskId],
-    }));
+    setExpandedTasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
   }
 
   function handleEditProfile() {
@@ -669,575 +674,419 @@ export default function ProjetoDetalhesPage() {
   }
 
   if (loading) {
-    return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">
-        Carregando…
-      </div>
-    );
+    return <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">Carregando…</div>;
   }
 
   if (error || !projeto) {
-    return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">
-        {error || "Projeto não encontrado."}
-      </div>
-    );
+    return <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">{error || "Projeto não encontrado."}</div>;
   }
 
   const clienteNome = projeto.clientes?.nome || "Cliente não informado";
+  const clienteEmpresa = projeto.clientes?.empresa || "";
   const clienteFoto = projeto.clientes?.foto_url || "/perfil.svg";
 
   const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
-  const displayName =
-    user?.user_metadata?.nome ||
-    user?.email?.split("@")[0] ||
-    "Usuário";
+  const displayName = user?.user_metadata?.nome || user?.email?.split("@")[0] || "Usuário";
+
+  const coverSrc = projeto.cover_url || "/project-cover-placeholder.png";
+
+  const urgProjeto = calcularUrgencia(projeto.prazo_entrega);
+  const createdLabel = projeto.created_at ? timeAgoPtBR(projeto.created_at) : "—";
 
   return (
     <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
       <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-      <div className="flex flex-col flex-1 gap-6 pr-6 py-8 w-full overflow-hidden">
-        <header className="w-full bg-primary-800 border border-primary-700 rounded-lg p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+
+      <div className="flex flex-col flex-1 pr-6 py-8 w-full overflow-hidden">
+        <div className="flex items-center justify-between gap-4">
+          <button
+            onClick={() => router.push("/dashboard/projetos")}
+            className="inline-flex items-center gap-2 bg-primary-800 border border-primary-700 text-gray-100 rounded-xl px-4 py-2 text-[15px] hover:bg-primary-700 transition-colors"
+          >
+            ← Voltar
+          </button>
+
+          <div className="flex items-center gap-3">
+            <label className="w-10 h-10 rounded-full bg-primary-800 border border-primary-700 hover:bg-primary-700 transition-colors cursor-pointer flex items-center justify-center">
+              <span className="text-[18px]">{coverUploading ? "…" : "⤴"}</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} disabled={coverUploading} />
+            </label>
+
+            <div className="relative" ref={profileRef}>
               <button
-                onClick={() => router.push("/dashboard/projetos")}
-                className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[16px] hover:bg-primary-700 transition-colors"
+                type="button"
+                onClick={() => setProfileOpen((v) => !v)}
+                className="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-primary-800 transition-colors"
               >
-                ← Voltar
+                <Image src={avatarSrc} alt="Perfil" width={38} height={38} className="rounded-full object-cover border border-primary-700" />
+                {profileOpen ? <ChevronUp size={18} className="text-primary-100" /> : <ChevronDown size={18} className="text-primary-100" />}
               </button>
 
-              <div className="w-[70px] h-[70px] rounded-full overflow-hidden border border-primary-600 bg-primary-900">
-                <Image
-                  src={clienteFoto}
-                  alt={clienteNome}
-                  width={70}
-                  height={70}
-                  className="object-cover"
-                />
+              {profileOpen && (
+                <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in z-50">
+                  <div className="flex flex-col gap-1 mb-2">
+                    <div className="text-[14px] text-gray-200 font-medium">Olá, {displayName}!</div>
+                  </div>
+
+                  <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleEditProfile}>
+                    <Pencil size={20} className="text-primary-200" />
+                    Editar perfil
+                  </button>
+
+                  <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleTheme}>
+                    <SlidersHorizontal size={20} className="text-primary-200" />
+                    Personalizar tema
+                  </button>
+
+                  <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors" onClick={handleSignature}>
+                    <Crown size={20} />
+                    Assinatura
+                  </button>
+
+                  <button
+                    className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      router.push("/login");
+                    }}
+                  >
+                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                      <polyline points="16 17 21 12 16 7" />
+                      <line x1="21" y1="12" x2="9" y2="12" />
+                    </svg>
+                    Sair da plataforma
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="w-full max-w-[980px] mx-auto">
+            <div className="bg-primary-800 border border-primary-700 rounded-3xl p-6">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                <div className="flex items-center gap-4">
+                  <div className="w-[160px] h-[72px] rounded-[28px] overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
+                    <Image src={coverSrc} alt="Capa do projeto" width={320} height={144} className="w-full h-full object-cover" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-[22px] md:text-[24px] text-gray-100 font-semibold leading-tight truncate">{projeto.titulo}</h1>
+                      <span className={`hidden md:inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
+                        {statusLabel(projeto.status)}
+                      </span>
+                    </div>
+
+                    <div className="mt-1 flex items-center gap-3 text-[14px] text-gray-300">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-full overflow-hidden border border-primary-700 bg-primary-900">
+                          <Image src={clienteFoto} alt={clienteNome} width={28} height={28} className="w-full h-full object-cover" />
+                        </div>
+                        <span className="truncate">
+                          <span className="text-gray-300">Cliente: </span>
+                          <span className="text-primary-100 font-medium">{clienteNome}</span>
+                          {clienteEmpresa ? <span className="text-gray-400"> · {clienteEmpresa}</span> : null}
+                        </span>
+                      </div>
+
+                      <span className={`md:hidden inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
+                        {statusLabel(projeto.status)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-start md:items-end gap-2">
+                  <div className="w-full md:w-[360px]">
+                    <div className="w-full h-2.5 bg-primary-900/60 border border-primary-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-primary-400 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="mt-2 text-[13px] text-gray-300">{pct}% concluído</div>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-col">
-                <h1 className="text-[28px] text-primary-100 font-semibold">
-                  {projeto.titulo}
-                </h1>
-                <div className="text-[18px] text-gray-300">
-                  <span className="text-gray-300">Cliente:</span>{" "}
-                  <span className="text-primary-100 font-medium">
-                    {clienteNome}
-                  </span>
+              <div className="mt-6 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-primary-700">
+                  <div className="px-5 py-4">
+                    <div className="text-[12px] text-gray-400">Valor</div>
+                    <div className="mt-1 text-[16px] text-gray-100 font-medium">
+                      {projeto.orcamento
+                        ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                        : "—"}
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-4">
+                    <div className="text-[12px] text-gray-400">Entrega</div>
+                    <div className="mt-1 text-[16px] text-gray-100 font-medium">
+                      {projeto.prazo_entrega ? new Date(projeto.prazo_entrega + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-4">
+                    <div className="text-[12px] text-gray-400">Urgência</div>
+                    <div className="mt-1 flex items-center gap-2">
+                      <UrgenciaIndicator nivel={urgProjeto} />
+                      <span className="text-[14px] text-gray-100">{urgProjeto}</span>
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-4">
+                    <div className="text-[12px] text-gray-400">Criação</div>
+                    <div className="mt-1 text-[16px] text-gray-100 font-medium">{createdLabel}</div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="text-[14px] text-gray-300 bg-primary-700 border border-primary-600 rounded-lg px-4 py-2">
-                {projeto.prazo_entrega
-                  ? `Prazo: ${new Date(
-                      projeto.prazo_entrega
-                    ).toLocaleDateString("pt-BR")}`
-                  : "Prazo: —"}
+            <section className="mt-6 bg-primary-800 border border-primary-700 rounded-3xl p-5 flex flex-col overflow-hidden min-h-[560px]">
+              <div className="flex flex-wrap gap-2 border-b border-primary-700 pb-3 mb-4">
+                {([
+                  ["descricao", "Descrição"],
+                  ["etapas", "Etapas"],
+                  ["arquivos", "Arquivos"],
+                  ["links", "Links"],
+                  ["briefing", "Briefing"],
+                ] as Array<[TabId, string]>).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setActiveTab(key)}
+                    className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
+                      activeTab === key ? "bg-primary-500 text-primary-900" : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              <div className="relative" ref={profileRef}>
-                <button
-                  type="button"
-                  onClick={() => setProfileOpen((v) => !v)}
-                  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-700 transition-colors"
-                >
-                  <Image
-                    src={avatarSrc}
-                    alt="Perfil"
-                    width={38}
-                    height={38}
-                    className="rounded-full object-cover border border-primary-600"
-                  />
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {activeTab === "descricao" && (
+                  <div className="flex flex-col h-full">
+                    <h2 className="text-[20px] text-primary-100 font-semibold mb-4">Descrição do projeto</h2>
 
-                  {profileOpen ? (
-                    <ChevronUp size={18} className="text-primary-100" />
-                  ) : (
-                    <ChevronDown size={18} className="text-primary-100" />
-                  )}
-                </button>
+                    <div className="bg-primary-900 border border-primary-700 rounded-2xl overflow-hidden flex-1 flex flex-col min-h-[220px]">
+                      {editor && <EditorToolbar editor={editor} onOpenLinkModal={openLinkModal} onRemoveLink={handleRemoveLink} />}
 
-                {profileOpen && (
-                  <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in">
-                    <div className="flex flex-col gap-1 mb-2">
-                      <div className="text-[14px] text-gray-200 font-medium">
-                        Olá, {displayName}!
+                      <div className="border-t border-primary-700 flex-1 min-h-0">
+                        <EditorContent
+                          editor={editor}
+                          className="tiptap px-4 py-3 text-[15px] text-gray-100 max-h-full h-full overflow-y-auto custom-scrollbar"
+                        />
                       </div>
                     </div>
 
-                    <button
-                      className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
-                      onClick={handleEditProfile}
-                    >
-                      <Pencil size={20} className="text-primary-200" />
-                      Editar perfil
-                    </button>
-
-                    <button
-                      className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
-                      onClick={handleTheme}
-                    >
-                      <SlidersHorizontal
-                        size={20}
-                        className="text-primary-200"
-                      />
-                      Personalizar tema
-                    </button>
-
-                    <button
-                      className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors"
-                      onClick={handleSignature}
-                    >
-                      <Crown size={20} />
-                      Assinatura
-                    </button>
-
-                    <button
-                      className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
-                      onClick={async () => {
-                        await supabase.auth.signOut();
-                        router.push("/login");
-                      }}
-                    >
-                      <svg
-                        width="20"
-                        height="20"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={salvarDescricao}
+                        disabled={saving}
+                        className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                        <polyline points="16 17 21 12 16 7" />
-                        <line x1="21" y1="12" x2="9" y2="12" />
-                      </svg>
-                      Sair da plataforma
-                    </button>
+                        {saving ? "Salvando..." : "Salvar descrição"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "etapas" && (
+                  <div className="flex flex-col h-full">
+                    <h2 className="text-[20px] text-primary-100 font-semibold mb-4">Etapas do projeto</h2>
+
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                      {tasks.length === 0 ? (
+                        <div className="text-gray-400">Nenhuma task criada ainda.</div>
+                      ) : (
+                        <ul className="flex flex-col gap-3">
+                          {tasks.map((t) => {
+                            const subs = subtasksByTask[t.id] || [];
+                            const expanded = !!expandedTasks[t.id];
+                            const done = isTaskDone(t);
+                            const urgencia = calcularUrgencia(t.due_date);
+
+                            return (
+                              <li key={t.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl p-4">
+                                <div className="flex items-start gap-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={done}
+                                    onChange={() => toggleTaskCompletion(t)}
+                                    className="mt-1 w-5 h-5 accent-primary-500 cursor-pointer"
+                                  />
+
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between gap-3">
+                                      <div className="flex items-center gap-2">
+                                        <button type="button" onClick={() => toggleTaskExpanded(t.id)} className="text-gray-300 hover:text-primary-100 text-[14px]">
+                                          {expanded ? "▾" : "▸"}
+                                        </button>
+                                        <div className={`text-gray-100 text-[16px] font-medium ${done ? "line-through text-gray-400" : ""}`}>{t.titulo}</div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 bg-primary-800 border border-primary-700 rounded-full px-3 py-1">
+                                          <UrgenciaIndicator nivel={urgencia} />
+                                          <span className="text-[12px] text-gray-100">{urgencia}</span>
+                                        </div>
+                                        {t.due_date && (
+                                          <div className="text-[12px] text-gray-200 bg-primary-800 border border-primary-700 rounded-full px-3 py-1">
+                                            {new Date(t.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {expanded && (
+                                  <div className="mt-3 pl-7 flex flex-col gap-3">
+                                    {t.descricao && (
+                                      <div className="bg-primary-900/50 border border-primary-700 rounded-xl px-3 py-2 max-h-40 overflow-y-auto custom-scrollbar">
+                                        <TaskDescricaoReadonly content={t.descricao} />
+                                      </div>
+                                    )}
+
+                                    <div className="bg-primary-900/50 border border-primary-700 rounded-xl px-3 py-3 max-h-44 overflow-y-auto custom-scrollbar">
+                                      {subs.length === 0 ? (
+                                        <div className="text-gray-400 text-[14px]">Sem subtasks.</div>
+                                      ) : (
+                                        <ul className="flex flex-col gap-2">
+                                          {subs.map((s) => (
+                                            <li key={s.id} className="flex items-center justify-between">
+                                              <div className="flex items-center gap-2">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={s.concluida}
+                                                  onChange={() => toggleSubtaskCompletion(s)}
+                                                  className="w-4 h-4 accent-primary-500 cursor-pointer"
+                                                />
+                                                <span className={`text-[14px] ${s.concluida ? "line-through text-gray-400" : "text-gray-100"}`}>{s.titulo}</span>
+                                              </div>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "arquivos" && (
+                  <div className="flex flex-col h-full">
+                    <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Arquivos</h3>
+
+                    <label className="w-full rounded-2xl border border-dashed border-primary-600 bg-primary-900 px-4 py-6 text-center cursor-pointer hover:bg-primary-800 transition">
+                      <span className="text-[16px] text-gray-300">
+                        Arraste aqui ou <span className="text-primary-300">clique para enviar</span>
+                      </span>
+                      <input type="file" className="hidden" onChange={handleUpload} />
+                    </label>
+
+                    <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                      {files.length === 0 ? (
+                        <div className="text-gray-400">Nenhum arquivo enviado.</div>
+                      ) : (
+                        <ul className="flex flex-col gap-3">
+                          {files.map((f) => (
+                            <li key={f.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">
+                              <div className="flex flex-col">
+                                <a href={f.url} target="_blank" rel="noreferrer" className="text-[16px] text-primary-100 hover:underline">
+                                  {f.nome}
+                                </a>
+                                <span className="text-[12px] text-gray-400">{new Date(f.created_at).toLocaleString("pt-BR")}</span>
+                              </div>
+
+                              <span className={`px-3 py-1 rounded-full text-[12px] ${f.status === "aprovado" ? "bg-third-400 text-primary-900" : "bg-primary-500 text-primary-100"}`}>
+                                {f.status}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "links" && (
+                  <div className="flex flex-col h-full">
+                    <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Links</h3>
+
+                    <form onSubmit={addLink} className="flex flex-col md:flex-row items-center gap-3">
+                      <input
+                        type="text"
+                        placeholder="Título (opcional)"
+                        value={newLink.titulo}
+                        onChange={(e) => setNewLink((p) => ({ ...p, titulo: e.target.value }))}
+                        className="flex-1 rounded-xl bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
+                      />
+
+                      <input
+                        type="url"
+                        placeholder="https://..."
+                        required
+                        value={newLink.url}
+                        onChange={(e) => setNewLink((p) => ({ ...p, url: e.target.value }))}
+                        className="flex-[1.4] rounded-xl bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
+                      />
+
+                      <button type="submit" className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[15px] font-semibold transition-colors">
+                        Adicionar
+                      </button>
+                    </form>
+
+                    <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                      {links.length === 0 ? (
+                        <div className="text-gray-400">Nenhum link adicionado.</div>
+                      ) : (
+                        <ul className="flex flex-col gap-2">
+                          {links.map((l) => (
+                            <li key={l.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">
+                              <div className="flex flex-col">
+                                <a href={l.url} target="_blank" rel="noreferrer" className="text-[16px] text-primary-100 hover:underline">
+                                  {l.titulo || l.url}
+                                </a>
+                                <span className="text-[12px] text-gray-400">{new Date(l.created_at).toLocaleString("pt-BR")}</span>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "briefing" && (
+                  <div className="flex flex-col h-full">
+                    <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Briefing do projeto</h3>
+
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                      {!briefing ? <div className="text-gray-400">Nenhum briefing vinculado a este projeto.</div> : <div className="flex flex-col gap-3">{renderBriefing(briefing.respostas)}</div>}
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
+            </section>
           </div>
-
-          <div className="mt-5">
-            <div className="w-full h-4 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary-400 transition-[width] duration-300"
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-            <div className="mt-2 text-[14px] text-gray-300">
-              {pct}% concluído
-            </div>
-          </div>
-        </header>
-
-        <section className="flex-1 min-h-0 bg-primary-800 border border-primary-700 rounded-lg p-5 flex flex-col">
-          <div className="flex flex-wrap gap-2 border-b border-primary-700 pb-3 mb-4">
-            <button
-              type="button"
-              onClick={() => setActiveTab("descricao")}
-              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
-                activeTab === "descricao"
-                  ? "bg-primary-500 text-primary-900"
-                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
-              }`}
-            >
-              Descrição
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("etapas")}
-              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
-                activeTab === "etapas"
-                  ? "bg-primary-500 text-primary-900"
-                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
-              }`}
-            >
-              Etapas
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("arquivos")}
-              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
-                activeTab === "arquivos"
-                  ? "bg-primary-500 text-primary-900"
-                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
-              }`}
-            >
-              Arquivos
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("links")}
-              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
-                activeTab === "links"
-                  ? "bg-primary-500 text-primary-900"
-                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
-              }`}
-            >
-              Links
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("briefing")}
-              className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
-                activeTab === "briefing"
-                  ? "bg-primary-500 text-primary-900"
-                  : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
-              }`}
-            >
-              Briefing
-            </button>
-          </div>
-
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {activeTab === "descricao" && (
-              <div className="flex flex-col h-full">
-                <h2 className="text-[22px] text-primary-100 font-semibold mb-4">
-                  Descrição do projeto
-                </h2>
-                <div className="bg-primary-900 border border-primary-700 rounded-lg overflow-hidden flex-1 flex flex-col min-h-[220px]">
-                  {editor && (
-                    <EditorToolbar
-                      editor={editor}
-                      onOpenLinkModal={openLinkModal}
-                      onRemoveLink={handleRemoveLink}
-                    />
-                  )}
-
-                  <div className="border-t border-primary-700 flex-1 min-h-0">
-                    <EditorContent
-                      editor={editor}
-                      className="tiptap px-4 py-3 text-[15px] text-gray-100 custom-editor max-h-full h-full overflow-y-auto custom-scrollbar"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={salvarDescricao}
-                    disabled={saving}
-                    className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {saving ? "Salvando..." : "Salvar descrição"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "etapas" && (
-              <div className="flex flex-col h-full">
-                <h2 className="text-[22px] text-primary-100 font-semibold mb-4">
-                  Etapas do projeto
-                </h2>
-
-                <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                  {tasks.length === 0 ? (
-                    <div className="text-gray-400">
-                      Nenhuma task criada ainda.
-                    </div>
-                  ) : (
-                    <ul className="flex flex-col gap-3">
-                      {tasks.map((t) => {
-                        const subs = subtasksByTask[t.id] || [];
-                        const expanded = !!expandedTasks[t.id];
-                        const done = isTaskDone(t);
-                        const urgencia = calcularUrgencia(t.due_date);
-
-                        return (
-                          <li
-                            key={t.id}
-                            className="bg-primary-700 border border-primary-600 rounded-lg p-4"
-                          >
-                            <div className="flex items-start gap-3">
-                              <input
-                                type="checkbox"
-                                checked={done}
-                                onChange={() => toggleTaskCompletion(t)}
-                                className="mt-1 w-5 h-5 accent-primary-500 cursor-pointer"
-                              />
-
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        toggleTaskExpanded(t.id)
-                                      }
-                                      className="text-gray-300 hover:text-primary-100 text-[14px]"
-                                    >
-                                      {expanded ? "▾" : "▸"}
-                                    </button>
-                                    <div
-                                      className={`text-gray-100 text-[16px] font-medium ${
-                                        done
-                                          ? "line-through text-gray-400"
-                                          : ""
-                                      }`}
-                                    >
-                                      {t.titulo}
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-2 bg-primary-800 border border-primary-600 rounded-full px-3 py-1">
-                                      <UrgenciaIndicator nivel={urgencia} />
-                                      <span className="text-[12px] text-gray-100">
-                                        {urgencia}
-                                      </span>
-                                    </div>
-                                    {t.due_date && (
-                                      <div className="text-[12px] text-gray-200 bg-primary-800 border border-primary-600 rounded-full px-3 py-1">
-                                        {new Date(
-                                          t.due_date + "T00:00:00"
-                                        ).toLocaleDateString("pt-BR")}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {expanded && (
-                              <div className="mt-3 pl-7 flex flex-col gap-3">
-                                {t.descricao && (
-                                  <div className="bg-primary-800 border border-primary-600 rounded-lg px-3 py-2 max-h-40 overflow-y-auto custom-scrollbar">
-                                    <TaskDescricaoReadonly
-                                      content={t.descricao}
-                                    />
-                                  </div>
-                                )}
-
-                                <div className="bg-primary-800 border border-primary-600 rounded-lg px-3 py-3 max-h-40 overflow-y-auto custom-scrollbar">
-                                  {subs.length === 0 ? (
-                                    <div className="text-gray-400 text-[14px]">
-                                      Sem subtasks.
-                                    </div>
-                                  ) : (
-                                    <ul className="flex flex-col gap-2">
-                                      {subs.map((s) => (
-                                        <li
-                                          key={s.id}
-                                          className="flex items-center justify-between"
-                                        >
-                                          <div className="flex items-center gap-2">
-                                            <input
-                                              type="checkbox"
-                                              checked={s.concluida}
-                                              onChange={() =>
-                                                toggleSubtaskCompletion(s)
-                                              }
-                                              className="w-4 h-4 accent-primary-500 cursor-pointer"
-                                            />
-                                            <span
-                                              className={`text-[14px] ${
-                                                s.concluida
-                                                  ? "line-through text-gray-400"
-                                                  : "text-gray-100"
-                                              }`}
-                                            >
-                                              {s.titulo}
-                                            </span>
-                                          </div>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-
-                <div className="mt-5">
-                  <div className="w-full h-3 bg-primary-700 border border-primary-600 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary-400 transition-[width] duration-300"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "arquivos" && (
-              <div className="flex flex-col h-full">
-                <h3 className="text-[20px] text-primary-100 font-semibold mb-3">
-                  Arquivos
-                </h3>
-
-                <label className="w-full rounded-lg border border-dashed border-primary-600 bg-primary-900 px-4 py-6 text-center cursor-pointer hover:bg-primary-800 transition">
-                  <span className="text-[16px] text-gray-300">
-                    Arraste aqui ou{" "}
-                    <span className="text-primary-300">
-                      clique para enviar
-                    </span>
-                  </span>
-                  <input
-                    type="file"
-                    accept="*/*"
-                    className="hidden"
-                    onChange={handleUpload}
-                  />
-                </label>
-
-                <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                  {files.length === 0 ? (
-                    <div className="text-gray-400">
-                      Nenhum arquivo enviado.
-                    </div>
-                  ) : (
-                    <ul className="flex flex-col gap-3">
-                      {files.map((f) => (
-                        <li
-                          key={f.id}
-                          className="flex items-center justify-between bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
-                        >
-                          <div className="flex flex-col">
-                            <a
-                              href={f.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[16px] text-primary-100 hover:underline"
-                            >
-                              {f.nome}
-                            </a>
-                            <span className="text-[12px] text-gray-400">
-                              {new Date(f.created_at).toLocaleString("pt-BR")}
-                            </span>
-                          </div>
-
-                          <span
-                            className={`px-3 py-1 rounded-md text-[12px] ${
-                              f.status === "aprovado"
-                                ? "bg-third-400 text-primary-900"
-                                : "bg-primary-500 text-primary-100"
-                            }`}
-                          >
-                            {f.status}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "links" && (
-              <div className="flex flex-col h-full">
-                <h3 className="text-[20px] text-primary-100 font-semibold mb-3">
-                  Links
-                </h3>
-
-                <form
-                  onSubmit={addLink}
-                  className="flex flex-col md:flex-row items-center gap-3"
-                >
-                  <input
-                    type="text"
-                    placeholder="Título (opcional)"
-                    value={newLink.titulo}
-                    onChange={(e) =>
-                      setNewLink((p) => ({ ...p, titulo: e.target.value }))
-                    }
-                    className="flex-1 rounded-lg bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
-                  />
-
-                  <input
-                    type="url"
-                    placeholder="https://..."
-                    required
-                    value={newLink.url}
-                    onChange={(e) =>
-                      setNewLink((p) => ({ ...p, url: e.target.value }))
-                    }
-                    className="flex-[1.4] rounded-lg bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
-                  />
-
-                  <button
-                    type="submit"
-                    className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[15px] font-semibold transition-colors"
-                  >
-                    Adicionar
-                  </button>
-                </form>
-
-                <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                  {links.length === 0 ? (
-                    <div className="text-gray-400">
-                      Nenhum link adicionado.
-                    </div>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {links.map((l) => (
-                        <li
-                          key={l.id}
-                          className="flex items-center justify-between bg-primary-700 border border-primary-600 rounded-lg px-4 py-3"
-                        >
-                          <div className="flex flex-col">
-                            <a
-                              href={l.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[16px] text-primary-100 hover:underline"
-                            >
-                              {l.titulo || l.url}
-                            </a>
-                            <span className="text-[12px] text-gray-400">
-                              {new Date(l.created_at).toLocaleString("pt-BR")}
-                            </span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTab === "briefing" && (
-              <div className="flex flex-col h-full">
-                <h3 className="text-[20px] text-primary-100 font-semibold mb-3">
-                  Briefing do projeto
-                </h3>
-
-                <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                  {!briefing ? (
-                    <div className="text-gray-400">
-                      Nenhum briefing vinculado a este projeto.
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {renderBriefing(briefing.respostas)}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
+        </div>
       </div>
 
       <Modal
         open={notify.open}
         onClose={() => setNotify({ open: false, msg: "" })}
         actions={
-          <button
-            onClick={() => setNotify({ open: false, msg: "" })}
-            className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-4 py-2 text-[16px] font-semibold transition-colors"
-          >
+          <button onClick={() => setNotify({ open: false, msg: "" })} className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[16px] font-semibold transition-colors">
             OK
           </button>
         }
@@ -1248,12 +1097,8 @@ export default function ProjetoDetalhesPage() {
       {linkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
           <div className="w-full max-w-md rounded-2xl bg-primary-800 border border-primary-600 shadow-[0_24px_60px_rgba(0,0,0,0.6)] p-6">
-            <h2 className="text-[18px] text-gray-100 font-semibold mb-3">
-              Inserir link
-            </h2>
-            <p className="text-[14px] text-gray-300 mb-4">
-              Cole a URL que deseja vincular ao texto selecionado.
-            </p>
+            <h2 className="text-[18px] text-gray-100 font-semibold mb-3">Inserir link</h2>
+            <p className="text-[14px] text-gray-300 mb-4">Cole a URL que deseja vincular ao texto selecionado.</p>
 
             <input
               autoFocus
@@ -1265,18 +1110,10 @@ export default function ProjetoDetalhesPage() {
             />
 
             <div className="flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setLinkModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-primary-800 border border-primary-600 text-gray-200 text-[14px] hover:bg-primary-700"
-              >
+              <button type="button" onClick={() => setLinkModalOpen(false)} className="px-4 py-2 rounded-lg bg-primary-800 border border-primary-600 text-gray-200 text-[14px] hover:bg-primary-700">
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={handleConfirmLink}
-                className="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[14px]"
-              >
+              <button type="button" onClick={handleConfirmLink} className="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[14px]">
                 Aplicar link
               </button>
             </div>
@@ -1287,6 +1124,7 @@ export default function ProjetoDetalhesPage() {
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 10px;
+          height: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-track {
           background: var(--primary-800);
@@ -1387,13 +1225,8 @@ function EditorToolbar({
     };
   }, [editor]);
 
-  if (!editor) return null;
-
-  const isActive = (check: () => boolean) =>
-    check() ? "bg-primary-700 text-primary-100" : "text-gray-300";
-
-  const base =
-    "px-2.5 py-1.5 text-[13px] rounded-md border border-transparent hover:bg-primary-800 flex items-center justify-center gap-1";
+  const isActive = (check: () => boolean) => (check() ? "bg-primary-700 text-primary-100" : "text-gray-300");
+  const base = "px-2.5 py-1.5 text-[13px] rounded-md border border-transparent hover:bg-primary-800 flex items-center justify-center gap-1";
 
   const headingValue = editor.isActive("heading", { level: 1 })
     ? "h1"
@@ -1404,17 +1237,14 @@ function EditorToolbar({
     : "p";
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-primary-900/80">
+    <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-primary-900/80">
       <select
         value={headingValue}
         onChange={(e) => {
           const val = e.target.value;
-          if (val === "h1")
-            editor.chain().focus().setHeading({ level: 1 }).run();
-          else if (val === "h2")
-            editor.chain().focus().setHeading({ level: 2 }).run();
-          else if (val === "h3")
-            editor.chain().focus().setHeading({ level: 3 }).run();
+          if (val === "h1") editor.chain().focus().setHeading({ level: 1 }).run();
+          else if (val === "h2") editor.chain().focus().setHeading({ level: 2 }).run();
+          else if (val === "h3") editor.chain().focus().setHeading({ level: 3 }).run();
           else editor.chain().focus().setParagraph().run();
         }}
         className="bg-primary-800 border border-primary-700 rounded-md px-3 pr-7 py-1.5 text-[13px] text-gray-100 cursor-pointer"
@@ -1427,79 +1257,43 @@ function EditorToolbar({
 
       <div className="w-px h-6 bg-primary-700 mx-1" />
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("bold"))}`}
-        onClick={() => editor.chain().focus().toggleBold().run()}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("bold"))}`} onClick={() => editor.chain().focus().toggleBold().run()}>
         <span className="font-semibold">B</span>
       </button>
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("italic"))}`}
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("italic"))}`} onClick={() => editor.chain().focus().toggleItalic().run()}>
         <span className="italic">I</span>
       </button>
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("underline"))}`}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("underline"))}`} onClick={() => editor.chain().focus().toggleUnderline().run()}>
         <span className="underline">U</span>
       </button>
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("strike"))}`}
-        onClick={() => editor.chain().focus().toggleStrike().run()}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("strike"))}`} onClick={() => editor.chain().focus().toggleStrike().run()}>
         <span className="line-through">S</span>
       </button>
 
       <div className="w-px h-6 bg-primary-700 mx-1" />
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("bulletList"))}`}
-        onClick={() => editor.chain().focus().toggleBulletList().run()}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("bulletList"))}`} onClick={() => editor.chain().focus().toggleBulletList().run()}>
         • • •
       </button>
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("orderedList"))}`}
-        onClick={() => editor.chain().focus().toggleOrderedList().run()}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("orderedList"))}`} onClick={() => editor.chain().focus().toggleOrderedList().run()}>
         1 2 3
       </button>
 
       <div className="w-px h-6 bg-primary-700 mx-1" />
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("blockquote"))}`}
-        onClick={() => editor.chain().focus().toggleBlockquote().run()}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("blockquote"))}`} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
         “”
       </button>
 
-      <button
-        type="button"
-        className={`${base} ${isActive(() => editor.isActive("link"))}`}
-        onClick={onOpenLinkModal}
-      >
+      <button type="button" className={`${base} ${isActive(() => editor.isActive("link"))}`} onClick={onOpenLinkModal}>
         🔗
       </button>
 
-      <button
-        type="button"
-        className={base + " text-gray-400 hover:text-primary-100"}
-        onClick={onRemoveLink}
-      >
+      <button type="button" className={base + " text-gray-400 hover:text-primary-100"} onClick={onRemoveLink}>
         Remover
       </button>
     </div>
@@ -1525,7 +1319,7 @@ function TaskDescricaoReadonly({ content }: { content: any }) {
     if (!editor) return;
 
     if (!content) {
-      editor.commands.setContent("<p></p>");
+      editor.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] });
       return;
     }
 
@@ -1552,10 +1346,5 @@ function TaskDescricaoReadonly({ content }: { content: any }) {
 
   if (!editor) return null;
 
-  return (
-    <EditorContent
-      editor={editor}
-      className="tiptap text-[14px] text-gray-100"
-    />
-  );
-}
+  return <EditorContent editor={editor} className="tiptap text-[14px] text-gray-100" />;
+} 

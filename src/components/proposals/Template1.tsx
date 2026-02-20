@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 
-// Definição da estrutura de dados do conteúdo
 export type ProposalContent = {
   section1: {
     title: string;
@@ -10,7 +9,7 @@ export type ProposalContent = {
   section2: {
     title: string;
     subtitle: string;
-    values: { title: string; text: string }[]; // Lista de valores
+    values: { title: string; text: string }[];
     aboutTitle: string;
     aboutText1: string;
     aboutText2: string;
@@ -51,7 +50,6 @@ export type ProposalContent = {
   };
 };
 
-// Dados padrão iniciais
 export const DEFAULT_CONTENT: ProposalContent = {
   section1: {
     title: "Conteúdo da Proposta",
@@ -237,7 +235,6 @@ export function formatCurrencyBRL(v?: number | null) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// Componente para texto editável
 const EditableText = ({
   text,
   onChange,
@@ -301,7 +298,6 @@ export default function Template1({
   const safeDate = date || "__/__/____";
   const safeDue = dueDate || "__/__/____";
 
-  // Função auxiliar para atualizar o estado aninhado
   const updateContent = (path: string[], value: string) => {
     if (!onContentChange) return;
 
@@ -314,7 +310,6 @@ export default function Template1({
     onContentChange(newContent);
   };
 
-  // ---------------- ESTILOS DINÂMICOS ----------------
   const bgCoverStyle: React.CSSProperties = bannerUrl
     ? {
         backgroundImage: `url(${bannerUrl})`,
@@ -341,8 +336,6 @@ export default function Template1({
     "w-full flex justify-center py-16 md:py-20 bg-white text-slate-900";
   const pageInnerClass =
     "w-full max-w-[1200px] px-6 md:px-10 flex flex-col gap-8 font-[var(--font-dm-sans)]";
-
-  // ---------------- COMPONENTES AUXILIARES ----------------
 
   const SectionHeader = ({
     title,
@@ -384,19 +377,11 @@ export default function Template1({
     </div>
   );
 
-  // ======================================================
-  // RENDER
-  // ======================================================
-
   return (
     <div className="w-full bg-white text-slate-900">
-      {/* ===================================================
-          01 — CAPA
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={bgCoverStyle}>
         <div className={pageInnerClass}>
           <div className="bg-[#f9fdf9]/95 rounded-[26px] shadow-[0_18px_40px_rgba(15,23,42,0.18)] px-8 md:px-12 py-12 min-h-[360px] flex flex-col gap-10">
-            {/* LOGO */}
             <header className="flex items-center justify-start">
               {logoUrl ? (
                 <img
@@ -416,7 +401,6 @@ export default function Template1({
               )}
             </header>
 
-            {/* TÍTULO */}
             <div className="flex-1 flex items-center">
               <div className="flex flex-col gap-3">
                 <h1 className="text-[40px] font-medium">{safeProject}</h1>
@@ -426,7 +410,6 @@ export default function Template1({
               </div>
             </div>
 
-            {/* CLIENTE / DATAS */}
             <footer className="pt-6 border-t border-slate-200 flex flex-wrap gap-8">
               {[
                 { label: "Cliente", value: safeClient },
@@ -445,9 +428,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          02 — CONTEÚDO DA PROPOSTA
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -495,9 +475,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          03 — NOSSOS VALORES & SOBRE NÓS
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -507,7 +484,6 @@ export default function Template1({
           />
 
           <div className="grid grid-cols-1 md:grid-cols-[1.1fr,1.1fr] gap-8 mt-6 items-start">
-            {/* Valores */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 flex flex-col gap-4">
               <h3 className="text-[16px] font-semibold">Nossos valores</h3>
               <ul className="space-y-3 text-[13px] text-slate-600">
@@ -541,7 +517,6 @@ export default function Template1({
               </ul>
             </div>
 
-            {/* Sobre nós */}
             <div className="rounded-2xl border border-slate-200 bg-white p-6 flex flex-col gap-4">
               <EditableText
                 tagName="h3"
@@ -571,9 +546,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          04 — ETAPAS DE CRIAÇÃO
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -622,9 +594,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          05 — PROJETO RESPONSIVO
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -634,7 +603,6 @@ export default function Template1({
           />
 
           <div className="grid grid-cols-1 md:grid-cols-[0.9fr,1.4fr] gap-10 items-center mt-6">
-            {/* mockup */}
             <div className="flex items-center justify-center">
               <div className="w-[230px] h-[440px] rounded-[40px] bg-slate-900 p-2.5 shadow-2xl relative">
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[120px] h-6 rounded-[14px] bg-black/80" />
@@ -651,7 +619,6 @@ export default function Template1({
               </div>
             </div>
 
-            {/* texto */}
             <div className="flex flex-col justify-center">
               <ul className="relative pl-6 mt-4">
                 <span
@@ -694,9 +661,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          06 — DESCRIÇÃO DA PROPOSTA
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -717,9 +681,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          07 — PRAZOS E ENTREGAS
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -785,9 +746,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          08 — TECNOLOGIAS & FERRAMENTAS
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -828,9 +786,6 @@ export default function Template1({
         </div>
       </section>
 
-      {/* ===================================================
-          09 — INVESTIMENTO
-      =================================================== */}
       <section className={`${pageClass} pdf-section`} style={{ pageBreakBefore: "always" }}>
         <div className={pageInnerClass}>
           <SectionHeader
@@ -846,7 +801,6 @@ export default function Template1({
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* 1ª – À vista */}
             <div
               className="relative rounded-2xl p-6 text-white overflow-hidden"
               style={accentBgStyle}
@@ -882,8 +836,7 @@ export default function Template1({
                 </p>
               </div>
             </div>
-
-            {/* 2ª – 50/50 */}
+\
             <div className="relative rounded-2xl border border-slate-200 bg-white p-6">
               <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-800">
                 2ª opção
@@ -911,7 +864,6 @@ export default function Template1({
               </p>
             </div>
 
-            {/* 3ª – 12x */}
             <div className="relative rounded-2xl border border-slate-200 bg-white p-6">
               <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-800">
                 3ª opção
@@ -939,7 +891,6 @@ export default function Template1({
               </p>
             </div>
 
-            {/* 4ª – PIX parcelado */}
             <div className="relative rounded-2xl border border-slate-200 bg-white p-6">
               <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-800">
                 4ª opção
