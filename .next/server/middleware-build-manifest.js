@@ -10,11 +10,6 @@ globalThis.__BUILD_MANIFEST = {
   "rootMainFiles": [],
   "rootMainFilesTree": {},
   "pages": {
-    "/": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/index.js"
-    ],
     "/_app": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
@@ -30,15 +25,20 @@ globalThis.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/dashboard.js"
     ],
-    "/dashboard/tarefas": [
+    "/dashboard/projetos": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard/tarefas.js"
+      "static/chunks/pages/dashboard/projetos.js"
     ],
-    "/dashboard/tarefas/[id]": [
+    "/dashboard/projetos/[id]": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard/tarefas/[id].js"
+      "static/chunks/pages/dashboard/projetos/[id].js"
+    ],
+    "/dashboard/projetos/novo": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/dashboard/projetos/novo.js"
     ]
   },
   "ampFirstPages": []
