@@ -28,20 +28,25 @@
       "static/chunks/main.js",
       "static/chunks/pages/dashboard.js"
     ],
-    "/dashboard/projetos": [
+    "/dashboard/configuracoes": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard/projetos.js"
+      "static/chunks/pages/dashboard/configuracoes.js"
     ],
-    "/dashboard/projetos/[id]": [
+    "/dashboard/pagamentos": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard/projetos/[id].js"
+      "static/chunks/pages/dashboard/pagamentos.js"
     ],
-    "/dashboard/projetos/novo": [
+    "/dashboard/tarefas": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/dashboard/projetos/novo.js"
+      "static/chunks/pages/dashboard/tarefas.js"
+    ],
+    "/dashboard/tarefas/[id]": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/dashboard/tarefas/[id].js"
     ]
   },
   "ampFirstPages": []
