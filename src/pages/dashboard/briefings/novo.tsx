@@ -16,7 +16,6 @@ import {
   X,
   Plus,
   Copy,
-  // Icons for Picker
   Star,
   Heart,
   Zap,
@@ -43,7 +42,6 @@ import {
   Smile,
   ThumbsUp,
   Award,
-  // More Icons
   Layout,
   LayoutGrid,
   List,
@@ -225,7 +223,6 @@ export default function NovoBriefingPage() {
       if (!u) router.push("/login");
 
       if (u && editId) {
-        // Carregar dados para edição
         const { data: tpl, error: tplErr } = await supabase
           .from("briefings_templates")
           .select("*")
@@ -248,7 +245,7 @@ export default function NovoBriefingPage() {
 
           if (fields && fields.length > 0) {
             const mapped: LocalQuestion[] = fields.map((f: any) => ({
-              id: String(f.id), // usar ID original para chaves
+              id: String(f.id),
               titulo: f.titulo_pergunta,
               descricao: f.descricao_pergunta || "",
               tipo: mapDbToTipo(f.tipo),
@@ -257,10 +254,6 @@ export default function NovoBriefingPage() {
             }));
             setQuestions(mapped);
           } else {
-             // Se não tiver campos (raro), começar com um vazio?
-             // Melhor não fazer nada ou manter o default vazio se fosse o caso.
-             // Mas o default state já tem 1 pergunts.
-             // Se vier vazio do DB, setQuestions([])?
              setQuestions([]);
           }
         }
@@ -433,7 +426,6 @@ export default function NovoBriefingPage() {
       let tplError;
 
       if (editId) {
-        // UPDATE
         const { data, error } = await supabase
           .from("briefings_templates")
           .update({
@@ -452,7 +444,6 @@ export default function NovoBriefingPage() {
         templateData = data;
         tplError = error;
       } else {
-        // INSERT
         const { data, error } = await supabase
           .from("briefings_templates")
           .insert({
@@ -480,8 +471,6 @@ export default function NovoBriefingPage() {
 
       const templateId = String(templateData.id);
 
-      // Se for edição, remover campos antigos antes de inserir novos
-      // (Estratégia mais simples para lidar com reordenação/deleção)
       if (editId) {
          await supabase
            .from("briefings_campos")
@@ -568,7 +557,6 @@ export default function NovoBriefingPage() {
         <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            {/* Header */}
             <header className="h-16 border-b border-gray-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
                 <div className="flex items-center gap-4">
                     <button
@@ -620,7 +608,6 @@ export default function NovoBriefingPage() {
                             className="w-full h-full object-cover"
                         />
                         </button>
-                        {/* Dropdown Profile ... (mantido igual ou simplificado) */}
                          {profileOpen && (
                             <div className="absolute right-0 mt-3 w-56 bg-primary-900 border border-gray-700 rounded-xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-fade-in-down origin-top-right">
                                 <button
@@ -647,7 +634,6 @@ export default function NovoBriefingPage() {
                 </div>
             </header>
 
-            {/* Main Content Scrollable */}
             <main className="flex-1 overflow-y-auto novo-briefing-scroll p-6 md:p-8">
                 <div className="max-w-4xl mx-auto flex flex-col gap-8 pb-20">
                     
@@ -658,7 +644,6 @@ export default function NovoBriefingPage() {
                         </div>
                     )}
 
-                    {/* Section: Configurações do Briefing */}
                     <div className="bg-primary-900 border border-gray-700 rounded-2xl shadow-sm group focus-within:border-gray-500 transition-colors">
                         <div className="h-2 bg-gradient-to-r from-primary-600 to-primary-400 rounded-t-2xl" />
                         <div className="p-6 md:p-8 flex flex-col gap-6">
@@ -676,18 +661,14 @@ export default function NovoBriefingPage() {
                                 className="w-full bg-transparent text-[15px] text-gray-300 placeholder-gray-500 outline-none border-none p-0 focus:ring-0 resize-none"
                             />
 
-                            {/* Divider */}
                             <div className="w-full h-px bg-gray-700 my-2" />
 
                             <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 relative z-20">
                                 
-                                {/* LEFT COLUMN: Inputs */}
                                 <div className="flex flex-col justify-center gap-6 w-fit h-full">
                                      
-                                     {/* Color Pickers Group */}
                                      <div className="flex flex-col gap-6">
                                         
-                                        {/* Row 1: Colors */}
                                         <div className="flex items-center gap-6">
                                             <div className="flex flex-col gap-2">
                                                 <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Cor de Fundo</label>
@@ -718,7 +699,6 @@ export default function NovoBriefingPage() {
                                             </div>
                                         </div>
 
-                                        {/* Row 2: Icon Picker */}
                                         <div className="flex flex-col gap-2 relative z-30">
                                             <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Ícone da Capa</label>
                                             <div className="flex gap-2 relative">
@@ -784,7 +764,6 @@ export default function NovoBriefingPage() {
                                      </div>
                                 </div>
                                 
-                                {/* RIGHT COLUMN: Live Preview */}
                                 <div className="h-full flex flex-col justify-center relative">
                                      <div 
                                         className="w-full h-full min-h-[220px] rounded-xl shadow-lg flex flex-col items-center justify-center gap-3 p-6 text-center transition-all duration-300"
@@ -807,7 +786,6 @@ export default function NovoBriefingPage() {
                         </div>
                     </div>
 
-                    {/* Section: Perguntas */}
                     <div className="flex flex-col gap-6">
                         {questions.map((q, idx) => (
                             <div 
@@ -815,7 +793,6 @@ export default function NovoBriefingPage() {
                                 className="bg-primary-900 border border-gray-700 rounded-2xl transition-all duration-200 hover:border-gray-500 hover:shadow-lg group"
                             >
                                 <div className="p-6 md:p-8 flex flex-col gap-6">
-                                    {/* Header da Pergunta */}
                                     <div className="flex flex-col md:flex-row gap-4 items-start">
                                         <div className="bg-primary-800/50 w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-bold text-gray-400 border border-gray-700 shrink-0 mt-1">
                                             {idx + 1}
@@ -852,7 +829,6 @@ export default function NovoBriefingPage() {
                                                 className="text-[13px] bg-transparent border-none p-0 text-gray-400 placeholder-gray-600 focus:ring-0 w-full"
                                             />
 
-                                            {/* Área de Opções (se aplicável) */}
                                             {(q.tipo === "single" || q.tipo === "multi") && (
                                                 <div className="mt-2 flex flex-col gap-2 pl-1">
                                                     {q.opcoes.map((op, opIdx) => (
@@ -887,7 +863,6 @@ export default function NovoBriefingPage() {
                                         </div>
                                     </div>
 
-                                    {/* Footer da Pergunta (Ações) */}
                                     <div className="pt-4 mt-2 border-t border-gray-700 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                              <button 

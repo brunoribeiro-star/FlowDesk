@@ -12,7 +12,7 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp } from "lucide-react";
+import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList } from "lucide-react";
 
 type ProjetoStatus = "Em andamento" | "Concluído" | "Arquivado";
 
@@ -84,6 +84,17 @@ type Briefing = {
   projeto_id: string;
   respostas: any;
   created_at: string;
+};
+
+type BriefingEnvio = {
+  id: string;
+  user_id: string;
+  template_id: string;
+  projeto_id: string | null;
+  status: string;
+  prazo_resposta: string | null;
+  created_at: string;
+  template?: { id: string; titulo: string } | null;
 };
 
 type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing";
@@ -240,6 +251,10 @@ export default function ProjetoDetalhesPage() {
 
   const [coverUploading, setCoverUploading] = useState(false);
 
+  const [briefingEnvios, setBriefingEnvios] = useState<BriefingEnvio[]>([]);
+  const [attachBriefingOpen, setAttachBriefingOpen] = useState(false);
+  const [attachingBriefing, setAttachingBriefing] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false }),
@@ -367,6 +382,13 @@ export default function ProjetoDetalhesPage() {
         setBriefing(briefData ? (briefData as Briefing) : null);
 
         setError(null);
+
+        const { data: envsData } = await supabase
+          .from("briefings_envios")
+          .select("id, user_id, template_id, projeto_id, status, prazo_resposta, created_at, template:template_id(id, titulo)")
+          .eq("user_id", authUser.id)
+          .order("created_at", { ascending: false });
+        setBriefingEnvios((envsData || []) as unknown as BriefingEnvio[]);
       } catch (err: any) {
         setError(err.message || "Erro ao carregar o projeto.");
       } finally {
@@ -671,6 +693,45 @@ export default function ProjetoDetalhesPage() {
 
   function handleSignature() {
     setProfileOpen(false);
+  }
+
+  async function handleAttachBriefing(envioId: string) {
+    if (!projeto) return;
+    setAttachingBriefing(true);
+    try {
+      const { error: updErr } = await supabase
+        .from("briefings_envios")
+        .update({ projeto_id: projeto.id })
+        .eq("id", envioId);
+      if (updErr) throw updErr;
+
+      const { data: rData } = await supabase
+        .from("briefings_respostas")
+        .select("*")
+        .eq("envio_id", envioId)
+        .order("created_at", { ascending: true });
+
+      const respostas = (rData || []).map((r: any) => ({
+        pergunta: r.campo_label || r.campo_id || "Campo",
+        resposta: r.valor ?? "—",
+      }));
+
+      const { data: bData, error: bErr } = await supabase
+        .from("briefings")
+        .upsert([{ projeto_id: projeto.id, respostas }], { onConflict: "projeto_id" })
+        .select()
+        .single();
+      if (bErr) throw bErr;
+
+      setBriefing(bData as Briefing);
+      setBriefingEnvios(prev => prev.map(e => e.id === envioId ? { ...e, projeto_id: projeto.id } : e));
+      setAttachBriefingOpen(false);
+      setNotify({ open: true, msg: "Briefing vinculado com sucesso!" });
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao vincular briefing: " + (err.message || "Erro desconhecido") });
+    } finally {
+      setAttachingBriefing(false);
+    }
   }
 
   if (loading) {
@@ -1047,9 +1108,26 @@ export default function ProjetoDetalhesPage() {
                     </form>
 
                     <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {links.length === 0 ? (
+                      {projeto.link_arquivos && (
+                        <div className="mb-3 flex items-center gap-2 bg-primary-900/60 border border-primary-600/40 rounded-2xl px-4 py-3">
+                          <Link2 size={15} className="text-primary-400 shrink-0" />
+                          <div className="flex flex-col min-w-0">
+                            <a
+                              href={projeto.link_arquivos.startsWith("http") ? projeto.link_arquivos : `https://${projeto.link_arquivos}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[15px] text-primary-300 hover:underline truncate"
+                            >
+                              {projeto.link_arquivos}
+                            </a>
+                            <span className="text-[11px] text-gray-500">Link do projeto (cadastro)</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {links.length === 0 && !projeto.link_arquivos ? (
                         <div className="text-gray-400">Nenhum link adicionado.</div>
-                      ) : (
+                      ) : links.length === 0 ? null : (
                         <ul className="flex flex-col gap-2">
                           {links.map((l) => (
                             <li key={l.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">
@@ -1068,11 +1146,24 @@ export default function ProjetoDetalhesPage() {
                 )}
 
                 {activeTab === "briefing" && (
-                  <div className="flex flex-col h-full">
-                    <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Briefing do projeto</h3>
+                  <div className="flex flex-col h-full gap-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-[20px] text-primary-100 font-semibold">Briefing do projeto</h3>
+                      <button
+                        type="button"
+                        onClick={() => setAttachBriefingOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 hover:bg-primary-600 transition-colors text-[13px]"
+                      >
+                        <ClipboardList size={15} />
+                        Vincular briefing
+                      </button>
+                    </div>
 
                     <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {!briefing ? <div className="text-gray-400">Nenhum briefing vinculado a este projeto.</div> : <div className="flex flex-col gap-3">{renderBriefing(briefing.respostas)}</div>}
+                      {!briefing
+                        ? <div className="text-gray-400">Nenhum briefing vinculado. Clique em “Vincular briefing” para anexar um existente.</div>
+                        : <div className="flex flex-col gap-3">{renderBriefing(briefing.respostas)}</div>
+                      }
                     </div>
                   </div>
                 )}
@@ -1081,6 +1172,47 @@ export default function ProjetoDetalhesPage() {
           </div>
         </div>
       </div>
+
+      {attachBriefingOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setAttachBriefingOpen(false)}>
+          <div
+            className="w-full max-w-lg bg-primary-800 border border-primary-700 rounded-2xl p-6 shadow-[0_24px_60px_rgba(0,0,0,0.55)]"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-[18px] text-primary-100 font-semibold">Vincular briefing existente</h4>
+              <button onClick={() => setAttachBriefingOpen(false)} className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-3 py-1 hover:bg-primary-700">Fechar</button>
+            </div>
+
+            {briefingEnvios.length === 0 ? (
+              <p className="text-gray-400 text-[14px]">Nenhum briefing enviado encontrado.</p>
+            ) : (
+              <ul className="flex flex-col gap-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+                {briefingEnvios.map(envio => (
+                  <li key={envio.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
+                    <div className="flex flex-col">
+                      <span className="text-[15px] text-gray-100 font-medium">
+                        {(envio as any).template?.titulo || "Briefing sem título"}
+                      </span>
+                      <span className="text-[12px] text-gray-500">
+                        {new Date(envio.created_at).toLocaleDateString("pt-BR")} • {envio.status}
+                        {envio.projeto_id && envio.projeto_id !== id ? " • Vinculado a outro projeto" : ""}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleAttachBriefing(envio.id)}
+                      disabled={attachingBriefing}
+                      className="ml-3 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 text-[13px] font-semibold transition-colors disabled:opacity-50"
+                    >
+                      {attachingBriefing ? "..." : "Vincular"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       <Modal
         open={notify.open}

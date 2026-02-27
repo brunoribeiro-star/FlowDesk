@@ -742,8 +742,6 @@ export default function BriefingsPage() {
       const currentStatus = classificarEnvio(envio, respostasPorProjeto);
       if (currentStatus === targetCol) return;
 
-      // Se mover de Respondido para Enviado (não faz muito sentido, mas ok)
-      // Se mover de Enviado para Respondido (ok, marca como concluído manual)
       if (targetCol === "respondido") {
         updateEnvioStatus(envioId, "respondido");
       } else {
@@ -897,14 +895,12 @@ export default function BriefingsPage() {
   async function duplicarTemplate(templateId: string) {
     if (!user) return;
     
-    // 1. Encontrar o template original na lista
     const original = templates.find(t => t.id === templateId);
     if (!original) return;
 
     const novoTitulo = `${original.titulo} (Cópia)`;
 
     try {
-      // 2. Criar novo template
       const { data: newTplData, error: newTplError } = await supabase
         .from("briefings_templates")
         .insert({
@@ -919,7 +915,6 @@ export default function BriefingsPage() {
 
       if (newTplError) throw newTplError;
 
-      // 3. Buscar campos do original
       const { data: camposOriginais, error: camposError } = await supabase
         .from("briefings_campos")
         .select("*")
@@ -928,7 +923,6 @@ export default function BriefingsPage() {
       if (camposError) throw camposError;
 
       if (camposOriginais && camposOriginais.length > 0) {
-        // 4. Inserir campos no novo template
         const novosCampos = camposOriginais.map((c: any) => ({
           template_id: newTplData.id,
           user_id: user.id,
@@ -947,7 +941,6 @@ export default function BriefingsPage() {
         if (insertCamposError) throw insertCamposError;
       }
 
-      // 5. Atualizar estado local
       const novoTemplate: BriefingTemplate = {
         id: String(newTplData.id),
         user_id: String(newTplData.user_id),
@@ -955,7 +948,7 @@ export default function BriefingsPage() {
         descricao: newTplData.descricao,
         created_at: newTplData.created_at,
         updated_at: newTplData.updated_at,
-        campos_count: original.campos_count, // assumindo sucesso na cópia dos campos
+        campos_count: original.campos_count,
         card_bg_color: newTplData.card_bg_color,
         card_text_color: newTplData.card_text_color
       };
@@ -1315,7 +1308,6 @@ export default function BriefingsPage() {
                               />
                             </div>
 
-                            {/* Seleção Checkbox (se ativo) */}
                             {selectionMode && (
                               <button
                                 type="button"
@@ -1333,10 +1325,8 @@ export default function BriefingsPage() {
                               </button>
                             )}
 
-                            {/* Menu de Ações MOVIDO para fora do header overflow-hidden */}
                           </div>
 
-                          {/* Menu de Ações (Posicionado Absolutamente sobre o card) */}
                           <div
                             className="absolute top-3 right-3 z-30"
                             data-template-menu-trigger

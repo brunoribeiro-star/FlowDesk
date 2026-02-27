@@ -231,9 +231,7 @@ export default function NovoClientePage() {
           <form id="cliente-form" onSubmit={handleSubmit} className="flex flex-col gap-6 w-full h-full">
             
             <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                {/* Left Column */}
                 <div className="flex flex-col gap-6">
-                    {/* Photo - Horizontal Compact Box */}
                     <div className="bg-transparent border border-primary-700 rounded-xl p-4 flex items-center gap-6">
                         <div className="relative group shrink-0">
                             <div className="w-20 h-20 rounded-full border-2 border-primary-700 overflow-hidden bg-primary-800 flex items-center justify-center shadow-lg">
@@ -264,7 +262,6 @@ export default function NovoClientePage() {
                         </div>
                     </div>
 
-                    {/* Nome */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Nome Completo *</label>
                         <input
@@ -277,7 +274,6 @@ export default function NovoClientePage() {
                         />
                     </div>
 
-                    {/* Empresa */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Empresa</label>
                         <input
@@ -291,9 +287,7 @@ export default function NovoClientePage() {
                     </div>
                 </div>
 
-                {/* Right Column */}
                 <div className="flex flex-col gap-6">
-                    {/* CPF/CNPJ */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">CPF / CNPJ</label>
                         <input
@@ -311,7 +305,6 @@ export default function NovoClientePage() {
                          {errors.cpf_cnpj && <span className="text-red-400 text-xs">{errors.cpf_cnpj}</span>}
                     </div>
 
-                    {/* Email */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">E-mail</label>
                         <input
@@ -329,7 +322,6 @@ export default function NovoClientePage() {
                         {errors.email && <span className="text-red-400 text-xs">{errors.email}</span>}
                     </div>
 
-                    {/* Telefone */}
                     <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Telefone</label>
                         <div className="flex gap-2">

@@ -220,7 +220,7 @@ export default function ClientesPage() {
       email: (formData.get("email") as string) || null,
       telefone: (formData.get("telefone") as string) || null,
       observacoes: (formData.get("observacoes") as string) || null,
-      foto_url: editing.foto_url, // Mantém a URL da foto atual (já atualizada pelo upload)
+      foto_url: editing.foto_url,
     };
 
     try {
@@ -253,7 +253,6 @@ export default function ClientesPage() {
         .from("avatars")
         .getPublicUrl(path);
 
-      // Atualiza o estado local 'editing' para mostrar a nova foto imediatamente
       setEditing(prev => prev ? { ...prev, foto_url: urlData.publicUrl } : null);
       showToast("Foto enviada com sucesso!", "success");
       
@@ -612,7 +611,6 @@ export default function ClientesPage() {
 
             <form onSubmit={handleUpdate} className="flex flex-col gap-6">
               
-              {/* Foto Upload Section */}
               <div className="flex items-center gap-6 pb-6 border-b border-primary-800">
                 <div className="relative group">
                   <div className="w-[100px] h-[100px] rounded-full overflow-hidden bg-primary-800 border-2 border-primary-700 flex items-center justify-center">
@@ -650,7 +648,6 @@ export default function ClientesPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Nome */}
                   <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Nome</label>
                       <input
@@ -662,7 +659,6 @@ export default function ClientesPage() {
                       />
                   </div>
                   
-                  {/* Empresa */}
                   <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Empresa</label>
                       <input
@@ -673,7 +669,6 @@ export default function ClientesPage() {
                       />
                   </div>
 
-                  {/* E-mail */}
                   <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">E-mail</label>
                       <input
@@ -685,7 +680,6 @@ export default function ClientesPage() {
                       />
                   </div>
 
-                  {/* Telefone */}
                   <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Telefone</label>
                       <input
@@ -696,7 +690,6 @@ export default function ClientesPage() {
                       />
                   </div>
 
-                  {/* Observações - Full Width */}
                   <div className="flex flex-col gap-1.5 md:col-span-2">
                       <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Observações</label>
                       <textarea

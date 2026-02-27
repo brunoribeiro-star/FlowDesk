@@ -12,7 +12,8 @@ import Heading from "@tiptap/extension-heading";
 import { useRouter } from "next/router";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
-import { getClientes } from "@/lib/supabaseQueries/clientes";
+import { getClientes, addCliente } from "@/lib/supabaseQueries/clientes";
+import { UserPlus, Plus, Trash2, ChevronRight as ChevRight } from "lucide-react";
 
 interface FormProjeto {
   titulo: string;
@@ -61,6 +62,48 @@ export default function NovoProjetoPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string>("");
   const [coverUploading, setCoverUploading] = useState(false);
+
+  const [newClientModal, setNewClientModal] = useState(false);
+  const [newClientForm, setNewClientForm] = useState({
+    nome: "", empresa: "", email: "", telefone: "",
+  });
+  const [savingClient, setSavingClient] = useState(false);
+
+  type SubtaskDraft = { id: number; titulo: string };
+  type TaskDraft    = { id: number; titulo: string; subtasks: SubtaskDraft[] };
+  const [tasks, setTasks] = useState<TaskDraft[]>([]);
+  const [nextId, setNextId] = useState(1);
+
+  function addTask() {
+    const id = nextId;
+    setTasks(prev => [...prev, { id, titulo: "", subtasks: [] }]);
+    setNextId(n => n + 1);
+  }
+  function removeTask(id: number) {
+    setTasks(prev => prev.filter(t => t.id !== id));
+  }
+  function updateTask(id: number, titulo: string) {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, titulo } : t));
+  }
+  function addSubtask(taskId: number) {
+    const id = nextId;
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, subtasks: [...t.subtasks, { id, titulo: "" }] } : t
+    ));
+    setNextId(n => n + 1);
+  }
+  function removeSubtask(taskId: number, subId: number) {
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, subtasks: t.subtasks.filter(s => s.id !== subId) } : t
+    ));
+  }
+  function updateSubtask(taskId: number, subId: number, titulo: string) {
+    setTasks(prev => prev.map(t =>
+      t.id === taskId
+        ? { ...t, subtasks: t.subtasks.map(s => s.id === subId ? { ...s, titulo } : s) }
+        : t
+    ));
+  }
 
   useEffect(() => {
     return () => {
@@ -312,8 +355,33 @@ export default function NovoProjetoPage() {
 
       await criarPagamentos(data.id, user.id);
 
-      showPopup("✨ Projeto criado com sucesso!", "success");
+      const validTasks = tasks.filter(t => t.titulo.trim());
+      for (const td of validTasks) {
+        const { data: taskData, error: taskErr } = await supabase
+          .from("tasks")
+          .insert([{
+            user_id: user.id,
+            projeto_id: data.id,
+            titulo: td.titulo.trim(),
+            status: "para_fazer",
+          }])
+          .select()
+          .single();
+        if (taskErr) { console.warn("Erro ao criar task:", taskErr); continue; }
+        const validSubs = td.subtasks.filter(s => s.titulo.trim());
+        if (validSubs.length) {
+          await supabase.from("subtasks").insert(
+            validSubs.map(s => ({
+              user_id: user.id,
+              task_id: taskData.id,
+              titulo: s.titulo.trim(),
+              concluida: false,
+            }))
+          );
+        }
+      }
 
+      showPopup("✨ Projeto criado com sucesso!", "success");
       setTimeout(() => router.push("/dashboard/projetos"), 1200);
     } catch (err: any) {
       showPopup("Erro ao criar projeto: " + err.message, "error");
@@ -354,8 +422,30 @@ export default function NovoProjetoPage() {
     editor.chain().focus().unsetLink().run();
   }
 
-  const nextStep = () => setStep((prev) => Math.min(prev + 1, 3));
+  const nextStep = () => setStep((prev) => Math.min(prev + 1, 4));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 1));
+
+  async function handleCreateClient() {
+    if (!newClientForm.nome.trim()) return;
+    setSavingClient(true);
+    try {
+      const created = await addCliente({
+        nome: newClientForm.nome.trim(),
+        empresa: newClientForm.empresa.trim() || null,
+        email: newClientForm.email.trim() || null,
+        telefone: newClientForm.telefone.trim() || null,
+      });
+      setClientes(prev => [created, ...prev]);
+      setForm(prev => ({ ...prev, cliente_id: created.id }));
+      setNewClientModal(false);
+      setNewClientForm({ nome: "", empresa: "", email: "", telefone: "" });
+      showPopup("✅ Cliente criado e selecionado!", "success");
+    } catch (err: any) {
+      showPopup("Erro ao criar cliente: " + err.message, "error");
+    } finally {
+      setSavingClient(false);
+    }
+  }
 
   return (
     <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
@@ -385,9 +475,10 @@ export default function NovoProjetoPage() {
           <div className="bg-primary-800 border border-primary-700 rounded-2xl p-8 flex flex-col gap-8">
             <div className="flex items-center justify-between">
               <h2 className="text-[20px] text-gray-300 font-medium">
-                {step === 1 && "Etapa 1 de 3 – Informações básicas"}
-                {step === 2 && "Etapa 2 de 3 – Escopo, prazos e pagamento"}
-                {step === 3 && "Etapa 3 de 3 – Links e observações"}
+                {step === 1 && "Etapa 1 de 4 – Informações básicas"}
+                {step === 2 && "Etapa 2 de 4 – Escopo, prazos e pagamento"}
+                {step === 3 && "Etapa 3 de 4 – Links e observações"}
+                {step === 4 && "Etapa 4 de 4 – Tarefas do projeto"}
               </h2>
             </div>
 
@@ -457,26 +548,37 @@ export default function NovoProjetoPage() {
 
                 <label className="flex flex-col gap-2">
                   <span className="text-[13px] text-gray-300">Cliente vinculado</span>
-                  <div className="relative">
-                    <select
-                      name="cliente_id"
-                      value={form.cliente_id ?? ""}
-                      onChange={(e) =>
-                        setForm((prev) => ({
-                          ...prev,
-                          cliente_id: e.target.value === "" ? null : e.target.value,
-                        }))
-                      }
-                      className="flow-select w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 cursor-pointer"
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <select
+                        name="cliente_id"
+                        value={form.cliente_id ?? ""}
+                        onChange={(e) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            cliente_id: e.target.value === "" ? null : e.target.value,
+                          }))
+                        }
+                        className="flow-select w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 cursor-pointer"
+                      >
+                        <option value="">Nenhum cliente</option>
+                        {clientes.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nome} {c.empresa ? `- ${c.empresa}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewClientModal(true)}
+                      title="Criar novo cliente"
+                      className="flex items-center gap-1.5 px-3 py-3 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 hover:bg-primary-600 transition-colors text-[13px] whitespace-nowrap"
                     >
-                      <option value="">Nenhum cliente</option>
-                      {clientes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nome} {c.empresa ? `- ${c.empresa}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown />
+                      <UserPlus size={16} />
+                      Novo cliente
+                    </button>
                   </div>
                 </label>
 
@@ -641,11 +743,81 @@ export default function NovoProjetoPage() {
               </div>
             )}
 
+            {step === 4 && (
+              <div className="flex flex-col gap-4">
+                <p className="text-[13px] text-gray-400">
+                  Adicione tarefas e subtarefas que estarão vinculadas ao projeto.
+                  Elas aparecerão na aba <strong className="text-gray-200">Etapas</strong> da página do projeto.
+                </p>
+
+                <div className="flex flex-col gap-3">
+                  {tasks.map((task) => (
+                    <div key={task.id} className="bg-primary-900 border border-primary-700 rounded-xl p-4 flex flex-col gap-3">
+                      <div className="flex items-center gap-2">
+                        <ChevRight size={16} className="text-primary-400 shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Nome da tarefa"
+                          value={task.titulo}
+                          onChange={e => updateTask(task.id, e.target.value)}
+                          className="flex-1 bg-transparent border-b border-primary-700 focus:border-primary-400 outline-none px-1 py-1 text-[15px] text-gray-100 placeholder-gray-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeTask(task.id)}
+                          className="text-gray-500 hover:text-red-400 transition-colors"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+
+                      <div className="pl-6 flex flex-col gap-2">
+                        {task.subtasks.map(sub => (
+                          <div key={sub.id} className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary-600 shrink-0" />
+                            <input
+                              type="text"
+                              placeholder="Subtarefa"
+                              value={sub.titulo}
+                              onChange={e => updateSubtask(task.id, sub.id, e.target.value)}
+                              className="flex-1 bg-transparent border-b border-primary-800 focus:border-primary-600 outline-none px-1 py-0.5 text-[14px] text-gray-300 placeholder-gray-600"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeSubtask(task.id, sub.id)}
+                              className="text-gray-600 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => addSubtask(task.id)}
+                          className="flex items-center gap-1 text-[13px] text-primary-400 hover:text-primary-300 transition-colors w-fit"
+                        >
+                          <Plus size={13} /> Adicionar subtarefa
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addTask}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl border border-dashed border-primary-600 text-primary-400 hover:bg-primary-800/50 hover:text-primary-300 transition-colors text-[14px]"
+                >
+                  <Plus size={16} /> Adicionar tarefa
+                </button>
+              </div>
+            )}
+
             <div className="mt-4">
               <div className="w-full h-2 bg-primary-700 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary-500 transition-all duration-500 ease-out"
-                  style={{ width: `${(step / 3) * 100}%` }}
+                  style={{ width: `${(step / 4) * 100}%` }}
                 ></div>
               </div>
             </div>
@@ -670,7 +842,7 @@ export default function NovoProjetoPage() {
                   </button>
                 )}
 
-                {step < 3 ? (
+                {step < 4 ? (
                   <button
                     type="button"
                     onClick={nextStep}
@@ -695,6 +867,67 @@ export default function NovoProjetoPage() {
           </div>
         </section>
       </div>
+
+      {newClientModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setNewClientModal(false)}>
+          <div
+            className="w-full max-w-md rounded-2xl bg-primary-800 border border-primary-600 shadow-[0_24px_60px_rgba(0,0,0,0.6)] p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-[18px] text-gray-100 font-semibold mb-4">Novo cliente</h2>
+
+            <div className="flex flex-col gap-3">
+              <input
+                autoFocus
+                type="text"
+                placeholder="Nome *"
+                value={newClientForm.nome}
+                onChange={e => setNewClientForm(p => ({ ...p, nome: e.target.value }))}
+                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500"
+              />
+              <input
+                type="text"
+                placeholder="Empresa"
+                value={newClientForm.empresa}
+                onChange={e => setNewClientForm(p => ({ ...p, empresa: e.target.value }))}
+                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500"
+              />
+              <input
+                type="email"
+                placeholder="E-mail"
+                value={newClientForm.email}
+                onChange={e => setNewClientForm(p => ({ ...p, email: e.target.value }))}
+                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500"
+              />
+              <input
+                type="text"
+                placeholder="Telefone"
+                value={newClientForm.telefone}
+                onChange={e => setNewClientForm(p => ({ ...p, telefone: e.target.value }))}
+                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-5">
+              <button
+                type="button"
+                onClick={() => setNewClientModal(false)}
+                className="px-4 py-2 rounded-lg bg-primary-800 border border-primary-600 text-gray-200 text-[14px] hover:bg-primary-700"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateClient}
+                disabled={savingClient || !newClientForm.nome.trim()}
+                className="px-4 py-2 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[14px] disabled:opacity-50"
+              >
+                {savingClient ? "Salvando..." : "Criar cliente"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {linkModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">

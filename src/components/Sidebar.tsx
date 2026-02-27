@@ -15,7 +15,8 @@ import {
   BarChart3,
   Settings,
   LogOut,
-  LayoutTemplate,
+  ClipboardList,
+  FileText,
   ChevronLeft,
   ChevronRight,
   Clock,
@@ -41,7 +42,8 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
     { name: "Home", href: "/dashboard", icon: Home },
     { name: "Projetos", href: "/dashboard/projetos", icon: FolderKanban },
     { name: "Clientes", href: "/dashboard/clientes", icon: Users },
-    { name: "Templates", href: "/dashboard/templates", icon: LayoutTemplate },
+    { name: "Briefings", href: "/dashboard/briefings", icon: ClipboardList },
+    { name: "Propostas", href: "/dashboard/propostas", icon: FileText },
     { name: "Time Tracker", href: "/dashboard/cronometro", icon: Clock },
     { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare },
     { name: "Pagamentos", href: "/dashboard/pagamentos", icon: DollarSign },
@@ -126,7 +128,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
                       {name}
                     </span>
                   ) : (
-                    <div className="absolute left-full ml-4 px-2 py-1 bg-gray-900 border border-primary-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                    <div className="absolute left-full ml-4 px-2 py-1 bg-primary-900 border border-primary-700 text-gray-100 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
                       {name}
                     </div>
                   )}
@@ -156,7 +158,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
                     {name}
                   </span>
                 ) : (
-                  <div className="absolute left-full ml-4 px-2 py-1 bg-gray-900 border border-primary-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+                  <div className="absolute left-full ml-4 px-2 py-1 bg-primary-900 border border-primary-700 text-gray-100 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
                     {name}
                   </div>
                 )}
@@ -180,7 +182,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
                 Sair
               </span>
             ) : (
-              <div className="absolute left-full ml-4 px-2 py-1 bg-gray-900 border border-primary-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
+              <div className="absolute left-full ml-4 px-2 py-1 bg-primary-900 border border-primary-700 text-gray-100 text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-50 shadow-xl">
                 Sair
               </div>
             )}

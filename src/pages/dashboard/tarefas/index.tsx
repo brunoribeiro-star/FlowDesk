@@ -91,23 +91,19 @@ function UrgenciaIndicator({ nivel }: { nivel: string }) {
   let ativos = 0;
 
   switch (nivel) {
-    case "Muito urgente":
-      ativos = 4;
-      break;
-    case "Urgente":
-      ativos = 3;
-      break;
-    case "Normal":
-      ativos = 2;
-      break;
-    case "Baixa":
-      ativos = 1;
-      break;
-    default:
-      ativos = 0;
+    case "Muito urgente": ativos = 4; break;
+    case "Urgente":       ativos = 3; break;
+    case "Normal":        ativos = 2; break;
+    case "Baixa":         ativos = 1; break;
+    default:              ativos = 0;
   }
 
-  const colorClass = "bg-primary-500";
+  const colorClass =
+    nivel === "Muito urgente" ? "bg-rose-400"    :
+    nivel === "Urgente"       ? "bg-amber-400"   :
+    nivel === "Normal"        ? "bg-sky-400"     :
+    nivel === "Baixa"         ? "bg-emerald-400" :
+    "bg-gray-600";
 
   const barras = Array.from({ length: total }, (_, i) => i < ativos);
 
