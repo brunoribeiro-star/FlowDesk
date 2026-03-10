@@ -4,8 +4,12 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import Image from "next/image";
+import { validateImageFile } from "@/lib/utils";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
+import { IMAGE_SPECS } from "@/lib/imageSpecs";
+import { useImageConverter } from "@/hooks/useImageConverter";
+import ImageConverterModal from "@/components/ui/ImageConverterModal";
 
 type ViewMode = "list" | "board";
 
@@ -92,6 +96,8 @@ export default function ConfiguracoesPage() {
     message: "",
   });
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { converterState, triggerConverter, cancelConverter } = useImageConverter();
+
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState("");
@@ -282,32 +288,26 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  async function enviarAvatar(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !userData) return;
-
+  async function doAvatarUpload(file: File) {
+    if (!userData) return;
     try {
-      const filePath = `avatars/${userData.id}_${Date.now()}.png`;
-
-      const { error } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, { upsert: true });
-
-      if (error) {
-        showToast("error", "Erro ao enviar imagem: " + error.message);
-        return;
-      }
-
+      const filePath = `avatars/${userData.id}_${Date.now()}.webp`;
+      const { error } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true, contentType: file.type });
+      if (error) { showToast("error", "Erro ao enviar imagem: " + error.message); return; }
       const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
       setAvatarUrl(data.publicUrl);
       setHasUnsavedChanges(true);
-      showToast(
-        "success",
-        "Foto de perfil atualizada (clique em salvar alterações)."
-      );
+      showToast("success", "Foto de perfil atualizada (clique em salvar alterações).");
     } catch (err: any) {
       showToast("error", "Erro ao enviar imagem: " + err.message);
     }
+  }
+
+  async function enviarAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !userData) return;
+    triggerConverter(file, IMAGE_SPECS.avatar, doAvatarUpload);
+    e.target.value = "";
   }
 
   async function handleTrocarSenha() {
@@ -473,13 +473,12 @@ export default function ConfiguracoesPage() {
                     <input
                       type="file"
                       className="hidden"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       onChange={enviarAvatar}
                     />
                   </label>
                   <p className="text-[12px] text-gray-400 max-w-xs">
-                    Formatos recomendados: JPG ou PNG. Tamanho ideal mínimo de
-                    400×400px.
+                    {IMAGE_SPECS.avatar.hint}
                   </p>
                 </div>
               </div>
@@ -891,6 +890,14 @@ export default function ConfiguracoesPage() {
           }
         }
       `}</style>
+      {converterState && (
+        <ImageConverterModal
+          file={converterState.file}
+          spec={converterState.spec}
+          onAccept={converterState.onAccept}
+          onCancel={() => cancelConverter()}
+        />
+      )}
     </div>
   );
 }

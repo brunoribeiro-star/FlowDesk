@@ -6,6 +6,10 @@ import Sidebar from "@/components/Sidebar";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { addCliente } from "@/lib/supabaseQueries/clientes";
+import { validateImageFile } from "@/lib/utils";
+import { IMAGE_SPECS } from "@/lib/imageSpecs";
+import { useImageConverter } from "@/hooks/useImageConverter";
+import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import { User, Pencil } from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
 
@@ -23,6 +27,7 @@ export default function NovoClientePage() {
 
   const [uploadingImage, setUploadingImage] = useState(false);
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const { converterState, triggerConverter, cancelConverter } = useImageConverter();
 
   const [country, setCountry] = useState(COUNTRIES[0]);
 
@@ -133,43 +138,28 @@ export default function NovoClientePage() {
     setForm({ ...form, [name]: value });
   }
 
-  async function enviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  async function doUploadFoto(file: File) {
     setUploadingImage(true);
-
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        alert("Usuário não autenticado!");
-        return;
-      }
-
-      const path = `clientes/${user.id}/${Date.now()}_${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, file);
-
-      if (uploadError) {
-        alert("Erro ao enviar imagem: " + uploadError.message);
-        return;
-      }
-
-      const { data: urlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(path);
-
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { alert("Usuário não autenticado!"); return; }
+      const path = `clientes/${user.id}/${Date.now()}.webp`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { contentType: file.type });
+      if (uploadError) { alert("Erro ao enviar imagem: " + uploadError.message); return; }
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
       setFotoUrl(urlData.publicUrl);
     } catch (err: any) {
       alert("Erro ao enviar foto: " + err.message);
+    } finally {
+      setUploadingImage(false);
     }
+  }
 
-    setUploadingImage(false);
+  async function enviarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    triggerConverter(file, IMAGE_SPECS.avatar, doUploadFoto);
+    e.target.value = "";
   }
 
   function removerFoto() {
@@ -245,7 +235,7 @@ export default function NovoClientePage() {
                                 <input
                                 type="file"
                                 className="hidden"
-                                accept="image/*"
+                                accept="image/jpeg,image/png,image/webp"
                                 onChange={enviarFoto}
                                 disabled={uploadingImage}
                                 />
@@ -258,7 +248,7 @@ export default function NovoClientePage() {
                         </div>
                         <div className="flex flex-col gap-1">
                             <h3 className="text-sm font-medium text-gray-200">Foto de Perfil</h3>
-                            <p className="text-xs text-gray-500">Formats: JPG, PNG. Max 5MB.</p>
+                            <p className="text-xs text-gray-500">{IMAGE_SPECS.avatar.hint}</p>
                         </div>
                     </div>
 
@@ -381,6 +371,14 @@ export default function NovoClientePage() {
           </form>
         </section>
       </div>
+      {converterState && (
+        <ImageConverterModal
+          file={converterState.file}
+          spec={converterState.spec}
+          onAccept={converterState.onAccept}
+          onCancel={() => cancelConverter()}
+        />
+      )}
     </div>
   );
 }

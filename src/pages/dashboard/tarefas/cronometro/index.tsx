@@ -12,6 +12,50 @@ interface Task {
   status: string;
 }
 
+function NumericInput({
+  value,
+  onChange,
+  min = 1,
+  max = 480,
+  label,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <span className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onChange(Math.max(min, value - 1))}
+          className="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-xs"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))}
+          className="w-12 text-center bg-primary-800 border border-primary-600 rounded-lg px-1 py-0.5 text-gray-100 text-sm font-medium focus:outline-none focus:border-primary-400"
+        />
+        <button
+          type="button"
+          onClick={() => onChange(Math.min(max, value + 1))}
+          className="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-xs"
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const MODES = [
   {
     id: "pomodoro",
@@ -68,6 +112,10 @@ export default function CronometroConfigPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState(30);
+  // Pomodoro config
+  const [pomodoroWork, setPomodoroWork] = useState(25);
+  const [pomodoroBreak, setPomodoroBreak] = useState(5);
+  const [pomodoroCycles, setPomodoroCycles] = useState(4);
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -96,6 +144,12 @@ export default function CronometroConfigPage() {
     if (!selected) return;
     const mode = MODES.find((m) => m.id === selected);
     if (!mode) return;
+    if (selected === "pomodoro") {
+      router.push(
+        `/dashboard/tarefas/cronometro/sessao?taskId=${taskId}&mode=pomodoro&minutes=${pomodoroWork}&breakMinutes=${pomodoroBreak}&cycles=${pomodoroCycles}`
+      );
+      return;
+    }
     const minutes = selected === "personalizado" ? customMinutes : mode.minutes;
     router.push(
       `/dashboard/tarefas/cronometro/sessao?taskId=${taskId}&mode=${selected}&minutes=${minutes}`
@@ -173,10 +227,31 @@ export default function CronometroConfigPage() {
                     <div>
                       <div className="font-medium text-gray-100 text-lg">{mode.label}</div>
                       <div className={`text-sm font-medium ${mode.accent}`}>
-                        {mode.id === "personalizado" ? "Tempo livre" : `${mode.minutes} minutos`}
+                        {mode.id === "personalizado"
+                          ? "Tempo livre"
+                          : mode.id === "pomodoro"
+                          ? `${pomodoroWork}min foco · ${pomodoroBreak}min pausa · ${pomodoroCycles}x`
+                          : `${mode.minutes} minutos`}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">{mode.description}</div>
                     </div>
+
+                    {mode.id === "pomodoro" && isSelected && (
+                      <div
+                        className="flex flex-wrap items-end gap-4 mt-2 pt-3 border-t border-primary-700/60"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <NumericInput label="Foco (min)" value={pomodoroWork} onChange={setPomodoroWork} min={1} max={120} />
+                        <NumericInput label="Pausa (min)" value={pomodoroBreak} onChange={setPomodoroBreak} min={1} max={60} />
+                        <NumericInput label="Ciclos" value={pomodoroCycles} onChange={setPomodoroCycles} min={1} max={20} />
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">Total</span>
+                          <span className="text-sm text-gray-300 font-medium">
+                            {Math.round(pomodoroWork * pomodoroCycles + pomodoroBreak * (pomodoroCycles - 1))}min
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {mode.id === "personalizado" && isSelected && (
                       <div

@@ -25,7 +25,11 @@ import {
   Square,
   X,
 } from "lucide-react";
+import DatePicker from "@/components/DatePicker";
+import HeaderProfile from "@/components/HeaderProfile";
 import { encode } from "punycode";
+import { useAuth } from "@/contexts/AuthContext";
+import { SkeletonList } from "@/components/Skeleton";
 
 type Cliente = {
   id: string;
@@ -163,8 +167,7 @@ export default function BriefingsPage() {
     localStorage.setItem("briefingsViewMode", mode);
   };
 
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement | null>(null);
+
 
   const [openMenuEnvioId, setOpenMenuEnvioId] = useState<string | null>(null);
 
@@ -197,24 +200,14 @@ export default function BriefingsPage() {
   const [templatesToDelete, setTemplatesToDelete] = useState<string[]>([]);
   const [deletingTemplates, setDeletingTemplates] = useState(false);
 
+  const { user: authUser } = useAuth();
+
   useEffect(() => {
     async function carregar() {
+      if (!authUser) return;
       setLoading(true);
 
-      const { data: auth } = await supabase.auth.getUser();
-      const u = auth?.user;
-
-      if (!u) {
-        setUser(null);
-        setTemplates([]);
-        setEnvios([]);
-        setRespostas([]);
-        setProjetos([]);
-        setErro("Usuário não autenticado.");
-        setLoading(false);
-        return;
-      }
-
+      const u = authUser;
       setUser(u);
 
       const [
@@ -429,15 +422,11 @@ export default function BriefingsPage() {
     }
 
     carregar();
-  }, []);
+  }, [authUser]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       const target = e.target as HTMLElement;
-
-      if (profileRef.current && !profileRef.current.contains(target)) {
-        setProfileOpen(false);
-      }
 
       const isTemplateMenu =
         target.closest("[data-template-menu]") ||
@@ -1133,81 +1122,7 @@ export default function BriefingsPage() {
               Criar briefing
             </button>
 
-            <div className="relative" ref={profileRef}>
-              <button
-                type="button"
-                onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-800 transition-colors"
-              >
-                <Image
-                  src={avatarSrc}
-                  alt="Perfil"
-                  width={35}
-                  height={35}
-                  className="rounded-full object-cover border border-primary-600"
-                />
-
-                {profileOpen ? (
-                  <ChevronUp size={18} className="text-primary-100" />
-                ) : (
-                  <ChevronDown size={18} className="text-primary-100" />
-                )}
-              </button>
-
-              {profileOpen && (
-                <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in">
-                  <button
-                    className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      router.push("/dashboard/perfil");
-                    }}
-                  >
-                    <Pencil size={20} className="text-primary-200" />
-                    Editar perfil
-                  </button>
-
-                  <button
-                    className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
-                    onClick={() => {
-                      setProfileOpen(false);
-                      router.push("/dashboard/tema");
-                    }}
-                  >
-                    <SlidersHorizontal size={20} className="text-primary-200" />
-                    Personalizar tema
-                  </button>
-
-                  <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300">
-                    <Crown size={20} />
-                    Assinatura
-                  </button>
-
-                  <button
-                    className="flex items-center gap-3 text-red-400 hover:text-red-300 pt-2"
-                    onClick={async () => {
-                      await supabase.auth.signOut();
-                      router.push("/login");
-                    }}
-                  >
-                    <svg
-                      width="20"
-                      height="20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    Sair da plataforma
-                  </button>
-                </div>
-              )}
-            </div>
+            <HeaderProfile />
           </div>
         </header>
 
@@ -1272,9 +1187,7 @@ export default function BriefingsPage() {
 
               <div className="flex-1 max-h-full overflow-y-auto briefings-scroll px-6 py-4">
                 {loading ? (
-                  <div className="py-16 text-center text-gray-400 text-sm">
-                    Carregando modelos...
-                  </div>
+                  <SkeletonList rows={5} cols={3} />
                 ) : erro ? (
                   <div className="py-16 text-center text-red-400 text-sm">
                     {erro}
@@ -1748,7 +1661,6 @@ export default function BriefingsPage() {
           )}
         </section>
 
-        {/* Barra de Ações em Massa (Floating Action Bar) */}
         {selectionMode && algumModeloSelecionado && (
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4 px-6 py-3 rounded-2xl bg-primary-800 border border-primary-600 shadow-2xl animate-fade-in-up">
             <span className="text-[14px] text-gray-200 font-medium">
@@ -1929,11 +1841,10 @@ export default function BriefingsPage() {
                   <label className="text-[13px] text-gray-300">
                     Prazo para resposta (opcional)
                   </label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={sendPrazo}
-                    onChange={(e) => setSendPrazo(e.target.value)}
-                    className="w-full bg-primary-800 border-primary-700 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                    onChange={(v) => setSendPrazo(v)}
+                    placeholder="dd/mm/aaaa"
                   />
                 </div>
               </div>

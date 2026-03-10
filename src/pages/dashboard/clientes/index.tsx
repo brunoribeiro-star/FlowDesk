@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import Sidebar from "@/components/Sidebar";
+import HeaderProfile from "@/components/HeaderProfile";
 import {
   getClientes,
   deleteCliente,
@@ -12,92 +13,28 @@ import {
   Cliente,
 } from "@/lib/supabaseQueries/clientes";
 import { supabase } from "@/lib/supabaseClient";
+import { SkeletonList } from "@/components/Skeleton";
+import { validateImageFile } from "@/lib/utils";
+import { IMAGE_SPECS } from "@/lib/imageSpecs";
+import { useImageConverter } from "@/hooks/useImageConverter";
+import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import {
   Pencil,
-  SlidersHorizontal,
-  Crown,
-  ChevronDown,
-  ChevronUp,
   Search,
   LayoutList,
   Kanban,
   Phone,
   Mail,
   Building2,
-  MoreVertical,
   Trash2,
   Edit,
   User,
 } from "lucide-react";
+import Toast from "@/components/ui/Toast";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 type ViewMode = "list" | "board";
 
-function Toast({
-  message,
-  type,
-}: {
-  message: string;
-  type: "success" | "error";
-}) {
-  return (
-    <div
-      className={`fixed z-50 top-6 right-6 px-6 py-4 rounded-xl flex items-center gap-3 shadow-xl backdrop-blur-md transition-all animate-fade-in
-      ${
-        type === "success"
-          ? "bg-green-500/10 border border-green-500/20 text-green-400"
-          : "bg-red-500/10 border border-red-500/20 text-red-400"
-      }`}
-    >
-      <div className={`w-2 h-2 rounded-full ${type === "success" ? "bg-green-500" : "bg-red-500"}`} />
-      <span className="font-medium text-[15px]">{message}</span>
-    </div>
-  );
-}
-
-function ConfirmModal({
-  message,
-  onConfirm,
-  onCancel,
-}: {
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-primary-900 border border-primary-700 rounded-2xl p-6 w-full max-w-md shadow-2xl scale-100 animate-fade-in relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-red-600" />
-        
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3 text-red-400">
-            <div className="p-2 bg-red-500/10 rounded-lg">
-              <Trash2 size={24} />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-100">Confirmar exclusão</h3>
-          </div>
-          
-          <p className="text-gray-300 leading-relaxed text-[15px]">{message}</p>
-          
-          <div className="flex justify-end gap-3 mt-4 pt-4 border-t border-primary-800">
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 rounded-lg text-gray-300 hover:bg-primary-800 transition-colors text-sm font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={onConfirm}
-              className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 transition-all text-sm font-medium flex items-center gap-2"
-            >
-              <Trash2 size={16} />
-              Excluir
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function ClientesPage() {
   const router = useRouter();
@@ -108,15 +45,14 @@ export default function ClientesPage() {
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Cliente | null>(null);
+  const editingRef = useRef<Cliente | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   
   const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [userAvatarUrl, setUserAvatarUrl] = useState("/perfil.svg");
 
   const [uploadingImage, setUploadingImage] = useState(false);
+  const { converterState, triggerConverter, cancelConverter } = useImageConverter();
   const [clientStatusMap, setClientStatusMap] = useState<Record<string, string>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
@@ -132,18 +68,10 @@ export default function ClientesPage() {
     setTimeout(() => setToast(null), 3000);
   }
 
+  useEffect(() => { editingRef.current = editing; }, [editing]);
+
   useEffect(() => {
     fetchClientes();
-    
-    async function getUserProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        if (user.user_metadata?.avatar_url) {
-          setUserAvatarUrl(user.user_metadata.avatar_url);
-        }
-      }
-    }
-    getUserProfile();
 
     const savedView = localStorage.getItem("clientesParams");
     if (savedView) {
@@ -163,9 +91,6 @@ export default function ClientesPage() {
     }
 
     function handleClickOutside(event: MouseEvent) {
-        if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-          setProfileOpen(false);
-        }
         const target = event.target as HTMLElement;
         if (!target.closest("[data-client-menu]")) {
             setMenuOpenId(null);
@@ -219,7 +144,6 @@ export default function ClientesPage() {
       empresa: (formData.get("empresa") as string) || null,
       email: (formData.get("email") as string) || null,
       telefone: (formData.get("telefone") as string) || null,
-      observacoes: (formData.get("observacoes") as string) || null,
       foto_url: editing.foto_url,
     };
 
@@ -229,33 +153,23 @@ export default function ClientesPage() {
       setEditing(null);
       showToast("Cliente atualizado com sucesso!", "success");
     } catch (err: any) {
-      showToast("Erro ao atualizar cliente", "error");
+      showToast("Erro ao atualizar: " + (err.message || "Erro desconhecido"), "error");
     }
   }
 
-  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !editing) return;
-
+  async function doImageUpload(file: File) {
+    const currentEditing = editingRef.current;
+    if (!currentEditing) return;
     setUploadingImage(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
-
-      const path = `clientes/${user.id}/${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, file);
-
+      const path = `clientes/${user.id}/${Date.now()}.webp`;
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, { contentType: file.type });
       if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(path);
-
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
       setEditing(prev => prev ? { ...prev, foto_url: urlData.publicUrl } : null);
       showToast("Foto enviada com sucesso!", "success");
-      
     } catch (error: any) {
       showToast("Erro ao enviar foto: " + error.message, "error");
     } finally {
@@ -263,16 +177,13 @@ export default function ClientesPage() {
     }
   }
 
-  async function handleEditProfile() {
-    setProfileOpen(false);
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !editing) return;
+    triggerConverter(file, IMAGE_SPECS.avatar, doImageUpload);
+    e.target.value = "";
   }
-  async function handleTheme() {
-    setProfileOpen(false);
-  }
-  async function handleSignature() {
-    setProfileOpen(false);
-    router.push("/dashboard/assinatura");
-  }
+
 
   function handleDragStart(id: string) {
       setDraggingId(id);
@@ -332,7 +243,7 @@ export default function ClientesPage() {
   }
 
   function renderListView() {
-      if (loading) return <div className="mt-8 text-center text-gray-400">Carregando clientes...</div>;
+      if (loading) return <SkeletonList rows={6} cols={4} />;
       if (!filteredClientes.length) return <div className="mt-8 text-center text-gray-400">Nenhum cliente encontrado.</div>;
 
     return (
@@ -541,56 +452,7 @@ export default function ClientesPage() {
                     </button>
                 </Link>
 
-                <div className="relative" ref={profileRef}>
-                  <button
-                    type="button"
-                    onClick={() => setProfileOpen((v) => !v)}
-                    className="flex items-center gap-3 pl-1 pr-2 py-1 rounded-full hover:bg-primary-800 transition-all border border-transparent hover:border-primary-700 group"
-                  >
-                     <div className="w-9 h-9 rounded-full overflow-hidden border border-primary-600 bg-primary-900 group-hover:border-primary-500 transition-colors">
-                        <Image src={userAvatarUrl} alt="Avatar" width={36} height={36} className="object-cover w-full h-full" />
-                     </div>
-                    {profileOpen ? (
-                       <ChevronUp size={18} className="text-gray-400 group-hover:text-gray-200 transition-colors" />
-                    ) : (
-                       <ChevronDown size={18} className="text-gray-400 group-hover:text-gray-200 transition-colors" />
-                    )}
-                  </button>
-
-                  {profileOpen && (
-                    <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in z-50">
-                      <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleEditProfile}>
-                        <Pencil size={20} className="text-primary-200" />
-                        Editar perfil
-                      </button>
-
-                      <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleTheme}>
-                        <SlidersHorizontal size={20} className="text-primary-200" />
-                        Personalizar tema
-                      </button>
-
-                      <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors" onClick={handleSignature}>
-                        <Crown size={20} />
-                        Assinatura
-                      </button>
-
-                      <button
-                        className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
-                        onClick={async () => {
-                          await supabase.auth.signOut();
-                          router.push("/login");
-                        }}
-                      >
-                        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                          <polyline points="16 17 21 12 16 7" />
-                          <line x1="21" y1="12" x2="9" y2="12" />
-                        </svg>
-                        Sair da plataforma
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <HeaderProfile />
               </div>
             </div>
           </div>
@@ -629,7 +491,7 @@ export default function ClientesPage() {
                     <input 
                       type="file" 
                       className="hidden" 
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       onChange={handleImageUpload}
                       disabled={uploadingImage}
                     />
@@ -690,15 +552,6 @@ export default function ClientesPage() {
                       />
                   </div>
 
-                  <div className="flex flex-col gap-1.5 md:col-span-2">
-                      <label className="text-xs font-medium text-gray-400 uppercase tracking-wider">Observações</label>
-                      <textarea
-                        name="observacoes"
-                        defaultValue={editing.observacoes || ""}
-                        placeholder="Observações sobre o cliente..."
-                        className="bg-transparent border border-primary-700 rounded-xl px-4 py-3 text-gray-200 focus:outline-none focus:border-primary-500 transition-all placeholder:text-gray-600 min-h-[100px] resize-y"
-                      />
-                  </div>
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-primary-800">
@@ -752,6 +605,14 @@ export default function ClientesPage() {
           }
         }
       `}</style>
+      {converterState && (
+        <ImageConverterModal
+          file={converterState.file}
+          spec={converterState.spec}
+          onAccept={converterState.onAccept}
+          onCancel={() => cancelConverter()}
+        />
+      )}
     </div>
   );
 }

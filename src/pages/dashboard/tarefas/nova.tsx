@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import DatePicker from "@/components/DatePicker";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
@@ -146,6 +147,7 @@ export default function NovaTarefaPage() {
   const [vencimento, setVencimento] = useState("");
   const [subtasks, setSubtasks] = useState<{ id: string; titulo: string }[]>([]);
   const [newSubtask, setNewSubtask] = useState("");
+  const subtaskInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -220,8 +222,9 @@ export default function NovaTarefaPage() {
 
   const addSubtask = () => {
     if (!newSubtask.trim()) return;
-    setSubtasks([...subtasks, { id: crypto.randomUUID(), titulo: newSubtask }]);
+    setSubtasks((prev) => [...prev, { id: crypto.randomUUID(), titulo: newSubtask.trim() }]);
     setNewSubtask("");
+    setTimeout(() => subtaskInputRef.current?.focus(), 0);
   };
 
   const removeSubtask = (id: string) => {
@@ -354,19 +357,35 @@ export default function NovaTarefaPage() {
                 ))}
 
                 <div className="flex items-center gap-3">
-                  <div className="text-gray-600">
+                  <div className="text-gray-600 shrink-0">
                     <div className="w-5 h-5 rounded-full border border-gray-700 flex items-center justify-center">
                       <span className="text-xs">+</span>
                     </div>
                   </div>
                   <input
+                    ref={subtaskInputRef}
                     type="text"
-                    placeholder="Adicionar subtarefa"
+                    placeholder="Adicionar subtarefa (Enter ou clicar +)"
                     className="flex-1 bg-transparent text-sm text-gray-300 placeholder:text-gray-600 focus:outline-none"
                     value={newSubtask}
                     onChange={(e) => setNewSubtask(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addSubtask()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addSubtask();
+                      }
+                    }}
                   />
+                  {newSubtask.trim() && (
+                    <button
+                      type="button"
+                      onClick={addSubtask}
+                      className="shrink-0 w-6 h-6 rounded-full bg-primary-600 hover:bg-primary-500 text-white flex items-center justify-center transition-colors"
+                      title="Adicionar subtarefa"
+                    >
+                      <span className="text-xs font-bold leading-none">+</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -415,18 +434,11 @@ export default function NovaTarefaPage() {
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-200">Vencimento</label>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                    <Calendar size={16} />
-                  </div>
-                  <input
-                    type="date"
-                    value={vencimento}
-                    onChange={(e) => setVencimento(e.target.value)}
-                    className={`${fieldBase} pl-12 pr-4`}
-                    style={{ colorScheme: "dark", backgroundColor: "transparent" }}
-                  />
-                </div>
+                <DatePicker
+                  value={vencimento}
+                  onChange={(v) => setVencimento(v)}
+                  placeholder="dd/mm/aaaa"
+                />
               </div>
 
               <div className="space-y-2">
@@ -470,19 +482,7 @@ export default function NovaTarefaPage() {
             background: rgb(15 23 42);
             color: rgb(226 232 240);
           }
-          input[type="date"]::-webkit-calendar-picker-indicator {
-            background: transparent;
-            bottom: 0;
-            color: transparent;
-            cursor: pointer;
-            height: auto;
-            left: 0;
-            position: absolute;
-            right: 0;
-            top: 0;
-            width: auto;
-            opacity: 0;
-          }
+
 
           .tiptap-editor {
             line-height: 1.6;

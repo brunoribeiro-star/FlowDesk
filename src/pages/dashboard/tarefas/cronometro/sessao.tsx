@@ -15,6 +15,7 @@ import {
   Focus,
   X,
   ArrowLeft,
+  Coffee,
 } from "lucide-react";
 
 interface Task {
@@ -89,6 +90,29 @@ function playCelebrationSound() {
   } catch (_) {}
 }
 
+function playBreakSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const notes    = [783.99, 659.25, 523.25];
+    const durations = [0.15,   0.15,   0.4];
+    let time = ctx.currentTime + 0.05;
+    notes.forEach((freq, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, time);
+      gain.gain.setValueAtTime(0.0, time);
+      gain.gain.linearRampToValueAtTime(0.2, time + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, time + durations[i]);
+      osc.start(time);
+      osc.stop(time + durations[i] + 0.05);
+      time += durations[i] + 0.02;
+    });
+  } catch (_) {}
+}
+
 const R = 155;
 const CX = 170;
 const CY = 170;
@@ -96,7 +120,15 @@ const CIRCUMFERENCE = 2 * Math.PI * R;
 
 export default function CronometroSessaoPage() {
   const router = useRouter();
-  const { taskId, mode, minutes } = router.query;
+  const { taskId, mode, minutes, breakMinutes, cycles } = router.query;
+
+  const isPomodoro   = mode === "pomodoro";
+  const workSecs     = isPomodoro ? (parseInt(minutes as string) || 25) * 60 : 0;
+  const breakSecs    = isPomodoro ? (parseInt(breakMinutes as string) || 5) * 60 : 0;
+  const totalCycles  = isPomodoro ? (parseInt(cycles as string) || 4) : 1;
+  const [currentCycle, setCurrentCycle] = useState(1);
+  const [isBreak, setIsBreak] = useState(false);
+  const [allDone, setAllDone] = useState(false);
 
   const [task,     setTask]     = useState<Task | null>(null);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -112,15 +144,16 @@ export default function CronometroSessaoPage() {
   const [startTime, setStartTime]   = useState<Date | null>(null);
   const [_sidebarOpen, setSidebarOpen] = useState(false);
 
-  const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const canvasRef     = useRef<HTMLCanvasElement>(null);
-  const particlesRef  = useRef<Particle[]>([]);
-  const animFrameRef  = useRef<number | null>(null);
+  const endAtRef     = useRef<number | null>(null);
+  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const particlesRef = useRef<Particle[]>([]);
+  const animFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!router.isReady) return;
     if (!taskId || !minutes) return;
-    const secs = parseInt(minutes as string) * 60;
+    const secs = isPomodoro ? workSecs : parseInt(minutes as string) * 60;
     totalSeconds.current = secs;
     setSecondsLeft(secs);
     loadData();
@@ -143,22 +176,50 @@ export default function CronometroSessaoPage() {
 
   useEffect(() => {
     if (running && !finished) {
+      if (!endAtRef.current) {
+        endAtRef.current = Date.now() + secondsLeft * 1000;
+      }
       intervalRef.current = setInterval(() => {
-        setSecondsLeft((prev) => {
-          if (prev <= 1) {
-            clearInterval(intervalRef.current!);
+        const remaining = Math.max(0, Math.round((endAtRef.current! - Date.now()) / 1000));
+        setSecondsLeft(remaining);
+        if (remaining <= 0) {
+          clearInterval(intervalRef.current!);
+          intervalRef.current = null;
+          endAtRef.current = null;
+          if (isPomodoro && !allDone) {
+            handlePomodoroPhaseEnd();
+          } else {
             setRunning(false);
             setFinished(true);
-            return 0;
           }
-          return prev - 1;
-        });
-      }, 1000);
+        }
+      }, 500);
     } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      if (!running && endAtRef.current) endAtRef.current = null;
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running, finished]);
+
+  function handlePomodoroPhaseEnd() {
+    if (isBreak) {
+      const nextCycle = currentCycle + 1;
+      if (nextCycle > totalCycles) {
+        setAllDone(true); setRunning(false); setFinished(true);
+        playCelebrationSound(); startConfetti();
+      } else {
+        setCurrentCycle(nextCycle); setIsBreak(false);
+        totalSeconds.current = workSecs;
+        setSecondsLeft(workSecs);
+        endAtRef.current = Date.now() + workSecs * 1000;
+      }
+    } else {
+      playBreakSound(); setIsBreak(true);
+      totalSeconds.current = breakSecs;
+      setSecondsLeft(breakSecs);
+      endAtRef.current = Date.now() + breakSecs * 1000;
+    }
+  }
 
   const startConfetti = useCallback(() => {
     const canvas = canvasRef.current;
@@ -203,15 +264,19 @@ export default function CronometroSessaoPage() {
     setSecondsLeft(v => {
       const next = Math.max(0, v + delta * 60);
       if (next > totalSeconds.current) totalSeconds.current = next;
+      if (endAtRef.current) endAtRef.current = Date.now() + next * 1000;
       return next;
     });
   }
 
   function handleRestart() {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    setRunning(false);
-    setFinished(false);
-    setSecondsLeft(totalSeconds.current);
+    endAtRef.current = null;
+    setRunning(false); setFinished(false); setConcluded(false);
+    setAllDone(false); setIsBreak(false); setCurrentCycle(1);
+    const secs = isPomodoro ? workSecs : parseInt(minutes as string || "0") * 60;
+    totalSeconds.current = secs;
+    setSecondsLeft(secs);
     setStartTime(null);
   }
 
@@ -228,6 +293,7 @@ export default function CronometroSessaoPage() {
   async function handleConclude() {
     if (concluded) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
+    endAtRef.current = null;
     setRunning(false); setFinished(true); setConcluded(true);
     if (task) {
       await supabase.from("tasks").update({ status: "concluida" }).eq("id", task.id);
@@ -259,7 +325,10 @@ export default function CronometroSessaoPage() {
     d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
   const subtasksDone = subtasks.filter(s => s.concluida).length;
-  const modeLabel    = MODE_LABELS[mode as string] || "CRONÔMETRO";
+  const modeLabel = isPomodoro
+    ? isBreak ? "POMODORO · PAUSA" : `POMODORO · FOCO ${currentCycle}/${totalCycles}`
+    : (MODE_LABELS[mode as string] || "CRONÔMETRO");
+  const ringColor = isBreak ? "var(--secondary-500)" : "var(--primary-500)";
 
   if (loading) {
     return (
@@ -316,6 +385,23 @@ export default function CronometroSessaoPage() {
             <span className="text-[11px] font-semibold tracking-[0.3em] text-gray-500 uppercase">
               {modeLabel}
             </span>
+
+            {isPomodoro && (
+              <div className="flex items-center gap-2">
+                {Array.from({ length: totalCycles }).map((_, i) => (
+                  <div key={i} className={`h-1.5 rounded-full transition-all ${
+                    i < currentCycle - 1 ? "w-4 bg-primary-500"
+                    : i === currentCycle - 1 ? isBreak ? "w-6 bg-secondary-400" : "w-6 bg-primary-400"
+                    : "w-4 bg-primary-800"
+                  }`} />
+                ))}
+              </div>
+            )}
+            {isPomodoro && isBreak && (
+              <div className="flex items-center gap-2 text-secondary-400 text-sm">
+                <Coffee size={14} /><span>Hora de descansar!</span>
+              </div>
+            )}
             <div className="relative" style={{ width: 340, height: 340 }}>
               <svg width={340} height={340} style={{ transform: "rotate(-90deg)" }}>
                 <circle
@@ -327,12 +413,12 @@ export default function CronometroSessaoPage() {
                 <circle
                   cx={CX} cy={CY} r={R}
                   fill="none"
-                  stroke="var(--primary-500)"
+                  stroke={ringColor}
                   strokeWidth={10}
                   strokeLinecap="round"
                   strokeDasharray={CIRCUMFERENCE}
                   strokeDashoffset={dashOffset}
-                  style={{ transition: "stroke-dashoffset 1s linear", opacity: progress > 0 ? 1 : 0 }}
+                  style={{ transition: "stroke-dashoffset 0.6s linear, stroke 0.5s ease", opacity: progress > 0 ? 1 : 0 }}
                 />
               </svg>
 
@@ -345,17 +431,12 @@ export default function CronometroSessaoPage() {
                     fontSize: "66px",
                     fontWeight: 300,
                     letterSpacing: "0.04em",
-                    color: concluded ? "var(--third-400)" : "var(--gray-100)",
+                  color: (concluded || allDone) ? "var(--third-400)" : "var(--gray-100)",
                     lineHeight: 1,
                   }}
                 >
                   {mm}
-                  <span
-                    style={{
-                      color: "var(--primary-500)",
-                      animation: running ? "colonBlink 1s step-end infinite" : "none",
-                    }}
-                  >:</span>
+                  <span style={{ color: ringColor, animation: running ? "colonBlink 1s step-end infinite" : "none" }}>:</span>
                   {ss}
                 </span>
               </div>
@@ -370,7 +451,7 @@ export default function CronometroSessaoPage() {
             <div className="flex items-center gap-5">
               <button
                 onClick={() => handleAdjust(-1)}
-                disabled={concluded}
+                disabled={concluded || isPomodoro}
                 className="w-10 h-10 rounded-full border border-primary-700 bg-primary-800/50 flex items-center justify-center text-gray-300 hover:bg-primary-700 hover:text-white transition-all disabled:opacity-30"
               >
                 <Minus size={15} />
@@ -380,7 +461,7 @@ export default function CronometroSessaoPage() {
                 onClick={togglePlay}
                 disabled={concluded || secondsLeft === 0}
                 className="w-[64px] h-[64px] rounded-full flex items-center justify-center transition-all shadow-lg shadow-primary-500/30 disabled:opacity-30"
-                style={{ background: "var(--primary-500)" }}
+                style={{ background: isBreak ? "var(--secondary-500)" : "var(--primary-500)" }}
               >
                 {running
                   ? <Pause size={24} fill="white" className="text-white" />
@@ -390,7 +471,7 @@ export default function CronometroSessaoPage() {
 
               <button
                 onClick={() => handleAdjust(1)}
-                disabled={concluded}
+                disabled={concluded || isPomodoro}
                 className="w-10 h-10 rounded-full border border-primary-700 bg-primary-800/50 flex items-center justify-center text-gray-300 hover:bg-primary-700 hover:text-white transition-all disabled:opacity-30"
               >
                 <Plus size={15} />
@@ -423,6 +504,20 @@ export default function CronometroSessaoPage() {
                 <RotateCcw size={13} /> Reiniciar
               </button>
 
+              {isPomodoro && running && !isBreak && (
+                <button
+                  onClick={() => {
+                    clearInterval(intervalRef.current!);
+                    intervalRef.current = null;
+                    endAtRef.current = null;
+                    handlePomodoroPhaseEnd();
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full border border-secondary-700 bg-secondary-800/40 text-secondary-300 hover:bg-secondary-700 text-sm transition-all"
+                >
+                  <Coffee size={13} /> Pular para pausa
+                </button>
+              )}
+
               <button
                 onClick={handleConclude}
                 disabled={concluded}
@@ -438,9 +533,11 @@ export default function CronometroSessaoPage() {
               </button>
             </div>
 
-            {concluded && (
+            {(concluded || allDone) && (
               <div className="text-center animate-fade-in" style={{ color: "var(--third-400)" }}>
-                <div className="text-base font-semibold">🎉 Tarefa concluída!</div>
+                <div className="text-base font-semibold">
+                  {allDone ? `🎉 ${totalCycles} ciclos concluídos!` : "🎉 Tarefa concluída!"}
+                </div>
                 <button
                   onClick={() => router.push("/dashboard/tarefas")}
                   className="mt-1.5 text-sm underline text-gray-400 hover:text-gray-200 transition-colors"

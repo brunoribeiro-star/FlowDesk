@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
+import { supabase } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import {
   Minus,
@@ -16,6 +17,19 @@ import {
   ArrowLeft,
   Coffee,
 } from "lucide-react";
+
+interface Task {
+  id: string;
+  titulo: string;
+  status: string;
+}
+
+interface Subtask {
+  id: string;
+  task_id: string;
+  titulo: string;
+  concluida: boolean | null;
+}
 
 const MODE_LABELS: Record<string, string> = {
   pomodoro: "POMODORO",
@@ -105,17 +119,21 @@ const CX = 170;
 const CY = 170;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
-export default function CronometroSessaoPage() {
+export default function ProjetoCronometroSessaoPage() {
   const router = useRouter();
-  const { mode, minutes, breakMinutes, cycles } = router.query;
+  const { projeto_id, mode, minutes, breakMinutes, cycles } = router.query;
 
-  const isPomodoro = mode === "pomodoro";
-  const workSecs   = isPomodoro ? (parseInt(minutes as string) || 25) * 60 : 0;
-  const breakSecs  = isPomodoro ? (parseInt(breakMinutes as string) || 5) * 60 : 0;
+  const isPomodoro  = mode === "pomodoro";
+  const workSecs    = isPomodoro ? (parseInt(minutes as string) || 25) * 60 : 0;
+  const breakSecs   = isPomodoro ? (parseInt(breakMinutes as string) || 5) * 60 : 0;
   const totalCycles = isPomodoro ? (parseInt(cycles as string) || 4) : 1;
   const [currentCycle, setCurrentCycle] = useState(1);
   const [isBreak, setIsBreak] = useState(false);
   const [allDone, setAllDone] = useState(false);
+
+  const [tasks,    setTasks]    = useState<Task[]>([]);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [loading,  setLoading]  = useState(true);
 
   const totalSeconds = useRef(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -123,56 +141,74 @@ export default function CronometroSessaoPage() {
   const [finished,  setFinished]  = useState(false);
   const [concluded, setConcluded] = useState(false);
 
-  const [focusMode,   setFocusMode]   = useState(false);
-  const [startTime,   setStartTime]   = useState<Date | null>(null);
+  const [focusMode, setFocusMode]   = useState(false);
+  const [startTime, setStartTime]   = useState<Date | null>(null);
   const [_sidebarOpen, setSidebarOpen] = useState(false);
-  const [ready, setReady] = useState(false);
 
-  const endAtRef      = useRef<number | null>(null);
-  const intervalRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const canvasRef     = useRef<HTMLCanvasElement>(null);
-  const particlesRef  = useRef<Particle[]>([]);
-  const animFrameRef  = useRef<number | null>(null);
+  const endAtRef     = useRef<number | null>(null);
+  const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
+  const particlesRef = useRef<Particle[]>([]);
+  const animFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!router.isReady || !minutes) return;
+    if (!router.isReady) return;
+    if (!projeto_id || !minutes) return;
     const secs = isPomodoro ? workSecs : parseInt(minutes as string) * 60;
     totalSeconds.current = secs;
     setSecondsLeft(secs);
-    setReady(true);
-  }, [minutes, router.isReady]);
+    loadData();
+  }, [projeto_id, minutes, router.isReady]);
+
+  async function loadData() {
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth?.user) { router.push("/login"); return; }
+
+    const { data: tasksData } = await supabase
+      .from("tasks")
+      .select("id, titulo, status")
+      .eq("projeto_id", projeto_id as string)
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: true });
+
+    const tks = (tasksData || []) as Task[];
+    setTasks(tks);
+
+    if (tks.length > 0) {
+      const { data: subsData } = await supabase
+        .from("subtasks")
+        .select("*")
+        .in("task_id", tks.map(t => t.id))
+        .eq("user_id", auth.user.id)
+        .order("id", { ascending: true });
+      setSubtasks((subsData || []) as Subtask[]);
+    }
+
+    setLoading(false);
+  }
 
   useEffect(() => {
     if (running && !finished) {
       if (!endAtRef.current) {
         endAtRef.current = Date.now() + secondsLeft * 1000;
       }
-
       intervalRef.current = setInterval(() => {
         const remaining = Math.max(0, Math.round((endAtRef.current! - Date.now()) / 1000));
         setSecondsLeft(remaining);
-
         if (remaining <= 0) {
           clearInterval(intervalRef.current!);
           intervalRef.current = null;
           endAtRef.current = null;
-
           if (isPomodoro && !allDone) {
             handlePomodoroPhaseEnd();
           } else {
-            setRunning(false);
-            setFinished(true);
+            setRunning(false); setFinished(true);
           }
         }
       }, 500);
     } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      if (!running && endAtRef.current) {
-        endAtRef.current = null;
-      }
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      if (!running && endAtRef.current) endAtRef.current = null;
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
   }, [running, finished]);
@@ -181,26 +217,19 @@ export default function CronometroSessaoPage() {
     if (isBreak) {
       const nextCycle = currentCycle + 1;
       if (nextCycle > totalCycles) {
-        setAllDone(true);
-        setRunning(false);
-        setFinished(true);
-        playCelebrationSound();
-        startConfetti();
+        setAllDone(true); setRunning(false); setFinished(true);
+        playCelebrationSound(); startConfetti();
       } else {
-        setCurrentCycle(nextCycle);
-        setIsBreak(false);
-        const secs = workSecs;
-        totalSeconds.current = secs;
-        setSecondsLeft(secs);
-        endAtRef.current = Date.now() + secs * 1000;
+        setCurrentCycle(nextCycle); setIsBreak(false);
+        totalSeconds.current = workSecs;
+        setSecondsLeft(workSecs);
+        endAtRef.current = Date.now() + workSecs * 1000;
       }
     } else {
-      playBreakSound();
-      setIsBreak(true);
-      const secs = breakSecs;
-      totalSeconds.current = secs;
-      setSecondsLeft(secs);
-      endAtRef.current = Date.now() + secs * 1000;
+      playBreakSound(); setIsBreak(true);
+      totalSeconds.current = breakSecs;
+      setSecondsLeft(breakSecs);
+      endAtRef.current = Date.now() + breakSecs * 1000;
     }
   }
 
@@ -255,13 +284,9 @@ export default function CronometroSessaoPage() {
   function handleRestart() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     endAtRef.current = null;
-    setRunning(false);
-    setFinished(false);
-    setConcluded(false);
-    setAllDone(false);
-    setIsBreak(false);
-    setCurrentCycle(1);
-    const secs = isPomodoro ? workSecs : (parseInt(minutes as string) || 0) * 60;
+    setRunning(false); setFinished(false);
+    setAllDone(false); setIsBreak(false); setCurrentCycle(1);
+    const secs = isPomodoro ? workSecs : parseInt(minutes as string || "0") * 60;
     totalSeconds.current = secs;
     setSecondsLeft(secs);
     setStartTime(null);
@@ -269,23 +294,34 @@ export default function CronometroSessaoPage() {
 
   function handleEdit() {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    router.push("/dashboard/cronometro");
+    router.push(`/dashboard/projetos/cronometro?projeto_id=${projeto_id}`);
   }
 
   function handleBack() {
     if (intervalRef.current) clearInterval(intervalRef.current);
-    router.push("/dashboard/cronometro");
+    router.back();
   }
 
-  function handleConclude() {
+  async function handleConclude() {
     if (concluded) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
     endAtRef.current = null;
-    setRunning(false);
-    setFinished(true);
-    setConcluded(true);
+    setRunning(false); setFinished(true); setConcluded(true);
     playCelebrationSound();
     startConfetti();
+  }
+
+  async function toggleSubtask(st: Subtask) {
+    const nova = !st.concluida;
+    setSubtasks(prev => prev.map(x => x.id === st.id ? { ...x, concluida: nova } : x));
+    await supabase.from("subtasks").update({ concluida: nova }).eq("id", st.id);
+  }
+
+  async function toggleTask(task: Task) {
+    const isDone = task.status === "concluida";
+    const novoStatus = isDone ? "para_fazer" : "concluida";
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: novoStatus } : t));
+    await supabase.from("tasks").update({ status: novoStatus }).eq("id", task.id);
   }
 
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
@@ -303,13 +339,13 @@ export default function CronometroSessaoPage() {
   const fmt = (d: Date) =>
     d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
+  const subtasksDone  = subtasks.filter(s => s.concluida).length;
   const modeLabel = isPomodoro
     ? isBreak ? "POMODORO · PAUSA" : `POMODORO · FOCO ${currentCycle}/${totalCycles}`
     : (MODE_LABELS[mode as string] || "CRONÔMETRO");
-
   const ringColor = isBreak ? "var(--secondary-500)" : "var(--primary-500)";
 
-  if (!ready) {
+  if (loading) {
     return (
       <div className="h-screen w-screen bg-primary-900 flex items-center justify-center text-gray-400">
         Carregando...
@@ -368,27 +404,19 @@ export default function CronometroSessaoPage() {
             {isPomodoro && (
               <div className="flex items-center gap-2">
                 {Array.from({ length: totalCycles }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-1.5 rounded-full transition-all ${
-                      i < currentCycle - 1
-                        ? "w-4 bg-primary-500"
-                        : i === currentCycle - 1
-                        ? isBreak ? "w-6 bg-secondary-400" : "w-6 bg-primary-400"
-                        : "w-4 bg-primary-800"
-                    }`}
-                  />
+                  <div key={i} className={`h-1.5 rounded-full transition-all ${
+                    i < currentCycle - 1 ? "w-4 bg-primary-500"
+                    : i === currentCycle - 1 ? isBreak ? "w-6 bg-secondary-400" : "w-6 bg-primary-400"
+                    : "w-4 bg-primary-800"
+                  }`} />
                 ))}
               </div>
             )}
-            
             {isPomodoro && isBreak && (
               <div className="flex items-center gap-2 text-secondary-400 text-sm">
-                <Coffee size={14} />
-                <span>Hora de descansar!</span>
+                <Coffee size={14} /><span>Hora de descansar!</span>
               </div>
             )}
-
             <div className="relative" style={{ width: 340, height: 340 }}>
               <svg width={340} height={340} style={{ transform: "rotate(-90deg)" }}>
                 <circle
@@ -423,12 +451,7 @@ export default function CronometroSessaoPage() {
                   }}
                 >
                   {mm}
-                  <span
-                    style={{
-                      color: ringColor,
-                      animation: running ? "colonBlink 1s step-end infinite" : "none",
-                    }}
-                  >:</span>
+                  <span style={{ color: ringColor, animation: running ? "colonBlink 1s step-end infinite" : "none" }}>:</span>
                   {ss}
                 </span>
               </div>
@@ -521,7 +544,7 @@ export default function CronometroSessaoPage() {
                 }}
               >
                 <CheckCircle2 size={13} />
-                {concluded ? "Sessão encerrada ✓" : "Encerrar sessão"}
+                {concluded ? "Concluída ✓" : "Concluir"}
               </button>
             </div>
 
@@ -531,14 +554,166 @@ export default function CronometroSessaoPage() {
                   {allDone ? `🎉 ${totalCycles} ciclos concluídos!` : "🎉 Sessão concluída!"}
                 </div>
                 <button
-                  onClick={() => router.push("/dashboard/cronometro")}
+                  onClick={() => router.push(`/dashboard/projetos/${projeto_id}`)}
                   className="mt-1.5 text-sm underline text-gray-400 hover:text-gray-200 transition-colors"
                 >
-                  Nova sessão
+                  Voltar para o projeto
                 </button>
               </div>
             )}
           </div>
+
+          {tasks.length > 0 && (
+            <div
+              className="flex flex-col gap-4 pl-12 pr-4"
+              style={{ minWidth: 220, maxWidth: 300 }}
+            >
+              {subtasks.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div
+                    className="flex-1 h-1 rounded-full overflow-hidden"
+                    style={{ background: "var(--primary-800)" }}
+                  >
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${(subtasksDone / subtasks.length) * 100}%`,
+                        background: "var(--primary-500)",
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    {subtasksDone}/{subtasks.length}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3">
+                {tasks.map(task => {
+                  const taskSubs  = subtasks.filter(s => s.task_id === task.id);
+                  const taskDone  = task.status === "concluida";
+                  const subsDone  = taskSubs.filter(s => s.concluida).length;
+
+                  return (
+                    <div key={task.id} className="flex flex-col gap-1">
+                      <button
+                        onClick={() => toggleTask(task)}
+                        className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-colors"
+                        style={{
+                          background: taskDone ? "rgba(24,161,126,0.08)" : "transparent",
+                        }}
+                        onMouseEnter={e => {
+                          if (!taskDone)
+                            (e.currentTarget as HTMLElement).style.background = "rgba(30,182,232,0.06)";
+                        }}
+                        onMouseLeave={e => {
+                          if (!taskDone)
+                            (e.currentTarget as HTMLElement).style.background = "transparent";
+                        }}
+                      >
+                        <div
+                          className="w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all"
+                          style={{
+                            borderColor: taskDone ? "var(--third-500)" : "var(--gray-600)",
+                            background:  taskDone ? "rgba(24,161,126,0.2)" : "transparent",
+                          }}
+                        >
+                          {taskDone && (
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
+                              stroke="var(--third-400)" strokeWidth="3"
+                              strokeLinecap="round" strokeLinejoin="round"
+                            >
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+
+                        <span
+                          className="text-sm font-medium flex-1"
+                          style={{
+                            color: taskDone ? "var(--gray-500)" : "var(--gray-200)",
+                            textDecoration: taskDone ? "line-through" : "none",
+                          }}
+                        >
+                          {task.titulo}
+                        </span>
+
+                        {taskSubs.length > 0 && (
+                          <span className="text-xs text-gray-600 tabular-nums">
+                            {subsDone}/{taskSubs.length}
+                          </span>
+                        )}
+                      </button>
+
+                      <div className="flex flex-col gap-0.5 pl-4">
+                        {taskSubs.map(st => (
+                          <button
+                            key={st.id}
+                            onClick={() => toggleSubtask(st)}
+                            className="flex items-center gap-2.5 px-2 py-2 rounded-lg text-left transition-colors"
+                            style={{
+                              background: st.concluida ? "rgba(24,161,126,0.08)" : "transparent",
+                            }}
+                            onMouseEnter={e => {
+                              if (!st.concluida)
+                                (e.currentTarget as HTMLElement).style.background = "rgba(30,182,232,0.06)";
+                            }}
+                            onMouseLeave={e => {
+                              if (!st.concluida)
+                                (e.currentTarget as HTMLElement).style.background = "transparent";
+                            }}
+                          >
+                            <span className="grid grid-cols-2 gap-[2px] opacity-30 shrink-0">
+                              {[...Array(4)].map((_, i) => (
+                                <span
+                                  key={i}
+                                  className="w-[3px] h-[3px] rounded-full"
+                                  style={{ background: "var(--gray-400)" }}
+                                />
+                              ))}
+                            </span>
+
+                            <div
+                              className="w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all"
+                              style={{
+                                borderColor: st.concluida ? "var(--third-500)" : "var(--gray-600)",
+                                background:  st.concluida ? "rgba(24,161,126,0.2)" : "transparent",
+                              }}
+                            >
+                              {st.concluida && (
+                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none"
+                                  stroke="var(--third-400)" strokeWidth="3"
+                                  strokeLinecap="round" strokeLinejoin="round"
+                                >
+                                  <polyline points="20 6 9 17 4 12" />
+                                </svg>
+                              )}
+                            </div>
+
+                            <span
+                              className="text-sm"
+                              style={{
+                                color: st.concluida ? "var(--gray-500)" : "var(--gray-200)",
+                                textDecoration: st.concluida ? "line-through" : "none",
+                              }}
+                            >
+                              {st.titulo}
+                            </span>
+                          </button>
+                        ))}
+
+                        {taskSubs.length === 0 && (
+                          <p className="text-sm pl-2" style={{ color: "var(--gray-500)" }}>
+                            Sem subtarefas.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
         </div>
       </div>

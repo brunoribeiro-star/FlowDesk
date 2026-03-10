@@ -17,7 +17,7 @@ export interface ProposalPayload {
   due_date?: string | null;
   value?: number | null;
 
-  description?: any; // Tiptap JSON
+  description?: any;
 
   primary_color?: string | null;
   banner_url?: string | null;

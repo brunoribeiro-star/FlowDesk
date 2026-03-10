@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { updateTask } from "@/lib/supabaseQueries/tasks";
+import DatePicker from "@/components/DatePicker";
 
 import type { Editor } from "@tiptap/react";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -551,31 +552,14 @@ export default function EditarTarefaPage() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[13px] text-gray-300">Vencimento</label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={task.due_date || ""}
-                    onChange={(e) => {
-                      setTask({
-                        ...task,
-                        due_date:
-                          e.target.value === "" ? null : e.target.value,
-                      });
-                      setDirty(true);
-                    }}
-                    className="w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100"
-                  />
-                  <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4 text-gray-400"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <path d="M7 2a1 1 0 0 0-1 1v1H5a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3h-1V3a1 1 0 1 0-2 0v1H9V3a1 1 0 0 0-1-1Zm-2 8h14v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z" />
-                    </svg>
-                  </div>
-                </div>
+                <DatePicker
+                  value={task.due_date || ""}
+                  onChange={(v) => {
+                    setTask({ ...task, due_date: v || null });
+                    setDirty(true);
+                  }}
+                  placeholder="dd/mm/aaaa"
+                />
               </div>
             </div>
 

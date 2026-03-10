@@ -1,56 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { supabase } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
-import { ArrowLeft, Timer, Zap, Flame, Clock, Coffee } from "lucide-react";
+import { ArrowLeft, Timer, Zap, Flame, Clock } from "lucide-react";
 
-const MODES = [
-  {
-    id: "pomodoro",
-    label: "Pomodoro",
-    minutes: 25,
-    icon: Timer,
-    description: "Ciclos de foco com pausas",
-    color: "from-primary-600/20 to-primary-700/10",
-    border: "border-primary-600",
-    accent: "text-primary-400",
-    dot: "bg-primary-500",
-  },
-  {
-    id: "foco",
-    label: "Foco",
-    minutes: 50,
-    icon: Zap,
-    description: "Sessão profunda e produtiva",
-    color: "from-secondary-600/20 to-secondary-700/10",
-    border: "border-secondary-600",
-    accent: "text-secondary-400",
-    dot: "bg-secondary-500",
-  },
-  {
-    id: "sprint",
-    label: "Sprint",
-    minutes: 90,
-    icon: Flame,
-    description: "Imersão total no projeto",
-    color: "from-third-600/20 to-third-700/10",
-    border: "border-third-600",
-    accent: "text-third-400",
-    dot: "bg-third-500",
-  },
-  {
-    id: "personalizado",
-    label: "Personalizado",
-    minutes: 0,
-    icon: Clock,
-    description: "Defina seu próprio tempo",
-    color: "from-gray-600/20 to-gray-700/10",
-    border: "border-gray-600",
-    accent: "text-gray-400",
-    dot: "bg-gray-400",
-  },
-];
+interface Projeto {
+  id: string;
+  titulo: string;
+  status: string;
+}
 
 function NumericInput({
   value,
@@ -96,68 +56,148 @@ function NumericInput({
   );
 }
 
-export default function CronometroPage() {
+const MODES = [
+  {
+    id: "pomodoro",
+    label: "Pomodoro",
+    minutes: 25,
+    icon: Timer,
+    description: "Foco curto e eficiente",
+    color: "from-primary-600/20 to-primary-700/10",
+    border: "border-primary-600",
+    accent: "text-primary-400",
+    dot: "bg-primary-500",
+  },
+  {
+    id: "foco",
+    label: "Foco",
+    minutes: 50,
+    icon: Zap,
+    description: "Sessão profunda e produtiva",
+    color: "from-secondary-600/20 to-secondary-700/10",
+    border: "border-secondary-600",
+    accent: "text-secondary-400",
+    dot: "bg-secondary-500",
+  },
+  {
+    id: "sprint",
+    label: "Sprint",
+    minutes: 90,
+    icon: Flame,
+    description: "Imersão total no projeto",
+    color: "from-third-600/20 to-third-700/10",
+    border: "border-third-600",
+    accent: "text-third-400",
+    dot: "bg-third-500",
+  },
+  {
+    id: "personalizado",
+    label: "Personalizado",
+    minutes: 0,
+    icon: Clock,
+    description: "Defina seu próprio tempo",
+    color: "from-gray-600/20 to-gray-700/10",
+    border: "border-gray-600",
+    accent: "text-gray-400",
+    dot: "bg-gray-400",
+  },
+];
+
+export default function ProjetoCronometroConfigPage() {
   const router = useRouter();
+  const { projeto_id } = router.query;
+
   const [_sidebarOpen, setSidebarOpen] = useState(false);
+  const [projeto, setProjeto] = useState<Projeto | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState(30);
-
   const [pomodoroWork, setPomodoroWork] = useState(25);
   const [pomodoroBreak, setPomodoroBreak] = useState(5);
   const [pomodoroCycles, setPomodoroCycles] = useState(4);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (!projeto_id) return;
+    loadProjeto();
+  }, [projeto_id, router.isReady]);
+
+  async function loadProjeto() {
+    setLoading(true);
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth?.user) {
+      router.push("/login");
+      return;
+    }
+    const { data } = await supabase
+      .from("projetos")
+      .select("id, titulo, status")
+      .eq("id", projeto_id as string)
+      .eq("user_id", auth.user.id)
+      .single();
+    setProjeto(data || null);
+    setLoading(false);
+  }
 
   function handleStart() {
     if (!selected) return;
     const mode = MODES.find((m) => m.id === selected);
     if (!mode) return;
-
     if (selected === "pomodoro") {
       router.push(
-        `/dashboard/cronometro/sessao?mode=pomodoro&minutes=${pomodoroWork}&breakMinutes=${pomodoroBreak}&cycles=${pomodoroCycles}`
+        `/dashboard/projetos/cronometro/sessao?projeto_id=${projeto_id}&mode=pomodoro&minutes=${pomodoroWork}&breakMinutes=${pomodoroBreak}&cycles=${pomodoroCycles}`
       );
       return;
     }
-
     const minutes = selected === "personalizado" ? customMinutes : mode.minutes;
-    router.push(`/dashboard/cronometro/sessao?mode=${selected}&minutes=${minutes}`);
+    router.push(
+      `/dashboard/projetos/cronometro/sessao?projeto_id=${projeto_id}&mode=${selected}&minutes=${minutes}`
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="h-screen w-screen bg-primary-900 flex items-center justify-center text-gray-400">
+        Carregando...
+      </div>
+    );
   }
 
   return (
-    <div
-      className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
-    >
+    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.push(`/dashboard/projetos/${projeto_id}`)}
             className="flex items-center gap-2 group text-gray-400 hover:text-white transition-colors"
           >
             <div className="p-2 rounded-full border border-primary-700 group-hover:bg-primary-800 transition-colors">
               <ArrowLeft size={18} />
             </div>
-            <span className="text-sm font-medium">Voltar</span>
+            <span className="text-sm font-medium">Voltar para projeto</span>
           </button>
 
           <div className="flex items-center gap-2 text-sm text-gray-400">
             <Timer size={16} className="text-primary-400" />
-            <span>Time Tracker</span>
+            <span>Configurar cronômetro</span>
           </div>
         </header>
 
         <div className="flex-1 overflow-y-auto flex items-center justify-center px-8 py-12">
           <div className="w-full max-w-2xl flex flex-col gap-8">
 
-            <div className="text-center">
-              <p className="text-sm text-gray-500 uppercase tracking-widest font-medium mb-2">
-                Modo livre
-              </p>
-              <h1 className="text-2xl font-medium text-gray-100 leading-snug">
-                Escolha uma duração
-              </h1>
-            </div>
+            {projeto && (
+              <div className="text-center">
+                <p className="text-sm text-gray-500 uppercase tracking-widest font-medium mb-2">
+                  Focando em
+                </p>
+                <h1 className="text-2xl font-medium text-gray-100 leading-snug">
+                  {projeto.titulo}
+                </h1>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               {MODES.map((mode) => {
@@ -195,36 +235,19 @@ export default function CronometroPage() {
                       <div className="text-xs text-gray-500 mt-1">{mode.description}</div>
                     </div>
 
+                    {/* Pomodoro config */}
                     {mode.id === "pomodoro" && isSelected && (
                       <div
                         className="flex flex-wrap items-end gap-4 mt-2 pt-3 border-t border-primary-700/60"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <NumericInput
-                          label="Foco (min)"
-                          value={pomodoroWork}
-                          onChange={setPomodoroWork}
-                          min={1}
-                          max={120}
-                        />
-                        <NumericInput
-                          label="Pausa (min)"
-                          value={pomodoroBreak}
-                          onChange={setPomodoroBreak}
-                          min={1}
-                          max={60}
-                        />
-                        <NumericInput
-                          label="Ciclos"
-                          value={pomodoroCycles}
-                          onChange={setPomodoroCycles}
-                          min={1}
-                          max={20}
-                        />
+                        <NumericInput label="Foco (min)" value={pomodoroWork} onChange={setPomodoroWork} min={1} max={120} />
+                        <NumericInput label="Pausa (min)" value={pomodoroBreak} onChange={setPomodoroBreak} min={1} max={60} />
+                        <NumericInput label="Ciclos" value={pomodoroCycles} onChange={setPomodoroCycles} min={1} max={20} />
                         <div className="flex flex-col items-center gap-1">
                           <span className="text-[10px] text-gray-400 uppercase tracking-wider">Total</span>
                           <span className="text-sm text-gray-300 font-medium">
-                            {Math.round((pomodoroWork * pomodoroCycles + pomodoroBreak * (pomodoroCycles - 1)))}min
+                            {Math.round(pomodoroWork * pomodoroCycles + pomodoroBreak * (pomodoroCycles - 1))}min
                           </span>
                         </div>
                       </div>
@@ -236,7 +259,6 @@ export default function CronometroPage() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <button
-                          type="button"
                           onClick={() => setCustomMinutes((v) => Math.max(1, v - 5))}
                           className="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-sm"
                         >
@@ -256,7 +278,6 @@ export default function CronometroPage() {
                           <span className="text-sm text-gray-400">min</span>
                         </div>
                         <button
-                          type="button"
                           onClick={() => setCustomMinutes((v) => Math.min(480, v + 5))}
                           className="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-sm"
                         >

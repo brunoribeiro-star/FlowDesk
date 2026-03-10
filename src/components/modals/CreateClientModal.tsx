@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { validateImageFile } from "@/lib/utils";
+import { IMAGE_SPECS } from "@/lib/imageSpecs";
+import { useImageConverter } from "@/hooks/useImageConverter";
+import ImageConverterModal from "@/components/ui/ImageConverterModal";
 
 const COUNTRIES = [
   { code: "BR", name: "Brasil", dial: "+55", flag: "🇧🇷" },
@@ -21,6 +25,7 @@ export default function CreateClienteModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const { converterState, triggerConverter, cancelConverter } = useImageConverter();
 
   const [fotoUrl, setFotoUrl] = useState<string | null>(null);
   const [country, setCountry] = useState(COUNTRIES[0]);
@@ -124,38 +129,23 @@ export default function CreateClienteModal({
   }));
 }
 
+  async function doUploadFoto(file: File) {
+    setUploadingImage(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { alert("Usuário não autenticado."); setUploadingImage(false); return; }
+    const path = `clientes/${user.id}/${Date.now()}.webp`;
+    const { error } = await supabase.storage.from("avatars").upload(path, file, { contentType: file.type });
+    if (error) { alert("Erro ao enviar imagem: " + error.message); setUploadingImage(false); return; }
+    const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+    setFotoUrl(urlData.publicUrl);
+    setUploadingImage(false);
+  }
+
   async function enviarFoto(e: any) {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    setUploadingImage(true);
-
-    const {
-      data: { user }
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      alert("Usuário não autenticado.");
-      setUploadingImage(false);
-      return;
-    }
-
-    const path = `clientes/${user.id}/${Date.now()}_${file.name}`;
-
-    const { error } = await supabase.storage.from("avatars").upload(path, file);
-
-    if (error) {
-      alert("Erro ao enviar imagem: " + error.message);
-      setUploadingImage(false);
-      return;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from("avatars")
-      .getPublicUrl(path);
-
-    setFotoUrl(urlData.publicUrl);
-    setUploadingImage(false);
+    triggerConverter(file, IMAGE_SPECS.avatar, doUploadFoto);
+    e.target.value = "";
   }
 
   async function submit() {
@@ -239,7 +229,7 @@ export default function CreateClienteModal({
               <span>{uploadingImage ? "Enviando..." : "Enviar foto"}</span>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={enviarFoto}
                 disabled={uploadingImage}
@@ -321,6 +311,14 @@ export default function CreateClienteModal({
             {loading ? "Salvando..." : "Concluir"}
           </button>
         </div>
+        {converterState && (
+          <ImageConverterModal
+            file={converterState.file}
+            spec={converterState.spec}
+            onAccept={converterState.onAccept}
+            onCancel={() => cancelConverter()}
+          />
+        )}
       </div>
     </div>
   );

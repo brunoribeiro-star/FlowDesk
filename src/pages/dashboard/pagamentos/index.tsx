@@ -1,17 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import {
-  Pencil,
-  SlidersHorizontal,
-  Crown,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+import HeaderProfile from "@/components/HeaderProfile";
+import { useAuth } from "@/contexts/AuthContext";
+import { SkeletonList } from "@/components/Skeleton";
+import { formatarData, formatarDataCurta, tempoRelativo } from "@/lib/utils";
+
 
 type Projeto = {
   id: string;
@@ -38,27 +36,6 @@ type Pagamento = {
 
 type FiltroStatus = "" | "pendentes" | "pagos";
 
-function formatarDataCurta(dateStr: string | null | undefined) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr + "T00:00:00");
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("pt-BR");
-}
-
-function tempoRelativo(dateStr: string) {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "—";
-  const diffMs = Date.now() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "agora";
-  if (diffMin < 60) return `há ${diffMin} min`;
-  const diffHoras = Math.floor(diffMin / 60);
-  if (diffHoras < 24) return `há ${diffHoras} hora${diffHoras > 1 ? "s" : ""}`;
-  const diffDias = Math.floor(diffHoras / 24);
-  if (diffDias < 30) return `há ${diffDias} dia${diffDias > 1 ? "s" : ""}`;
-  const diffMeses = Math.floor(diffDias / 30);
-  return `há ${diffMeses} mês${diffMeses > 1 ? "es" : ""}`;
-}
 
 function classificarPagamento(p: Pagamento): "pago" | "pendente" | "atrasado" {
   const raw = String(p.status || "").toLowerCase();
@@ -87,6 +64,7 @@ export default function PagamentosPage() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState<any>(null);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
@@ -96,24 +74,14 @@ export default function PagamentosPage() {
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement | null>(null);
+
 
   useEffect(() => {
     async function carregar() {
+      if (!authUser) return;
       setLoading(true);
 
-      const { data: auth } = await supabase.auth.getUser();
-      const u = auth?.user;
-      if (!u) {
-        setUser(null);
-        setPagamentos([]);
-        setProjetos([]);
-        setErro("Usuário não autenticado.");
-        setLoading(false);
-        return;
-      }
-
+      const u = authUser;
       setUser(u);
 
       const [{ data: pagData }, { data: projData }] = await Promise.all([
@@ -154,17 +122,9 @@ export default function PagamentosPage() {
     }
 
     carregar();
-  }, []);
+  }, [authUser]);
 
-  useEffect(() => {
-    function outside(e: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", outside);
-    return () => document.removeEventListener("mousedown", outside);
-  }, []);
+
 
   const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
   const displayName =
@@ -259,81 +219,7 @@ export default function PagamentosPage() {
             </div>
           </div>
 
-          <div className="relative" ref={profileRef}>
-            <button
-              type="button"
-              onClick={() => setProfileOpen((v) => !v)}
-              className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-800 border border-primary-700/70 transition-colors"
-            >
-              <Image
-                src={avatarSrc}
-                alt="Perfil"
-                width={35}
-                height={35}
-                className="rounded-full object-cover border border-primary-600"
-              />
-
-              {profileOpen ? (
-                <ChevronUp size={18} className="text-primary-100" />
-              ) : (
-                <ChevronDown size={18} className="text-primary-100" />
-              )}
-            </button>
-
-            {profileOpen && (
-              <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in">
-                <button
-                  className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    router.push("/dashboard/perfil");
-                  }}
-                >
-                  <Pencil size={20} className="text-primary-200" />
-                  Editar perfil
-                </button>
-
-                <button
-                  className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    router.push("/dashboard/tema");
-                  }}
-                >
-                  <SlidersHorizontal size={20} className="text-primary-200" />
-                  Personalizar tema
-                </button>
-
-                <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300">
-                  <Crown size={20} />
-                  Assinatura
-                </button>
-
-                <button
-                  className="flex items-center gap-3 text-red-400 hover:text-red-300 pt-2"
-                  onClick={async () => {
-                    await supabase.auth.signOut();
-                    router.push("/login");
-                  }}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  Sair da plataforma
-                </button>
-              </div>
-            )}
-          </div>
+          <HeaderProfile />
         </header>
 
         <div className="flex items-center gap-3">
@@ -379,9 +265,7 @@ export default function PagamentosPage() {
 
           <div className="flex-1 overflow-y-auto payments-scroll">
             {loading ? (
-              <div className="py-16 text-center text-gray-400 text-sm">
-                Carregando pagamentos...
-              </div>
+              <SkeletonList rows={6} cols={7} />
             ) : erro ? (
               <div className="py-16 text-center text-red-400 text-sm">{erro}</div>
             ) : pagamentosFiltrados.length === 0 ? (

@@ -5,27 +5,32 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Search } from "lucide-react";
+import HeaderProfile from "@/components/HeaderProfile";
+import { useAuth } from "@/contexts/AuthContext";
+import { SkeletonList, SkeletonBoardCards } from "@/components/Skeleton";
+import { Search } from "lucide-react";
+import { jsonToPlainText } from "@/lib/utils";
 
-type ProjetoStatus = "cancelado" | "para fazer" | "fazendo" | "pausado" | "concluído";
+type ProjetoStatus = "arquivado" | "para fazer" | "fazendo" | "pausado" | "concluído" | "pgto pendente" | "finalizado";
 
 type Projeto = {
   id: string;
   user_id: string;
   titulo: string;
-  descricao: any | null;
+  descricao?: any | null;
   cover_url: string | null;
   cliente_id: string | null;
   orcamento: number | null;
-  data_inicio: string | null;
+  data_inicio?: string | null;
   prazo_entrega: string | null;
   status: string;
   progresso: number | null;
-  link_arquivos: string | null;
-  etapa_atual: string | null;
-  notas_internas: string | null;
+  link_arquivos?: string | null;
+  etapa_atual?: string | null;
+  notas_internas?: string | null;
   created_at: string;
   updated_at: string;
+  forma_pagamento?: string;
   clientes?: {
     id: string;
     nome: string | null;
@@ -54,61 +59,50 @@ type ConfirmState = {
   onConfirm: (() => void) | null;
 };
 
-function jsonToPlainText(json: any): string {
-  try {
-    if (!json) return "";
-    if (typeof json === "string") {
-      try {
-        json = JSON.parse(json);
-      } catch {
-        return json;
-      }
-    }
-    if (!json?.content) return "";
-    const parts: string[] = [];
-    const walk = (node: any) => {
-      if (!node) return;
-      if (Array.isArray(node)) return node.forEach(walk);
-      if (typeof node === "object") {
-        if (typeof node.text === "string") parts.push(node.text);
-        if (node.content) walk(node.content);
-      }
-    };
-    walk(json.content);
-    return parts.join(" ").replace(/\s+/g, " ").trim();
-  } catch {
-    return "";
-  }
+function isArchivedProject(p: Projeto): boolean {
+  if (p.status === "Arquivado" || p.status === "Cancelado") return true;
+  
+  const status = p.status ? p.status.toLowerCase() : "";
+  const isFinalizado = status === "concluído" || status === "concluido";
+  
+  if (!isFinalizado) return false;
+
+  const projDate = p.updated_at ? new Date(p.updated_at) : new Date(p.created_at);
+  if (isNaN(projDate.getTime())) return false;
+
+  const now = new Date();
+  
+  return projDate.getMonth() !== now.getMonth() || projDate.getFullYear() !== now.getFullYear();
 }
 
-function normalizeStatus(raw: string | null | undefined): ProjetoStatus {
-  const s = String(raw || "")
+function normalizeStatus(p: Projeto, pagamentosPendente: boolean): "para fazer" | "fazendo" | "pgto pendente" | "finalizado" | "arquivado" {
+  if (isArchivedProject(p)) return "arquivado";
+
+  const s = String(p.status || "")
     .trim()
     .toLowerCase();
 
-  if (s === "concluído" || s === "concluido") return "concluído";
-  if (s === "cancelado") return "cancelado";
-  if (s === "para fazer" || s === "parafazer" || s === "to do" || s === "todo") return "para fazer";
+  if (s === "concluído" || s === "concluido") {
+    return pagamentosPendente ? "pgto pendente" : "finalizado";
+  }
   if (s === "fazendo" || s === "em andamento" || s === "andamento" || s === "doing") return "fazendo";
-  if (s === "pausado" || s === "paused") return "pausado";
-  if (s === "arquivado" || s === "archived") return "cancelado";
-
+  
   return "para fazer";
 }
 
-function statusLabel(s: ProjetoStatus) {
+function statusLabel(s: string) {
   if (s === "para fazer") return "Para fazer";
   if (s === "fazendo") return "Fazendo";
-  if (s === "pausado") return "Pausado";
-  if (s === "concluído") return "Concluído";
-  return "Cancelado";
+  if (s === "pgto pendente") return "Pgto. Pendente";
+  if (s === "finalizado") return "Finalizado";
+  return "Arquivado";
 }
 
-function statusPillClasses(s: ProjetoStatus) {
-  if (s === "cancelado") return "bg-red-500/10 border border-red-400/30 text-red-300";
+function statusPillClasses(s: string) {
+  if (s === "arquivado") return "bg-gray-500/10 border border-gray-400/30 text-gray-300";
   if (s === "para fazer") return "bg-sky-500/10 border border-sky-400/30 text-sky-300";
   if (s === "fazendo") return "bg-amber-500/10 border border-amber-400/30 text-amber-300";
-  if (s === "pausado") return "bg-violet-500/10 border border-violet-400/30 text-violet-300";
+  if (s === "pgto pendente") return "bg-orange-500/10 border border-orange-400/30 text-orange-300";
   return "bg-emerald-500/10 border border-emerald-400/30 text-emerald-300";
 }
 
@@ -172,6 +166,7 @@ function UrgenciaIndicator({ nivel }: { nivel: string }) {
 
 export default function ProjetosPage() {
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [projetos, setProjetos] = useState<Projeto[]>([]);
@@ -183,7 +178,8 @@ export default function ProjetosPage() {
   const [userAvatarUrl, setUserAvatarUrl] = useState("/perfil.svg");
 
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"Todos" | ProjetoStatus>("Todos");
+  const [statusFilter, setStatusFilter] = useState<"Todos" | string>("Todos");
+  const [showArchived, setShowArchived] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -223,57 +219,54 @@ export default function ProjetosPage() {
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
 
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement | null>(null);
 
-  const avatarSrc = userAvatarUrl || "/perfil.svg";
-  const displayName = (userName || "Usuário").split("@")[0] || "Usuário";
-
-  function handleEditProfile() {
-    setProfileOpen(false);
-    router.push("/dashboard/perfil");
-  }
-
-  function handleTheme() {
-    setProfileOpen(false);
-    router.push("/dashboard/tema");
-  }
-
-  function handleSignature() {
-    setProfileOpen(false);
-  }
-
-  useEffect(() => {
-    function handleClickOutside(e: any) {
-      if (profileRef.current && !profileRef.current.contains(e.target)) setProfileOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   function getPagamentos(projetoId: string): Pagamento[] {
     return pagamentosByProjeto[projetoId] || [];
   }
 
-  function hasPagamentoPendente(projetoId: string): boolean {
-    const list = getPagamentos(projetoId);
-    if (!list.length) return false;
-    return list.some((p) => (p.status || "").toLowerCase() !== "pago");
+  function hasPagamentoPendente(p: Projeto): boolean {
+    const list = getPagamentos(p.id);
+    
+    // Check dynamic project logic 
+    const formaPagamento = (p as any).forma_pagamento;
+    if (formaPagamento === "pix_2x" || formaPagamento === "50/50") {
+      if (p.status !== "Concluído" && p.status !== "concluído") {
+        return false;
+      }
+    }
+
+    if (list.length > 0) {
+      return list.some((pag) => (pag.status || "").toLowerCase() !== "pago");
+    }
+    if ((formaPagamento === "pix_2x" || formaPagamento === "50/50") && (p.status === "Concluído" || p.status === "concluído")) {
+        return true; 
+    }
+
+    return false;
   }
 
-  function valorPendente(projetoId: string): number {
-    const list = getPagamentos(projetoId);
-    return list
-      .filter((p) => (p.status || "").toLowerCase() !== "pago")
+  function valorPendente(p: Projeto): number {
+    const list = getPagamentos(p.id);
+    let totalTable = list
+      .filter((pag) => (pag.status || "").toLowerCase() !== "pago")
       .reduce((acc, cur) => acc + Number(cur.valor || 0), 0);
+    
+    if (totalTable > 0) return totalTable;
+    
+    const formaPagamento = (p as any).forma_pagamento;
+    if ((formaPagamento === "pix_2x" || formaPagamento === "50/50") && (p.status === "Concluído" || p.status === "concluído")) {
+       return Number(p.orcamento || 0) / 2;
+    }
+
+    return 0;
   }
 
   async function fetchProjetos() {
     try {
       setLoading(true);
 
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
+      const user = authUser;
 
       if (!user) {
         setError("Usuário não autenticado.");
@@ -287,45 +280,35 @@ export default function ProjetosPage() {
       setUserName(meta.nome || user.email || "Usuário");
       setUserAvatarUrl(meta.avatar_url || "/perfil.svg");
 
-      const { data: projData, error: projError } = await supabase
-        .from("projetos")
-        .select(
-          `
-          *,
-          clientes:cliente_id (
-            id,
-            nome,
-            empresa,
-            foto_url
+      const [{ data: projData, error: projError }, { data: payAllData }] = await Promise.all([
+        supabase
+          .from("projetos")
+          .select(
+            `id, user_id, titulo, cover_url, cliente_id, orcamento, prazo_entrega, status, progresso, created_at, updated_at, forma_pagamento,
+            clientes:cliente_id (
+              id,
+              nome,
+              empresa,
+              foto_url
+            )`
           )
-        `
-        )
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase.from("pagamentos").select("id, valor, status, projeto_id").eq("user_id", user.id),
+      ]);
 
       if (projError) throw projError;
 
-      const projetosLista = (projData || []) as Projeto[];
+      const projetosLista = (projData || []) as unknown as Projeto[];
       setProjetos(projetosLista);
 
-      if (projetosLista.length > 0) {
-        const ids = projetosLista.map((p) => p.id);
-        const { data: payData, error: payError } = await supabase.from("pagamentos").select("*").in("projeto_id", ids);
-
-        if (payError) {
-          setPagamentosByProjeto({});
-        } else {
-          const map: Record<string, Pagamento[]> = {};
-          (payData || []).forEach((p: any) => {
-            const key = String(p.projeto_id);
-            if (!map[key]) map[key] = [];
-            map[key].push(p as Pagamento);
-          });
-          setPagamentosByProjeto(map);
-        }
-      } else {
-        setPagamentosByProjeto({});
-      }
+      const map: Record<string, Pagamento[]> = {};
+      (payAllData || []).forEach((p: any) => {
+        const key = String(p.projeto_id);
+        if (!map[key]) map[key] = [];
+        map[key].push(p as Pagamento);
+      });
+      setPagamentosByProjeto(map);
 
       setError(null);
     } catch (err: any) {
@@ -342,7 +325,7 @@ export default function ProjetosPage() {
 
   useEffect(() => {
     fetchProjetos();
-  }, []);
+  }, [authUser]);
 
   useEffect(() => {
     function closeMenusOnOutside(e: any) {
@@ -356,7 +339,11 @@ export default function ProjetosPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return projetos.filter((p) => {
-      const ns = normalizeStatus(p.status);
+      const ns = normalizeStatus(p, hasPagamentoPendente(p));
+      
+      if (showArchived && ns !== "arquivado") return false;
+      if (!showArchived && ns === "arquivado") return false;
+      
       const statusOk = statusFilter === "Todos" ? true : ns === statusFilter;
       if (!statusOk) return false;
       if (!q) return true;
@@ -364,7 +351,7 @@ export default function ProjetosPage() {
       const haystack = `${p.titulo} ${ns} ${nomeCliente}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [projetos, query, statusFilter]);
+  }, [projetos, query, statusFilter, showArchived, pagamentosByProjeto]);
 
   function openConfirm(config: Partial<ConfirmState>) {
     setConfirm((prev) => ({
@@ -419,10 +406,10 @@ export default function ProjetosPage() {
     const projeto = projetos.find((p) => p.id === projectId);
     if (!projeto) return;
 
-    const pagamentosPendentes = hasPagamentoPendente(projectId);
+    const pagamentosPendentes = hasPagamentoPendente(projeto);
 
     if (nextStatus === "concluído" && pagamentosPendentes) {
-      const valor = valorPendente(projectId);
+      const valor = valorPendente(projeto);
       openConfirm({
         title: "Pagamento pendente",
         message: `Este projeto ainda possui pagamento pendente no valor de R$ ${valor.toLocaleString("pt-BR", {
@@ -450,12 +437,28 @@ export default function ProjetosPage() {
     try {
       const pendentes = getPagamentos(projectId).filter((p) => (p.status || "").toLowerCase() !== "pago");
 
-      if (pendentes.length) {
+      if (pendentes.length > 0) {
         await supabase
           .from("pagamentos")
           .update({ status: "pago", data_pagamento: new Date().toISOString().slice(0, 10) })
           .eq("projeto_id", projectId)
           .neq("status", "pago");
+      } else {
+        const projeto = projetos.find(p => p.id === projectId);
+        if (projeto) {
+            const val = valorPendente(projeto);
+            if (val > 0) {
+                await supabase.from("pagamentos").insert([
+                  {
+                    projeto_id: projectId,
+                    user_id: authUser?.id,
+                    valor: val,
+                    status: "pago",
+                    data_pagamento: new Date().toISOString().slice(0, 10)
+                  }
+                ]);
+            }
+        }
       }
 
       setPagamentosByProjeto((prev) => {
@@ -490,21 +493,44 @@ export default function ProjetosPage() {
     if (!draggingId) return;
 
     const proj = projetos.find((p) => p.id === draggingId);
-    if (!proj || normalizeStatus(proj.status) === coluna) {
+    if (!proj) {
       setDraggingId(null);
       return;
     }
-
     const current = draggingId;
     setDraggingId(null);
-    await updateProjectStatus(current, coluna);
+    
+    let dbStatus = coluna;
+    if (coluna === "pgto pendente" || coluna === "finalizado") {
+        dbStatus = "concluído";
+    }
+
+    if (coluna === "finalizado") {
+       await marcarPagamentosComoPagosEConcluir(current);
+       return;
+    }
+
+    if (coluna === "pgto pendente") {
+       const prevState = [...projetos];
+       setProjetos((prev) => prev.map((p) => (p.id === current ? { ...p, status: "concluído" } : p)));
+       const { error } = await supabase.from("projetos").update({ status: "concluído" }).eq("id", current);
+       if (error) setProjetos(prevState);
+       return;
+    }
+    
+    await updateProjectStatus(current, dbStatus);
   }
 
-  const columns: { status: ProjetoStatus; label: string }[] = [
-    { status: "cancelado", label: "Cancelado" },
+  const columns = showArchived ? 
+  [
+    { status: "arquivado", label: "Arquivado" }
+  ]
+  : 
+  [
     { status: "para fazer", label: "Para fazer" },
     { status: "fazendo", label: "Fazendo" },
-    { status: "concluído", label: "Concluído" },
+    { status: "pgto pendente", label: "Pgto. Pendente" },
+    { status: "finalizado", label: "Finalizado" },
   ];
 
   const totalProjetos = projetos.length;
@@ -598,8 +624,8 @@ export default function ProjetosPage() {
                   <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1">
                     {daysProjects.map((p) => {
                       const urgencia = calcularUrgencia(p.prazo_entrega);
-                      const ns = normalizeStatus(p.status);
-                      const isCompleted = ns === 'concluído';
+                      const ns = normalizeStatus(p, hasPagamentoPendente(p));
+                      const isCompleted = ns === 'finalizado' || ns === 'arquivado';
 
                       return (
                         <div
@@ -679,7 +705,7 @@ export default function ProjetosPage() {
 
         <div className="flex-1 custom-scrollbar overflow-y-auto">
           {loading ? (
-            <div className="py-16 text-center text-gray-400 text-sm">Carregando projetos...</div>
+            <SkeletonList rows={7} cols={6} />
           ) : temErroOuVazio ? (
             <div className="py-16 text-center text-sm">
               {error ? <span className="text-red-400">{error}</span> : <span className="text-gray-500">Nenhum projeto encontrado com os filtros atuais.</span>}
@@ -687,11 +713,11 @@ export default function ProjetosPage() {
           ) : (
             <div className="px-5 py-5 flex flex-col gap-3">
               {filtered.map((p) => {
-                const ns = normalizeStatus(p.status);
+                const ns = normalizeStatus(p, hasPagamentoPendente(p));
                 const clienteNome = p.clientes?.nome || "Cliente não informado";
                 const clienteFoto = p.clientes?.foto_url || "/perfil.svg";
-                const pendente = hasPagamentoPendente(p.id);
-                const valorRestante = valorPendente(p.id);
+                const pendente = hasPagamentoPendente(p);
+                const valorRestante = valorPendente(p);
                 const previewDescricao = p.descricao ? jsonToPlainText(p.descricao).slice(0, 110) : "";
                 const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR") : "—";
                 const urg = calcularUrgencia(p.prazo_entrega);
@@ -818,19 +844,25 @@ export default function ProjetosPage() {
   }
 
   function renderBoardView() {
-    if (loading) return <div className="mt-8 text-gray-300">Carregando projetos...</div>;
+    if (loading) return (
+      <div className="mt-6 flex gap-4">
+        {Array.from({length: 4}).map((_,i) => (
+          <div key={i} className="flex-1 min-w-0"><SkeletonBoardCards count={2} /></div>
+        ))}
+      </div>
+    );
     if (error) return <div className="mt-8 text-red-400">{error}</div>;
     if (!filtered.length) return <div className="mt-8 text-gray-400">Nenhum projeto encontrado.</div>;
 
     return (
-      <div className="mt-6 h-full min-h-0 overflow-x-auto pb-4 custom-scrollbar">
-        <div className="flex min-h-0 divide-x divide-primary-700">
+      <div className="mt-6 overflow-y-auto pb-4 custom-scrollbar h-full">
+        <div className="flex divide-x divide-primary-700 min-h-full">
           {columns.map((col) => {
-            const colProjects = filtered.filter((p) => normalizeStatus(p.status) === col.status);
+            const colProjects = filtered.filter((p) => normalizeStatus(p, hasPagamentoPendente(p)) === col.status);
 
             return (
-              <div key={col.status} className="min-w-[320px] w-[360px] px-4 flex flex-col min-h-0">
-                <div className="px-2 py-4 flex items-center justify-between">
+              <div key={col.status} className="flex-1 min-w-0 px-4 flex flex-col">
+                <div className="px-2 py-4 flex items-center justify-between sticky top-0 bg-primary-900 z-10">
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] ${statusPillClasses(col.status)}`}>
                       {col.label}
@@ -841,18 +873,18 @@ export default function ProjetosPage() {
 
                 <div
                   onDragOver={handleColumnDragOver}
-                  onDrop={() => handleColumnDrop(col.status)}
-                  className="flex-1 min-h-0 overflow-y-auto px-2 pb-4 flex flex-col gap-4 custom-scrollbar"
+                  onDrop={() => handleColumnDrop(col.status as ProjetoStatus)}
+                  className="flex flex-col gap-4 pb-4 px-2 flex-1"
                 >
                   {colProjects.length === 0 ? (
                     <div className="text-[13px] text-gray-500 italic px-1">Nenhum projeto.</div>
                   ) : (
                     colProjects.map((p) => {
-                      const ns = normalizeStatus(p.status);
+                      const ns = normalizeStatus(p, hasPagamentoPendente(p));
                       const clienteNome = p.clientes?.nome || "Cliente não informado";
                       const clienteFoto = p.clientes?.foto_url || "/perfil.svg";
-                      const pendente = hasPagamentoPendente(p.id);
-                      const valorRestante = valorPendente(p.id);
+                      const pendente = hasPagamentoPendente(p);
+                      const valorRestante = valorPendente(p);
                       const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR") : "—";
                       const urg = calcularUrgencia(p.prazo_entrega);
 
@@ -934,15 +966,11 @@ export default function ProjetosPage() {
                                 </div>
                                 <span className="text-[13px] text-primary-100 truncate max-w-[190px]">{clienteNome}</span>
                               </div>
-
-                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] ${statusPillClasses(ns)}`}>
-                                {statusLabel(ns)}
-                              </span>
                             </div>
 
-                            {pendente && (
-                              <div className="mt-3 flex items-center justify-between gap-3">
-                                <span className="text-[11px] px-2 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-400/30">
+                            {pendente && ns === "pgto pendente" && (
+                              <div className="mt-4 flex flex-col gap-2">
+                                <span className="text-[12px] px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-400/30 text-center font-medium">
                                   Pendência: {valorRestante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                                 </span>
                                 <button
@@ -959,11 +987,21 @@ export default function ProjetosPage() {
                                       },
                                     })
                                   }
-                                  className="text-[11px] px-3 py-1 rounded-full bg-primary-700 hover:bg-primary-600 text-primary-100 border border-primary-500"
+                                  className="text-[14px] w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors shadow-lg shadow-emerald-500/20"
                                 >
-                                  Marcar pago + concluir
+                                  Pagamento recebido
                                 </button>
                               </div>
+                            )}
+
+                            {ns === "arquivado" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAskDelete(p.id)}
+                                  className="mt-3 w-full bg-red-500/10 border border-red-500/30 text-[13px] text-red-400 rounded-xl py-2 hover:bg-red-500/20 transition-colors"
+                                >
+                                  Excluir permanentemente
+                                </button>
                             )}
 
                             <button
@@ -1012,6 +1050,17 @@ export default function ProjetosPage() {
               />
             </div>
 
+            <button
+              onClick={() => setShowArchived((prev) => !prev)}
+              className={`px-4 py-2 rounded-lg text-[14px] font-medium transition-colors border ${
+                showArchived
+                  ? "bg-gray-700 text-white border-gray-600"
+                  : "bg-primary-800 text-gray-400 border-primary-700 hover:text-gray-200 hover:bg-primary-700"
+              }`}
+            >
+              {showArchived ? "Voltar aos Projetos" : "Arquivados"}
+            </button>
+
             <div className="w-px h-8 bg-primary-700 mx-2" />
 
             <button
@@ -1021,56 +1070,7 @@ export default function ProjetosPage() {
               + Projeto
             </button>
 
-            <div className="relative" ref={profileRef}>
-              <button
-                type="button"
-                onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-3 pl-1 pr-2 py-1 rounded-full hover:bg-primary-800 transition-all border border-transparent hover:border-primary-700 group"
-              >
-                 <div className="w-9 h-9 rounded-full overflow-hidden border border-primary-600 bg-primary-900 group-hover:border-primary-500 transition-colors">
-                    <Image src={userAvatarUrl} alt="Avatar" width={36} height={36} className="object-cover w-full h-full" />
-                 </div>
-                {profileOpen ? (
-                   <ChevronUp size={18} className="text-gray-400 group-hover:text-gray-200 transition-colors" />
-                ) : (
-                   <ChevronDown size={18} className="text-gray-400 group-hover:text-gray-200 transition-colors" />
-                )}
-              </button>
-
-              {profileOpen && (
-                <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in z-50">
-                  <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleEditProfile}>
-                    <Pencil size={20} className="text-primary-200" />
-                    Editar perfil
-                  </button>
-
-                  <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleTheme}>
-                    <SlidersHorizontal size={20} className="text-primary-200" />
-                    Personalizar tema
-                  </button>
-
-                  <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors" onClick={handleSignature}>
-                    <Crown size={20} />
-                    Assinatura
-                  </button>
-
-                  <button
-                    className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
-                    onClick={async () => {
-                      await supabase.auth.signOut();
-                      router.push("/login");
-                    }}
-                  >
-                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    Sair da plataforma
-                  </button>
-                </div>
-              )}
-            </div>
+            <HeaderProfile />
           </div>
         </div>
 

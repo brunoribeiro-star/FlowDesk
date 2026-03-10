@@ -8,6 +8,11 @@ import Template1, { DEFAULT_CONTENT, ProposalContent } from "@/components/propos
 import CreateClienteModal from "@/components/modals/CreateClientModal";
 import Toast, { ToastType } from "@/components/Toast";
 import HeaderProfile from "@/components/HeaderProfile";
+import DatePicker from "@/components/DatePicker";
+import { validateImageFile } from "@/lib/utils";
+import { IMAGE_SPECS } from "@/lib/imageSpecs";
+import { useImageConverter } from "@/hooks/useImageConverter";
+import ImageConverterModal from "@/components/ui/ImageConverterModal";
 
 type Client = {
   id: string;
@@ -74,6 +79,8 @@ export default function NovaProposta() {
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+
+  const { converterState, triggerConverter, cancelConverter } = useImageConverter();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsOpen, setClientsOpen] = useState(false);
@@ -277,11 +284,15 @@ export default function NovaProposta() {
                 <input
                   type="file"
                   className="hidden"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setCoverFile(file);
-                    setCoverPreviewUrl(file ? URL.createObjectURL(file) : null);
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    triggerConverter(file, IMAGE_SPECS.thumbnail, (f) => {
+                      setCoverFile(f);
+                      setCoverPreviewUrl(URL.createObjectURL(f));
+                    });
+                    e.target.value = "";
                   }}
                 />
               </label>
@@ -420,12 +431,10 @@ export default function NovaProposta() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1">
               <span className="text-xs text-gray-300">Vencimento</span>
-              <input
-                type="date"
+              <DatePicker
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                style={{ colorScheme: "dark" }}
-                className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 text-gray-200 w-full"
+                onChange={(v) => setDueDate(v)}
+                placeholder="dd/mm/aaaa"
               />
             </div>
 
@@ -547,11 +556,15 @@ export default function NovaProposta() {
                 <input
                   type="file"
                   className="hidden"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setLogoFile(file);
-                    setLogoPreviewUrl(file ? URL.createObjectURL(file) : null);
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    triggerConverter(file, IMAGE_SPECS.logo, (f) => {
+                      setLogoFile(f);
+                      setLogoPreviewUrl(URL.createObjectURL(f));
+                    });
+                    e.target.value = "";
                   }}
                 />
               </label>
@@ -569,11 +582,15 @@ export default function NovaProposta() {
                 <input
                   type="file"
                   className="hidden"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setBannerFile(file);
-                    setBannerPreviewUrl(file ? URL.createObjectURL(file) : null);
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    triggerConverter(file, IMAGE_SPECS.hero, (f) => {
+                      setBannerFile(f);
+                      setBannerPreviewUrl(URL.createObjectURL(f));
+                    });
+                    e.target.value = "";
                   }}
                 />
               </label>
@@ -617,6 +634,14 @@ export default function NovaProposta() {
             setShowCreateClientModal(false);
             setClientsOpen(false);
           }}
+        />
+      )}
+      {converterState && (
+        <ImageConverterModal
+          file={converterState.file}
+          spec={converterState.spec}
+          onAccept={converterState.onAccept}
+          onCancel={() => cancelConverter()}
         />
       )}
     </div>

@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
 import Image from "next/image";
+import { useAuth } from "@/contexts/AuthContext";
+import { SkeletonList, SkeletonBoardCards } from "@/components/Skeleton";
 
 type ProposalStatus = "analisando" | "negociando" | "aceita" | "recusada" | "em_espera";
 
@@ -85,6 +87,7 @@ const COLUMNS: { id: ProposalStatus; label: string }[] = [
 
 export default function ProposalsList() {
   const router = useRouter();
+  const { user: authUser } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,28 +122,13 @@ export default function ProposalsList() {
 
   useEffect(() => {
     async function loadProposals() {
+      if (!authUser) return;
       setLoading(true);
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
 
       const { data, error } = await supabase
         .from("proposals")
-        .select(`
-          id,
-          title,
-          status,
-          due_date,
-          cover_url,
-          created_at,
-          client_id,
-          description
-        `)
-        .eq("user_id", user.id)
+        .select(`id, title, status, due_date, cover_url, created_at, client_id, description`)
+        .eq("user_id", authUser.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -152,7 +140,7 @@ export default function ProposalsList() {
     }
 
     loadProposals();
-  }, []);
+  }, [authUser]);
 
   const handleViewChange = (mode: "list" | "board") => {
     setViewMode(mode);
@@ -514,9 +502,9 @@ export default function ProposalsList() {
 
         <main className="flex-1 overflow-hidden px-6 md:px-8 pb-8 flex flex-col">
             {loading ? (
-                <div className="flex items-center justify-center h-40">
-                    <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                </div>
+                viewMode === "list"
+                  ? <SkeletonList rows={6} cols={4} />
+                  : <div className="flex gap-4 w-full pt-4">{Array.from({length:5}).map((_,i)=><div key={i} className="flex-1 min-w-0"><SkeletonBoardCards count={2} /></div>)}</div>
             ) : (
                 viewMode === "list" ? renderListView() : renderBoardView()
             )}

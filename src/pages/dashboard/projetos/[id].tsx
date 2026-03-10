@@ -5,6 +5,10 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
+import { validateImageFile } from "@/lib/utils";
+import { IMAGE_SPECS } from "@/lib/imageSpecs";
+import { useImageConverter } from "@/hooks/useImageConverter";
+import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -12,7 +16,11 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList } from "lucide-react";
+import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer } from "lucide-react";
+import DatePicker from "@/components/DatePicker";
+import HeaderProfile from "@/components/HeaderProfile";
+import { useAuth } from "@/contexts/AuthContext";
+import { SkeletonList, SkeletonStatCard } from "@/components/Skeleton";
 
 type ProjetoStatus = "Em andamento" | "Concluído" | "Arquivado";
 
@@ -231,6 +239,7 @@ export default function ProjetoDetalhesPage() {
   const [files, setFiles] = useState<ArquivoProjeto[]>([]);
   const [links, setLinks] = useState<LinkProjeto[]>([]);
   const [briefing, setBriefing] = useState<Briefing | null>(null);
+  const [clientes, setClientes] = useState<{ id: string; nome: string | null; empresa: string | null }[]>([]);
 
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -245,15 +254,28 @@ export default function ProjetoDetalhesPage() {
 
   const [activeTab, setActiveTab] = useState<TabId>("descricao");
 
+  const { user: authUser } = useAuth();
   const [user, setUser] = useState<any>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement | null>(null);
+
 
   const [coverUploading, setCoverUploading] = useState(false);
+  const { converterState, triggerConverter, cancelConverter } = useImageConverter();
 
   const [briefingEnvios, setBriefingEnvios] = useState<BriefingEnvio[]>([]);
   const [attachBriefingOpen, setAttachBriefingOpen] = useState(false);
   const [attachingBriefing, setAttachingBriefing] = useState(false);
+
+  const [isEditingHeader, setIsEditingHeader] = useState(false);
+  const [editForm, setEditForm] = useState({
+    titulo: "",
+    status: "Em andamento" as ProjetoStatus,
+    cliente_id: "" as string | null,
+    orcamento: "",
+    prazo_entrega: "",
+  });
+
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
+  const [editingLinkData, setEditingLinkData] = useState({ titulo: "", url: "" });
 
   const editor = useEditor({
     extensions: [
@@ -278,7 +300,7 @@ export default function ProjetoDetalhesPage() {
   }, [editor, projeto?.descricao]);
 
   useEffect(() => {
-    if (!id || !router.isReady) return;
+    if (!id || !router.isReady || !authUser) return;
 
     let cancelled = false;
 
@@ -286,55 +308,52 @@ export default function ProjetoDetalhesPage() {
       try {
         setLoading(true);
 
-        const { data: auth } = await supabase.auth.getUser();
-        const authUser = auth?.user;
-
-        if (!authUser) {
-          if (!cancelled) {
-            setUser(null);
-            router.push("/login");
-          }
-          return;
-        }
-
         if (cancelled) return;
         setUser(authUser);
 
-        const { data: projetoData, error: projetoErr } = await supabase
-          .from("projetos")
-          .select(
-            `*,
-             clientes:cliente_id (
-               id,
-               nome,
-               empresa,
-               foto_url
-             )`
-          )
-          .eq("id", id)
-          .eq("user_id", authUser.id)
-          .single();
+        const [
+          { data: projetoData, error: projetoErr },
+          { data: tasksData, error: tasksErr },
+          { data: filesData, error: filesErr },
+          { data: linksData, error: linksErr },
+          { data: briefData, error: briefErr },
+          { data: envsData },
+          { data: clientesData },
+        ] = await Promise.all([
+          supabase
+            .from("projetos")
+            .select(`*, clientes:cliente_id (id, nome, empresa, foto_url)`)
+            .eq("id", id)
+            .eq("user_id", authUser.id)
+            .single(),
+          supabase.from("tasks").select("*").eq("projeto_id", id).order("created_at", { ascending: true }),
+          supabase.from("arquivos_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false }),
+          supabase.from("links_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false }),
+          supabase.from("briefings").select("*").eq("projeto_id", id).maybeSingle(),
+          supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, created_at, template:template_id(id, titulo)").eq("user_id", authUser.id).order("created_at", { ascending: false }),
+          supabase.from("clientes").select("id, nome, empresa").eq("user_id", authUser.id).order("nome", { ascending: true }),
+        ]);
 
         if (projetoErr) throw projetoErr;
+        if (tasksErr) throw tasksErr;
+        if (filesErr) throw filesErr;
+        if (linksErr) throw linksErr;
+        if (briefErr) throw briefErr;
         if (cancelled) return;
 
         const proj = projetoData as Projeto;
         setProjeto(proj);
 
-        const { data: tasksData, error: tasksErr } = await supabase
-          .from("tasks")
-          .select("*")
-          .eq("projeto_id", id)
-          .order("created_at", { ascending: true });
-
-        if (tasksErr) throw tasksErr;
-
         const tks = (tasksData || []) as Task[];
         setTasks(tks);
+        setFiles((filesData || []) as ArquivoProjeto[]);
+        setLinks((linksData || []) as LinkProjeto[]);
+        setBriefing(briefData ? (briefData as Briefing) : null);
+        setBriefingEnvios((envsData || []) as unknown as BriefingEnvio[]);
+        setClientes((clientesData || []) as { id: string; nome: string | null; empresa: string | null }[]);
 
         if (tks.length) {
           const taskIds = tks.map((t) => t.id);
-
           const { data: subsData, error: subsErr } = await supabase
             .from("subtasks")
             .select("*")
@@ -342,6 +361,7 @@ export default function ProjetoDetalhesPage() {
             .order("created_at", { ascending: true });
 
           if (subsErr) throw subsErr;
+          if (cancelled) return;
 
           const grouped: Record<string, Subtask[]> = {};
           (subsData || []).forEach((s: any) => {
@@ -354,41 +374,7 @@ export default function ProjetoDetalhesPage() {
           setSubtasksByTask({});
         }
 
-        const { data: filesData, error: filesErr } = await supabase
-          .from("arquivos_projeto")
-          .select("*")
-          .eq("projeto_id", id)
-          .order("created_at", { ascending: false });
-
-        if (filesErr) throw filesErr;
-        setFiles((filesData || []) as ArquivoProjeto[]);
-
-        const { data: linksData, error: linksErr } = await supabase
-          .from("links_projeto")
-          .select("*")
-          .eq("projeto_id", id)
-          .order("created_at", { ascending: false });
-
-        if (linksErr) throw linksErr;
-        setLinks((linksData || []) as LinkProjeto[]);
-
-        const { data: briefData, error: briefErr } = await supabase
-          .from("briefings")
-          .select("*")
-          .eq("projeto_id", id)
-          .maybeSingle();
-
-        if (briefErr) throw briefErr;
-        setBriefing(briefData ? (briefData as Briefing) : null);
-
         setError(null);
-
-        const { data: envsData } = await supabase
-          .from("briefings_envios")
-          .select("id, user_id, template_id, projeto_id, status, prazo_resposta, created_at, template:template_id(id, titulo)")
-          .eq("user_id", authUser.id)
-          .order("created_at", { ascending: false });
-        setBriefingEnvios((envsData || []) as unknown as BriefingEnvio[]);
       } catch (err: any) {
         setError(err.message || "Erro ao carregar o projeto.");
       } finally {
@@ -399,17 +385,9 @@ export default function ProjetoDetalhesPage() {
     return () => {
       cancelled = true;
     };
-  }, [id, router.isReady, router]);
+  }, [id, router.isReady, router, authUser]);
 
-  useEffect(() => {
-    function handleClickOutside(e: any) {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+
 
   const pct = useMemo(() => {
     const doneTasks = tasks.filter((t) => !!(t.concluida || (t.status || "").toLowerCase() === "concluida")).length;
@@ -556,35 +534,36 @@ export default function ProjetoDetalhesPage() {
     }
 
     const file = filesSel[0];
-    const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-    const uuid =
-      typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}_${Math.random()}`.replace(".", "");
-    const filePath = `${authUser.id}/${projeto.id}/${uuid}.${ext}`;
 
-    try {
-      setCoverUploading(true);
+    const proceed = async (f: File) => {
+      const { data: auth2 } = await supabase.auth.getUser();
+      const au = auth2?.user;
+      if (!au) { setNotify({ open: true, msg: "Usuário não autenticado." }); return; }
 
-      const { error: upErr } = await supabase.storage.from("project-covers").upload(filePath, file, {
-        upsert: false,
-        contentType: file.type || undefined,
-      });
+      const ext = (f.name.split(".").pop() || "webp").toLowerCase();
+      const uuid = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}_${Math.random()}`.replace(".", "");
+      const filePath = `${au.id}/${projeto!.id}/${uuid}.${ext}`;
 
-      if (upErr) throw upErr;
+      try {
+        setCoverUploading(true);
+        const { error: upErr } = await supabase.storage.from("project-covers").upload(filePath, f, { upsert: false, contentType: f.type });
+        if (upErr) throw upErr;
+        const { data: publicUrl } = supabase.storage.from("project-covers").getPublicUrl(filePath);
+        const nextUrl = publicUrl.publicUrl;
+        const { error: updErr } = await supabase.from("projetos").update({ cover_url: nextUrl }).eq("id", projeto!.id);
+        if (updErr) throw updErr;
+        setProjeto((prev) => (prev ? { ...prev, cover_url: nextUrl } : prev));
+        setNotify({ open: true, msg: "Capa atualizada com sucesso." });
+      } catch (err: any) {
+        setNotify({ open: true, msg: "Erro ao enviar capa: " + (err.message || "Erro desconhecido") });
+      } finally {
+        setCoverUploading(false);
+        e.target.value = "";
+      }
+    };
 
-      const { data: publicUrl } = supabase.storage.from("project-covers").getPublicUrl(filePath);
-      const nextUrl = publicUrl.publicUrl;
-
-      const { error: updErr } = await supabase.from("projetos").update({ cover_url: nextUrl }).eq("id", projeto.id);
-      if (updErr) throw updErr;
-
-      setProjeto((prev) => (prev ? { ...prev, cover_url: nextUrl } : prev));
-      setNotify({ open: true, msg: "Capa atualizada com sucesso." });
-    } catch (err: any) {
-      setNotify({ open: true, msg: "Erro ao enviar capa: " + (err.message || "Erro desconhecido") });
-    } finally {
-      setCoverUploading(false);
-      e.target.value = "";
-    }
+    triggerConverter(file, IMAGE_SPECS.card, proceed);
+    e.target.value = "";
   }
 
   async function addLink(e: React.FormEvent) {
@@ -681,19 +660,6 @@ export default function ProjetoDetalhesPage() {
     setExpandedTasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
   }
 
-  function handleEditProfile() {
-    setProfileOpen(false);
-    router.push("/dashboard/perfil");
-  }
-
-  function handleTheme() {
-    setProfileOpen(false);
-    router.push("/dashboard/tema");
-  }
-
-  function handleSignature() {
-    setProfileOpen(false);
-  }
 
   async function handleAttachBriefing(envioId: string) {
     if (!projeto) return;
@@ -734,6 +700,84 @@ export default function ProjetoDetalhesPage() {
     }
   }
 
+  function openEditHeader() {
+    if (!projeto) return;
+    setEditForm({
+      titulo: projeto.titulo,
+      status: projeto.status,
+      cliente_id: projeto.cliente_id,
+      orcamento: projeto.orcamento != null ? String(projeto.orcamento) : "",
+      prazo_entrega: projeto.prazo_entrega || "",
+    });
+    setIsEditingHeader(true);
+  }
+
+  async function salvarEdicaoHeader() {
+    if (!projeto) return;
+    try {
+      setSaving(true);
+      const updates: any = {
+        titulo: editForm.titulo.trim() || projeto.titulo,
+        status: editForm.status,
+        cliente_id: editForm.cliente_id || null,
+        orcamento: editForm.orcamento ? Number(editForm.orcamento) : null,
+        prazo_entrega: editForm.prazo_entrega || null,
+      };
+      const { error: updErr } = await supabase.from("projetos").update(updates).eq("id", projeto.id);
+      if (updErr) throw updErr;
+
+      const { data: updatedProjeto } = await supabase
+        .from("projetos")
+        .select(`*, clientes:cliente_id (id, nome, empresa, foto_url)`)
+        .eq("id", projeto.id)
+        .single();
+
+      if (updatedProjeto) setProjeto(updatedProjeto as Projeto);
+      setIsEditingHeader(false);
+      setNotify({ open: true, msg: "Projeto atualizado com sucesso!" });
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao salvar: " + (err.message || "Erro desconhecido") });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeLink(linkId: string) {
+    try {
+      const { error } = await supabase.from("links_projeto").delete().eq("id", linkId);
+      if (error) throw error;
+      setLinks((prev) => prev.filter((l) => l.id !== linkId));
+      setNotify({ open: true, msg: "Link removido." });
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao remover link: " + (err.message || "Erro desconhecido") });
+    }
+  }
+
+  async function saveEditingLink() {
+    if (!editingLinkId) return;
+    const url = editingLinkData.url.trim();
+    if (!url) return;
+    try {
+      const { error } = await supabase
+        .from("links_projeto")
+        .update({ titulo: editingLinkData.titulo.trim() || null, url })
+        .eq("id", editingLinkId);
+      if (error) throw error;
+      setLinks((prev) =>
+        prev.map((l) =>
+          l.id === editingLinkId
+            ? { ...l, titulo: editingLinkData.titulo.trim() || null, url }
+            : l
+        )
+      );
+      setEditingLinkId(null);
+      setNotify({ open: true, msg: "Link atualizado." });
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao atualizar link: " + (err.message || "Erro desconhecido") });
+    }
+  }
+
+
   if (loading) {
     return <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">Carregando…</div>;
   }
@@ -768,107 +812,160 @@ export default function ProjetoDetalhesPage() {
           </button>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push(`/dashboard/projetos/cronometro?projeto_id=${id}`)}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-primary-500 hover:bg-primary-600 text-white transition-all shadow-lg shadow-primary-500/20"
+              title="Iniciar cronômetro do projeto"
+            >
+              <Timer size={18} />
+            </button>
             <label className="w-10 h-10 rounded-full bg-primary-800 border border-primary-700 hover:bg-primary-700 transition-colors cursor-pointer flex items-center justify-center">
               <span className="text-[18px]">{coverUploading ? "…" : "⤴"}</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} disabled={coverUploading} />
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleCoverUpload} disabled={coverUploading} />
             </label>
 
-            <div className="relative" ref={profileRef}>
-              <button
-                type="button"
-                onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-primary-800 transition-colors"
-              >
-                <Image src={avatarSrc} alt="Perfil" width={38} height={38} className="rounded-full object-cover border border-primary-700" />
-                {profileOpen ? <ChevronUp size={18} className="text-primary-100" /> : <ChevronDown size={18} className="text-primary-100" />}
-              </button>
-
-              {profileOpen && (
-                <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in z-50">
-                  <div className="flex flex-col gap-1 mb-2">
-                    <div className="text-[14px] text-gray-200 font-medium">Olá, {displayName}!</div>
-                  </div>
-
-                  <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleEditProfile}>
-                    <Pencil size={20} className="text-primary-200" />
-                    Editar perfil
-                  </button>
-
-                  <button className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors" onClick={handleTheme}>
-                    <SlidersHorizontal size={20} className="text-primary-200" />
-                    Personalizar tema
-                  </button>
-
-                  <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors" onClick={handleSignature}>
-                    <Crown size={20} />
-                    Assinatura
-                  </button>
-
-                  <button
-                    className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
-                    onClick={async () => {
-                      await supabase.auth.signOut();
-                      router.push("/login");
-                    }}
-                  >
-                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    Sair da plataforma
-                  </button>
-                </div>
-              )}
-            </div>
+            <HeaderProfile />
           </div>
         </div>
 
         <div className="mt-6 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
           <div className="w-full max-w-[980px] mx-auto">
             <div className="bg-primary-800 border border-primary-700 rounded-3xl p-6">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-                <div className="flex items-center gap-4">
-                  <div className="w-[160px] h-[72px] rounded-[28px] overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
-                    <Image src={coverSrc} alt="Capa do projeto" width={320} height={144} className="w-full h-full object-cover" />
+              {isEditingHeader ? (
+                <div className="flex flex-col gap-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-[16px] text-primary-100 font-semibold">Editar projeto</h3>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingHeader(false)}
+                        className="px-4 py-1.5 rounded-xl bg-primary-900 border border-primary-700 text-gray-200 text-[14px] hover:bg-primary-700 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={salvarEdicaoHeader}
+                        disabled={saving}
+                        className="px-4 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[14px] transition-colors disabled:opacity-60"
+                      >
+                        {saving ? "Salvando..." : "Salvar"}
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-[22px] md:text-[24px] text-gray-100 font-semibold leading-tight truncate">{projeto.titulo}</h1>
-                      <span className={`hidden md:inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
-                        {statusLabel(projeto.status)}
-                      </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[12px] text-gray-400">Título</span>
+                      <input
+                        type="text"
+                        value={editForm.titulo}
+                        onChange={(e) => setEditForm((p) => ({ ...p, titulo: e.target.value }))}
+                        className="bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[15px] text-gray-100 focus:outline-none focus:border-primary-500"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[12px] text-gray-400">Status</span>
+                      <select
+                        value={editForm.status}
+                        onChange={(e) => setEditForm((p) => ({ ...p, status: e.target.value as ProjetoStatus }))}
+                        className="bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 cursor-pointer"
+                      >
+                        <option value="Em andamento">Em andamento</option>
+                        <option value="Concluído">Concluído</option>
+                        <option value="Arquivado">Arquivado</option>
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[12px] text-gray-400">Cliente</span>
+                      <select
+                        value={editForm.cliente_id ?? ""}
+                        onChange={(e) => setEditForm((p) => ({ ...p, cliente_id: e.target.value || null }))}
+                        className="bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 cursor-pointer"
+                      >
+                        <option value="">Nenhum cliente</option>
+                        {clientes.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nome}{c.empresa ? ` - ${c.empresa}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[12px] text-gray-400">Orçamento (R$)</span>
+                      <input
+                        type="number"
+                        value={editForm.orcamento}
+                        onChange={(e) => setEditForm((p) => ({ ...p, orcamento: e.target.value }))}
+                        className="bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[15px] text-gray-100 focus:outline-none focus:border-primary-500"
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-[12px] text-gray-400">Prazo de entrega</span>
+                      <DatePicker
+                        value={editForm.prazo_entrega}
+                        onChange={(v) => setEditForm((p) => ({ ...p, prazo_entrega: v }))}
+                        placeholder="dd/mm/aaaa"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-[160px] h-[72px] rounded-[28px] overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
+                      <Image src={coverSrc} alt="Capa do projeto" width={320} height={144} className="w-full h-full object-cover" />
                     </div>
 
-                    <div className="mt-1 flex items-center gap-3 text-[14px] text-gray-300">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-full overflow-hidden border border-primary-700 bg-primary-900">
-                          <Image src={clienteFoto} alt={clienteNome} width={28} height={28} className="w-full h-full object-cover" />
-                        </div>
-                        <span className="truncate">
-                          <span className="text-gray-300">Cliente: </span>
-                          <span className="text-primary-100 font-medium">{clienteNome}</span>
-                          {clienteEmpresa ? <span className="text-gray-400"> · {clienteEmpresa}</span> : null}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-3">
+                        <h1 className="text-[22px] md:text-[24px] text-gray-100 font-semibold leading-tight truncate">{projeto.titulo}</h1>
+                        <span className={`hidden md:inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
+                          {statusLabel(projeto.status)}
                         </span>
                       </div>
 
-                      <span className={`md:hidden inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
-                        {statusLabel(projeto.status)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                      <div className="mt-1 flex items-center gap-3 text-[14px] text-gray-300">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-7 h-7 rounded-full overflow-hidden border border-primary-700 bg-primary-900">
+                            <Image src={clienteFoto} alt={clienteNome} width={28} height={28} className="w-full h-full object-cover" />
+                          </div>
+                          <span className="truncate">
+                            <span className="text-gray-300">Cliente: </span>
+                            <span className="text-primary-100 font-medium">{clienteNome}</span>
+                            {clienteEmpresa ? <span className="text-gray-400"> · {clienteEmpresa}</span> : null}
+                          </span>
+                        </div>
 
-                <div className="flex flex-col items-start md:items-end gap-2">
-                  <div className="w-full md:w-[360px]">
-                    <div className="w-full h-2.5 bg-primary-900/60 border border-primary-700 rounded-full overflow-hidden">
-                      <div className="h-full bg-primary-400 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+                        <span className={`md:hidden inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
+                          {statusLabel(projeto.status)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="mt-2 text-[13px] text-gray-300">{pct}% concluído</div>
+                  </div>
+
+                  <div className="flex flex-col items-start md:items-end gap-2">
+                    <button
+                      type="button"
+                      onClick={openEditHeader}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
+                    >
+                      <Pencil size={14} />
+                      Editar projeto
+                    </button>
+                    <div className="w-full md:w-[360px]">
+                      <div className="w-full h-2.5 bg-primary-900/60 border border-primary-700 rounded-full overflow-hidden">
+                        <div className="h-full bg-primary-400 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="mt-2 text-[13px] text-gray-300">{pct}% concluído</div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="mt-6 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden">
                 <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-primary-700">
@@ -966,28 +1063,31 @@ export default function ProjetoDetalhesPage() {
                         <ul className="flex flex-col gap-3">
                           {tasks.map((t) => {
                             const subs = subtasksByTask[t.id] || [];
-                            const expanded = !!expandedTasks[t.id];
                             const done = isTaskDone(t);
                             const urgencia = calcularUrgencia(t.due_date);
 
                             return (
                               <li key={t.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl p-4">
                                 <div className="flex items-start gap-3">
-                                  <input
-                                    type="checkbox"
-                                    checked={done}
-                                    onChange={() => toggleTaskCompletion(t)}
-                                    className="mt-1 w-5 h-5 accent-primary-500 cursor-pointer"
-                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleTaskCompletion(t)}
+                                    className={`mt-1 w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                                      done
+                                        ? "bg-primary-500 border-primary-500 text-white"
+                                        : "border-gray-500 hover:border-gray-300"
+                                    }`}
+                                  >
+                                    {done && (
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="20 6 9 17 4 12" />
+                                      </svg>
+                                    )}
+                                  </button>
 
                                   <div className="flex-1">
                                     <div className="flex items-center justify-between gap-3">
-                                      <div className="flex items-center gap-2">
-                                        <button type="button" onClick={() => toggleTaskExpanded(t.id)} className="text-gray-300 hover:text-primary-100 text-[14px]">
-                                          {expanded ? "▾" : "▸"}
-                                        </button>
-                                        <div className={`text-gray-100 text-[16px] font-medium ${done ? "line-through text-gray-400" : ""}`}>{t.titulo}</div>
-                                      </div>
+                                      <div className={`text-gray-100 text-[16px] font-medium ${done ? "line-through text-gray-400" : ""}`}>{t.titulo}</div>
 
                                       <div className="flex items-center gap-2">
                                         <div className="flex items-center gap-2 bg-primary-800 border border-primary-700 rounded-full px-3 py-1">
@@ -1001,40 +1101,33 @@ export default function ProjetoDetalhesPage() {
                                         )}
                                       </div>
                                     </div>
-                                  </div>
-                                </div>
 
-                                {expanded && (
-                                  <div className="mt-3 pl-7 flex flex-col gap-3">
-                                    {t.descricao && (
-                                      <div className="bg-primary-900/50 border border-primary-700 rounded-xl px-3 py-2 max-h-40 overflow-y-auto custom-scrollbar">
-                                        <TaskDescricaoReadonly content={t.descricao} />
+                                    {subs.length > 0 && (
+                                      <div className="mt-3 pl-1 flex flex-col gap-2">
+                                        {subs.map((s) => (
+                                          <div key={s.id} className="flex items-center gap-2">
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleSubtaskCompletion(s)}
+                                              className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
+                                                s.concluida
+                                                  ? "bg-primary-500 border-primary-500 text-white"
+                                                  : "border-gray-500 hover:border-gray-300"
+                                              }`}
+                                            >
+                                              {s.concluida && (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                                  <polyline points="20 6 9 17 4 12" />
+                                                </svg>
+                                              )}
+                                            </button>
+                                            <span className={`text-[14px] ${s.concluida ? "line-through text-gray-500" : "text-gray-300"}`}>{s.titulo}</span>
+                                          </div>
+                                        ))}
                                       </div>
                                     )}
-
-                                    <div className="bg-primary-900/50 border border-primary-700 rounded-xl px-3 py-3 max-h-44 overflow-y-auto custom-scrollbar">
-                                      {subs.length === 0 ? (
-                                        <div className="text-gray-400 text-[14px]">Sem subtasks.</div>
-                                      ) : (
-                                        <ul className="flex flex-col gap-2">
-                                          {subs.map((s) => (
-                                            <li key={s.id} className="flex items-center justify-between">
-                                              <div className="flex items-center gap-2">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={s.concluida}
-                                                  onChange={() => toggleSubtaskCompletion(s)}
-                                                  className="w-4 h-4 accent-primary-500 cursor-pointer"
-                                                />
-                                                <span className={`text-[14px] ${s.concluida ? "line-through text-gray-400" : "text-gray-100"}`}>{s.titulo}</span>
-                                              </div>
-                                            </li>
-                                          ))}
-                                        </ul>
-                                      )}
-                                    </div>
                                   </div>
-                                )}
+                                </div>
                               </li>
                             );
                           })}
@@ -1043,6 +1136,8 @@ export default function ProjetoDetalhesPage() {
                     </div>
                   </div>
                 )}
+
+
 
                 {activeTab === "arquivos" && (
                   <div className="flex flex-col h-full">
@@ -1130,13 +1225,79 @@ export default function ProjetoDetalhesPage() {
                       ) : links.length === 0 ? null : (
                         <ul className="flex flex-col gap-2">
                           {links.map((l) => (
-                            <li key={l.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">
-                              <div className="flex flex-col">
-                                <a href={l.url} target="_blank" rel="noreferrer" className="text-[16px] text-primary-100 hover:underline">
-                                  {l.titulo || l.url}
-                                </a>
-                                <span className="text-[12px] text-gray-400">{new Date(l.created_at).toLocaleString("pt-BR")}</span>
-                              </div>
+                            <li key={l.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">
+                              {editingLinkId === l.id ? (
+                                <div className="flex flex-col gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Título (opcional)"
+                                    value={editingLinkData.titulo}
+                                    onChange={(e) => setEditingLinkData((p) => ({ ...p, titulo: e.target.value }))}
+                                    className="w-full bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                                  />
+                                  <input
+                                    type="url"
+                                    placeholder="https://..."
+                                    value={editingLinkData.url}
+                                    onChange={(e) => setEditingLinkData((p) => ({ ...p, url: e.target.value }))}
+                                    className="w-full bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                                  />
+                                  <div className="flex items-center gap-2 justify-end">
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingLinkId(null)}
+                                      className="px-3 py-1 rounded-lg bg-primary-800 border border-primary-700 text-gray-200 text-[13px] hover:bg-primary-700"
+                                    >
+                                      Cancelar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={saveEditingLink}
+                                      className="px-3 py-1 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[13px]"
+                                    >
+                                      Salvar
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex flex-col min-w-0">
+                                    <a href={l.url} target="_blank" rel="noreferrer" className="text-[15px] text-primary-100 hover:underline truncate">
+                                      {l.titulo || l.url}
+                                    </a>
+                                    {l.titulo && (
+                                      <span className="text-[12px] text-gray-500 truncate">{l.url}</span>
+                                    )}
+                                    <span className="text-[11px] text-gray-600">{new Date(l.created_at).toLocaleString("pt-BR")}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingLinkId(l.id);
+                                        setEditingLinkData({ titulo: l.titulo || "", url: l.url });
+                                      }}
+                                      className="p-1.5 rounded-lg text-gray-400 hover:text-primary-200 hover:bg-primary-800 transition-colors"
+                                      title="Editar link"
+                                    >
+                                      <Pencil size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeLink(l.id)}
+                                      className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-primary-800 transition-colors"
+                                      title="Remover link"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="3 6 5 6 21 6" />
+                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                        <path d="M10 11v6M14 11v6" />
+                                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </li>
                           ))}
                         </ul>
@@ -1326,6 +1487,14 @@ export default function ProjetoDetalhesPage() {
           }
         }
       `}</style>
+      {converterState && (
+        <ImageConverterModal
+          file={converterState.file}
+          spec={converterState.spec}
+          onAccept={converterState.onAccept}
+          onCancel={() => cancelConverter()}
+        />
+      )}
     </div>
   );
 }

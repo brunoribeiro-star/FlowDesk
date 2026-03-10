@@ -5,6 +5,9 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { updateTask, deleteTask } from "@/lib/supabaseQueries/tasks";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { SkeletonList } from "@/components/Skeleton";
+import { jsonToPlainText, calcularUrgencia, formatarDataCurta, tempoRelativo } from "@/lib/utils";
 
 interface Projeto {
   id: string;
@@ -28,63 +31,6 @@ interface Subtask {
   concluida: boolean | null;
 }
 
-function jsonToPlainText(json: any): string {
-  try {
-    if (!json) return "";
-    if (typeof json === "string") {
-      try {
-        json = JSON.parse(json);
-      } catch {
-        return json;
-      }
-    }
-    if (!json?.content) return "";
-    let finalText = "";
-    json.content.forEach((block: any) => {
-      block?.content?.forEach((piece: any) => {
-        if (piece.text) finalText += piece.text + " ";
-      });
-    });
-    return finalText.trim();
-  } catch {
-    return "";
-  }
-}
-
-function calcularUrgencia(due_date: string | null): string {
-  if (!due_date) return "Sem prioridade";
-  const hoje = new Date();
-  const limite = new Date(due_date + "T00:00:00");
-  const diff = limite.getTime() - hoje.getTime();
-  const dias = diff / (1000 * 60 * 60 * 24);
-  if (dias < 0) return "Vencida";
-  if (dias <= 1) return "Muito urgente";
-  if (dias <= 2) return "Urgente";
-  if (dias <= 7) return "Normal";
-  return "Baixa";
-}
-
-function formatarDataCurta(dateStr: string | null) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr + "T00:00:00");
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-}
-
-function tempoRelativo(dateStr: string) {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "—";
-  const diffMs = Date.now() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "agora";
-  if (diffMin < 60) return `há ${diffMin} min`;
-  const diffHoras = Math.floor(diffMin / 60);
-  if (diffHoras < 24) return `há ${diffHoras} hora${diffHoras > 1 ? "s" : ""}`;
-  const diffDias = Math.floor(diffHoras / 24);
-  if (diffDias < 30) return `há ${diffDias} dia${diffDias > 1 ? "s" : ""}`;
-  const diffMeses = Math.floor(diffDias / 30);
-  return `há ${diffMeses} mês${diffMeses > 1 ? "es" : ""}`;
-}
 
 function UrgenciaIndicator({ nivel }: { nivel: string }) {
   const total = 4;
@@ -213,23 +159,18 @@ export default function TarefasPage() {
       }
   }
 
+  const { user: authUser } = useAuth();
+
   async function carregarDados() {
+    if (!authUser) return;
     setLoading(true);
 
-    const { data: auth } = await supabase.auth.getUser();
-    const user = auth?.user;
+    const user = authUser;
 
-    if (!user) {
-      setTasks([]);
-      setProjetos([]);
-      setSubtasksByTask({});
-      setLoading(false);
-      return;
-    }
-
-    const [{ data: tasksData, error: tasksError }, { data: projetosData, error: projetosError }] = await Promise.all([
+    const [{ data: tasksData, error: tasksError }, { data: projetosData, error: projetosError }, { data: subtasksData }] = await Promise.all([
       supabase.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("projetos").select("id, titulo").eq("user_id", user.id).order("created_at", { ascending: false }),
+      supabase.from("subtasks").select("id, task_id, titulo, concluida").eq("user_id", user.id).order("created_at", { ascending: true }),
     ]);
 
     if (tasksError || projetosError) {
@@ -244,19 +185,6 @@ export default function TarefasPage() {
     setTasks(safeTasks);
     setProjetos((projetosData || []) as Projeto[]);
 
-    if (!safeTasks.length) {
-      setSubtasksByTask({});
-      setLoading(false);
-      return;
-    }
-
-    const ids = safeTasks.map((t) => t.id);
-    const { data: subtasksData } = await supabase
-      .from("subtasks")
-      .select("id, task_id, titulo, concluida")
-      .in("task_id", ids)
-      .order("created_at", { ascending: true });
-
     const map: Record<string, Subtask[]> = {};
     (subtasksData || []).forEach((st: any) => {
       if (!st?.task_id) return;
@@ -270,13 +198,12 @@ export default function TarefasPage() {
       });
     });
     setSubtasksByTask(map);
-
     setLoading(false);
   }
 
   useEffect(() => {
     carregarDados();
-  }, []);
+  }, [authUser]);;
 
   async function alternarStatus(task: Task) {
     const novoStatus = task.status === "concluida" ? "para_fazer" : "concluida";
@@ -545,7 +472,7 @@ export default function TarefasPage() {
 
             <div className="flex-1 overflow-y-auto tasks-scroll">
               {loading ? (
-                <div className="py-16 text-center text-gray-400 text-sm">Carregando tarefas...</div>
+                <SkeletonList rows={7} cols={5} />
               ) : tasksFiltradas.length === 0 ? (
                 <div className="py-16 text-center text-gray-500 text-sm">Nenhuma tarefa encontrada com os filtros atuais.</div>
               ) : (
@@ -757,8 +684,8 @@ export default function TarefasPage() {
         )}
 
         {view === "boards" && (
-          <div className="flex-1 flex flex-col h-full overflow-hidden">
-            <div className="flex flex-1 w-full h-full px-4 gap-4">
+          <div className="flex-1 flex flex-col overflow-y-auto tasks-scroll">
+            <div className="flex w-full px-4 gap-4 min-h-full">
               {URGENCY_COLUMNS.map((col, idx) => {
                 const colTasks = tasksFiltradas.filter((t) => {
                     let urg = calcularUrgencia(t.due_date);
@@ -782,14 +709,14 @@ export default function TarefasPage() {
                       }
                     }}
                   >
-                    <div className="flex items-center justify-start mb-2">
+                     <div className="flex items-center justify-start mb-2 sticky top-0 z-10 bg-primary-900/95 backdrop-blur-sm pt-1 pb-1">
                       <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-800/10 backdrop-blur-sm">
                         <UrgenciaIndicator nivel={col.id === 'Sem prioridade' ? 'Sem prioridade' : col.id} />
                         <span className={`text-[12px] font-medium ${col.iconColor}`}>{col.title}</span>
                       </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col gap-3 overflow-y-auto tasks-scroll pb-2">
+                    <div className="flex flex-col gap-3 pb-4">
                       {colTasks.map((t) => {
                         const subtasks = subtasksByTask[t.id] || [];
                         const completedSubtasks = subtasks.filter((s) => s.concluida).length;
@@ -798,7 +725,7 @@ export default function TarefasPage() {
                           <div
                             key={t.id}
                             onClick={() => abrirDetalhes(t.id)}
-                            className="bg-primary-800 hover:bg-primary-700 border-none rounded-xl p-4 cursor-pointer transition-all hover:translate-y-[-2px] flex flex-col gap-2 group relative overflow-hidden h-[140px]"
+                            className="bg-primary-800 hover:bg-primary-700 border-none rounded-xl p-4 cursor-pointer transition-all hover:translate-y-[-2px] flex flex-col gap-2 group relative overflow-hidden"
                             draggable
                             onDragStart={(e) => {
                                 e.stopPropagation();

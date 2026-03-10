@@ -1,17 +1,15 @@
 "use client";
 
-import { useMemo, useState, useEffect, KeyboardEvent, useRef } from "react";
+import { useMemo, useState, useEffect, KeyboardEvent } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
+import HeaderProfile from "@/components/HeaderProfile";
+import { useAuth } from "@/contexts/AuthContext";
+import { SkeletonStatCard, SkeletonList } from "@/components/Skeleton";
 
 import {
-  Pencil,
-  SlidersHorizontal,
-  Crown,
-  ChevronDown,
-  ChevronUp,
   FolderKanban,
   CheckCircle2,
   AlertCircle,
@@ -34,8 +32,7 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef<HTMLDivElement>(null);
+
 
   const [heightsCurrent, setHeightsCurrent] = useState<number[]>([0, 0, 0, 0]);
   const [heightsLast, setHeightsLast] = useState<number[]>([0, 0, 0, 0]);
@@ -53,63 +50,57 @@ export default function DashboardHome() {
       );
   }, []);
 
+  const { user: authUser } = useAuth();
+
   useEffect(() => {
+    if (!authUser) return;
+    setUser(authUser);
+
     async function fetchData() {
       setLoading(true);
-      const { data: userData } = await supabase.auth.getUser();
-      const loggedUser = userData?.user;
 
-      if (!loggedUser) {
-        setUser(null);
-        setLoading(false);
-        return;
-      }
+      const [projRes, atvRes, payRes, tasksRes] = await Promise.all([
+        supabase
+          .from("projetos")
+          .select("id, titulo, status, progresso, prazo_entrega, cliente_id, orcamento, cover_url, created_at, forma_pagamento, updated_at")
+          .eq("user_id", authUser!.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("atividades")
+          .select("id, tipo, descricao, created_at, user_id")
+          .eq("user_id", authUser!.id)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("pagamentos")
+          .select("id, valor, status, data_pagamento, data_vencimento, projeto_id, created_at")
+          .eq("user_id", authUser!.id),
+        supabase
+          .from("tasks")
+          .select("id, titulo, status, due_date, projeto_id, projetos!inner(user_id)")
+          .eq("projetos.user_id", authUser!.id),
+      ]);
 
-      setUser(loggedUser);
-
-      const { data: projData } = await supabase
-        .from("projetos")
-        .select("*")
-        .eq("user_id", loggedUser.id)
-        .order("created_at", { ascending: false });
-
-      const { data: atvData } = await supabase
-        .from("atividades")
-        .select("*")
-        .eq("user_id", loggedUser.id)
-        .order("created_at", { ascending: false })
-        .limit(30);
-
-      const { data: payData } = await supabase
-        .from("pagamentos")
-        .select("*")
-        .eq("user_id", loggedUser.id);
-
-      const { data: tasksData } = await supabase
-        .from("tasks")
-        .select(`*, projetos!inner(user_id)`)
-        .eq("projetos.user_id", loggedUser.id);
-
-      setProjetos(projData || []);
-      setAtividades(atvData || []);
-      setPagamentos(payData || []);
-      setTasks(tasksData || []);
+      setProjetos(projRes.data || []);
+      setAtividades(atvRes.data || []);
+      setPagamentos(payRes.data || []);
+      setTasks(tasksRes.data || []);
       setLoading(false);
     }
 
     fetchData();
-  }, []);
+  }, [authUser]);
 
   const now = new Date();
   const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
   const weeklyCurrent = useMemo(
-    () => buildWeeklyRevenue(pagamentos, now),
-    [pagamentos]
+    () => buildWeeklyRevenue(pagamentos, projetos, now),
+    [pagamentos, projetos]
   );
   const weeklyLast = useMemo(
-    () => buildWeeklyRevenue(pagamentos, prevMonth),
-    [pagamentos]
+    () => buildWeeklyRevenue(pagamentos, projetos, prevMonth),
+    [pagamentos, projetos]
   );
   const maxValue = Math.max(...weeklyCurrent, ...weeklyLast, 1);
 
@@ -127,23 +118,49 @@ export default function DashboardHome() {
   );
 
   const projetosAtivos = useMemo(
-    () => projetos.filter((p) => p.status === "Em andamento").length,
+    () => projetos.filter((p) => {
+      const s = String(p.status || "").toLowerCase();
+      return s !== "concluído" && s !== "concluido" && s !== "cancelado" && s !== "arquivado";
+    }).length,
     [projetos]
   );
 
   const projetosConcluidos = useMemo(
-    () => projetos.filter((p) => p.status === "Concluído").length,
+    () => projetos.filter((p) => {
+      const s = String(p.status || "").toLowerCase();
+      return s === "concluído" || s === "concluido";
+    }).length,
     [projetos]
   );
 
   const pagamentosPendentesTotal = useMemo(() => {
+    const projectsWithPayments = new Set(pagamentos.map(p => p.projeto_id).filter(id => id));
+
     const pendentes = pagamentos.filter((p) => {
+      if (p.projeto_id) {
+        const proj = projetos.find(proj => proj.id === p.projeto_id);
+        if (proj && proj.status === "Concluído") return false;
+      }
       if (!p.status) return true;
       const s = String(p.status).toLowerCase();
-      return s !== "pago" && s !== "concluido" && s !== "recebido";
+      return s !== "pago" && s !== "concluido" && s !== "recebido" && s !== "ok";
     });
-    return pendentes.reduce((acc, p) => acc + Number(p.valor ?? 0), 0);
-  }, [pagamentos]);
+
+    let total = pendentes.reduce((acc, p) => acc + Number(p.valor ?? 0), 0);
+
+    projetos.forEach((p) => {
+      if (projectsWithPayments.has(p.id)) return;
+      
+      const orcamento = Number(p.orcamento) || 0;
+      if (orcamento <= 0) return;
+
+      if (p.forma_pagamento === "pix_2x" && p.status !== "Concluído") {
+        total += orcamento / 2;
+      }
+    });
+
+    return total;
+  }, [pagamentos, projetos]);
 
   const tarefasVencendo = useMemo(() => {
     const now = new Date();
@@ -216,35 +233,30 @@ export default function DashboardHome() {
     }
   }
 
-  function handleEditProfile() {
-    setProfileOpen(false);
-    router.push("/dashboard/perfil");
-  }
 
-  function handleTheme() {
-    setProfileOpen(false);
-    router.push("/dashboard/tema");
-  }
-
-  function handleSignature() {
-    setProfileOpen(false);
-  }
-
-  useEffect(() => {
-    function handleClickOutside(e: any) {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setProfileOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   if (loading)
     return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center text-[20px]">
-        Carregando...
+      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
+        <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+        <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-hidden">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full skeleton-shimmer bg-primary-800" />
+            <div className="flex flex-col gap-2">
+              <div className="h-5 w-40 rounded-lg skeleton-shimmer bg-primary-800" />
+              <div className="h-3 w-56 rounded-lg skeleton-shimmer bg-primary-800" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+            <SkeletonStatCard />
+          </div>
+          <div className="flex-1 rounded-2xl border border-primary-700 bg-primary-900/40 overflow-hidden">
+            <SkeletonList rows={5} cols={3} />
+          </div>
+        </div>
       </div>
     );
 
@@ -287,78 +299,7 @@ export default function DashboardHome() {
               />
             </div>
 
-            <div className="relative" ref={profileRef}>
-              <button
-                type="button"
-                onClick={() => setProfileOpen((v) => !v)}
-                className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-700 transition-colors"
-              >
-                <Image
-                  src={avatarSrc}
-                  alt="Perfil"
-                  width={35}
-                  height={35}
-                  className="rounded-full object-cover border border-primary-600"
-                />
-
-                {profileOpen ? (
-                  <ChevronUp size={18} className="text-primary-100" />
-                ) : (
-                  <ChevronDown size={18} className="text-primary-100" />
-                )}
-              </button>
-
-              {profileOpen && (
-                <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in">
-                  <button
-                    className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
-                    onClick={handleEditProfile}
-                  >
-                    <Pencil size={20} className="text-primary-200" />
-                    Editar perfil
-                  </button>
-
-                  <button
-                    className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
-                    onClick={handleTheme}
-                  >
-                    <SlidersHorizontal size={20} className="text-primary-200" />
-                    Personalizar tema
-                  </button>
-
-                  <button
-                    className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300 transition-colors"
-                    onClick={handleSignature}
-                  >
-                    <Crown size={20} />
-                    Assinatura
-                  </button>
-
-                  <button
-                    className="flex items-center gap-3 text-red-400 hover:text-red-300 transition-colors pt-2"
-                    onClick={async () => {
-                      await supabase.auth.signOut();
-                      router.push("/login");
-                    }}
-                  >
-                    <svg
-                      width="20"
-                      height="20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                      <polyline points="16 17 21 12 16 7" />
-                      <line x1="21" y1="12" x2="9" y2="12" />
-                    </svg>
-                    Sair da plataforma
-                  </button>
-                </div>
-              )}
-            </div>
+            <HeaderProfile />
           </div>
         </header>
 
@@ -559,28 +500,45 @@ function toCurrency(v: number) {
   });
 }
 
-function buildWeeklyRevenue(payments: any[], refDate: Date): number[] {
+function buildWeeklyRevenue(payments: any[], projetos: any[], refDate: Date): number[] {
   const month = refDate.getMonth();
   const year = refDate.getFullYear();
   const weeks = [0, 0, 0, 0];
 
+  const projectsWithPayments = new Set(payments.map(p => p.projeto_id).filter(id => id));
+
   payments.forEach((p) => {
-    const rawDate = p.data_pagamento || p.created_at;
-    if (!rawDate) return;
+    let pago = false;
+    let projCompleted = false;
 
-    const d = new Date(rawDate);
-    if (isNaN(d.getTime())) return;
-
-    if (d.getMonth() !== month || d.getFullYear() !== year) return;
+    if (p.projeto_id) {
+      const proj = projetos.find((proj) => proj.id === p.projeto_id);
+      if (proj && proj.status === "Concluído") {
+        projCompleted = true;
+      }
+    }
 
     const status = String(p.status ?? "").toLowerCase();
-    const pago =
+    pago =
+      projCompleted ||
       status === "pago" ||
       status === "concluido" ||
       status === "recebido" ||
       status === "ok";
 
     if (!pago) return;
+
+    let d = new Date(p.data_pagamento || p.created_at);
+    if (isNaN(d.getTime())) return;
+
+    if (projCompleted && status !== "pago" && status !== "concluido" && status !== "recebido" && status !== "ok") {
+       const proj = projetos.find((proj) => proj.id === p.projeto_id);
+       if (proj && proj.updated_at) {
+          d = new Date(proj.updated_at);
+       }
+    }
+
+    if (d.getMonth() !== month || d.getFullYear() !== year) return;
 
     const valor = Number(p.valor ?? 0);
     if (isNaN(valor) || valor <= 0) return;
@@ -589,6 +547,34 @@ function buildWeeklyRevenue(payments: any[], refDate: Date): number[] {
     const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
 
     weeks[idx] += valor;
+  });
+
+  projetos.forEach((p) => {
+    if (projectsWithPayments.has(p.id)) return;
+
+    const orcamento = Number(p.orcamento) || 0;
+    if (orcamento <= 0) return;
+
+    const dCreated = new Date(p.created_at);
+    if (isNaN(dCreated.getTime())) return;
+
+    const isPix2x = p.forma_pagamento === "pix_2x" || p.forma_pagamento === "50/50";
+    
+    const firstValor = isPix2x ? orcamento / 2 : orcamento;
+    if (dCreated.getMonth() === month && dCreated.getFullYear() === year) {
+      const day = dCreated.getDate();
+      const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+      weeks[idx] += firstValor;
+    }
+
+    if (isPix2x && p.status === "Concluído") {
+      const dCompleted = p.updated_at ? new Date(p.updated_at) : dCreated;
+      if (!isNaN(dCompleted.getTime()) && dCompleted.getMonth() === month && dCompleted.getFullYear() === year) {
+        const day = dCompleted.getDate();
+        const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+        weeks[idx] += orcamento / 2;
+      }
+    }
   });
 
   return weeks;
