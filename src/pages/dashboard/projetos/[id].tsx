@@ -330,7 +330,6 @@ export default function ProjetoDetalhesPage() {
             .from("projetos")
             .select(`*, clientes:cliente_id (id, nome, empresa, foto_url)`)
             .eq("id", id)
-            .eq("user_id", authUser.id)
             .single(),
           supabase.from("tasks").select("*").eq("projeto_id", id).order("created_at", { ascending: true }),
           supabase.from("arquivos_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false }),
