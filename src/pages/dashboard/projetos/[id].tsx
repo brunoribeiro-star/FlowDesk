@@ -277,6 +277,12 @@ export default function ProjetoDetalhesPage() {
   const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
   const [editingLinkData, setEditingLinkData] = useState({ titulo: "", url: "" });
 
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: false }),
@@ -777,6 +783,36 @@ export default function ProjetoDetalhesPage() {
     }
   }
 
+  async function handleCreateInvite(e: React.FormEvent) {
+    e.preventDefault();
+    if (!projeto || !inviteEmail.trim()) return;
+    setInviteLoading(true);
+    setInviteMsg(null);
+    setInviteLink(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setInviteMsg("Você precisa estar logado."); return; }
+
+      const res = await fetch("/api/invites/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ project_id: projeto.id, invited_email: inviteEmail.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erro desconhecido");
+      setInviteLink(json.inviteLink);
+      setInviteEmail("");
+      setInviteMsg(null);
+    } catch (err: any) {
+      setInviteMsg(err.message || "Erro ao criar convite.");
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
 
   if (loading) {
     return <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">Carregando…</div>;
@@ -1000,6 +1036,65 @@ export default function ProjetoDetalhesPage() {
                 </div>
               </div>
             </div>
+
+            {user && projeto.user_id === user.id && (
+              <div className="mt-4 bg-primary-800 border border-primary-700 rounded-2xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => { setInviteOpen((v) => !v); setInviteLink(null); setInviteMsg(null); }}
+                  className="w-full flex items-center justify-between px-5 py-3.5 text-[14px] text-gray-200 hover:bg-primary-700 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    Convidar colaborador
+                  </span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: inviteOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+
+                {inviteOpen && (
+                  <div className="px-5 pb-5 flex flex-col gap-3 border-t border-primary-700 pt-4">
+                    <form onSubmit={handleCreateInvite} className="flex items-center gap-3">
+                      <input
+                        type="email"
+                        required
+                        placeholder="Email do colaborador"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        className="flex-1 bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                      />
+                      <button
+                        type="submit"
+                        disabled={inviteLoading}
+                        className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[14px] font-semibold transition-colors disabled:opacity-60 shrink-0"
+                      >
+                        {inviteLoading ? "Criando..." : "Convidar"}
+                      </button>
+                    </form>
+
+                    {inviteMsg && (
+                      <p className="text-[13px] text-red-400">{inviteMsg}</p>
+                    )}
+
+                    {inviteLink && (
+                      <div className="flex items-center gap-2 bg-primary-900/60 border border-primary-700 rounded-xl px-3 py-2">
+                        <span className="flex-1 text-[13px] text-primary-300 truncate">{inviteLink}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(inviteLink);
+                            setInviteMsg(null);
+                            setNotify({ open: true, msg: "Link copiado!" });
+                          }}
+                          className="shrink-0 text-[13px] text-gray-300 bg-primary-700 hover:bg-primary-600 rounded-lg px-3 py-1 transition-colors"
+                        >
+                          Copiar
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <section className="mt-6 bg-primary-800 border border-primary-700 rounded-3xl p-5 flex flex-col overflow-hidden min-h-[560px]">
               <div className="flex flex-wrap gap-2 border-b border-primary-700 pb-3 mb-4">

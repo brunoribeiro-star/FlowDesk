@@ -1,0 +1,191 @@
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { supabase } from "@/lib/supabaseClient";
+
+type State = "loading" | "valid" | "accepting" | "accepted" | "already_accepted" | "expired" | "not_found" | "email_mismatch" | "error";
+
+export default function InvitePage() {
+  const router = useRouter();
+  const { token } = router.query;
+
+  const [state, setState] = useState<State>("loading");
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!router.isReady || !token || typeof token !== "string") return;
+
+    let cancelled = false;
+
+    (async () => {
+      // 1. Validate the token (public)
+      const validateRes = await fetch(`/api/invites/validate?token=${encodeURIComponent(token)}`);
+      const validateJson = await validateRes.json();
+
+      if (cancelled) return;
+
+      if (!validateRes.ok) {
+        const errCode = validateJson.error;
+        if (errCode === "not_found") { setState("not_found"); return; }
+        setState("error");
+        setErrorMsg(validateJson.error || "Erro desconhecido.");
+        return;
+      }
+
+      if (validateJson.state === "already_accepted") {
+        setState("already_accepted");
+        setProjectId(validateJson.project_id);
+        return;
+      }
+
+      if (validateJson.state === "expired") {
+        setState("expired");
+        return;
+      }
+
+      // 2. Check authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (cancelled) return;
+
+      if (!session) {
+        // Redirect to login preserving the return URL
+        router.replace(`/login?redirect=/invite/${token}`);
+        return;
+      }
+
+      // 3. Accept the invite
+      setState("accepting");
+      const acceptRes = await fetch("/api/invites/accept", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ token }),
+      });
+      const acceptJson = await acceptRes.json();
+
+      if (cancelled) return;
+
+      if (!acceptRes.ok) {
+        const errCode = acceptJson.error;
+        if (errCode === "already_accepted") {
+          setState("already_accepted");
+          setProjectId(acceptJson.project_id);
+          return;
+        }
+        if (errCode === "expired") { setState("expired"); return; }
+        if (errCode === "email_mismatch") { setState("email_mismatch"); return; }
+        setState("error");
+        setErrorMsg(acceptJson.error || "Erro ao aceitar convite.");
+        return;
+      }
+
+      setState("accepted");
+      setProjectId(acceptJson.project_id);
+
+      // Redirect to the project after a short delay
+      setTimeout(() => {
+        if (!cancelled) router.push(`/dashboard/projetos/${acceptJson.project_id}`);
+      }, 2000);
+    })();
+
+    return () => { cancelled = true; };
+  }, [router, token]);
+
+  // Handle redirect to project for already_accepted state
+  function goToProject() {
+    if (projectId) router.push(`/dashboard/projetos/${projectId}`);
+    else router.push("/dashboard");
+  }
+
+  return (
+    <div className="min-h-screen bg-primary-900 text-gray-100 flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-primary-800 border border-primary-700 rounded-2xl p-8 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+        {(state === "loading" || state === "accepting") && (
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-10 h-10 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+            <p className="text-gray-300 text-[15px]">
+              {state === "accepting" ? "Aceitando convite..." : "Validando convite..."}
+            </p>
+          </div>
+        )}
+
+        {state === "accepted" && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-third-400/20 border border-third-400/40 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-third-300"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h1 className="text-[20px] font-semibold text-gray-100">Convite aceito!</h1>
+            <p className="text-gray-400 text-[14px]">Você foi adicionado como colaborador. Redirecionando para o projeto...</p>
+            <button
+              onClick={goToProject}
+              className="mt-2 bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-xl px-6 py-2.5 text-[15px] transition-colors"
+            >
+              Ir para o projeto
+            </button>
+          </div>
+        )}
+
+        {state === "already_accepted" && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-primary-700 border border-primary-600 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h1 className="text-[20px] font-semibold text-gray-100">Convite já aceito</h1>
+            <p className="text-gray-400 text-[14px]">Este convite já foi utilizado anteriormente.</p>
+            <button onClick={goToProject} className="mt-2 bg-primary-700 hover:bg-primary-600 text-gray-100 font-medium rounded-xl px-6 py-2.5 text-[15px] transition-colors border border-primary-600">
+              Ir para o projeto
+            </button>
+          </div>
+        )}
+
+        {state === "expired" && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <h1 className="text-[20px] font-semibold text-gray-100">Convite expirado</h1>
+            <p className="text-gray-400 text-[14px]">Este link de convite expirou. Peça ao dono do projeto um novo convite.</p>
+          </div>
+        )}
+
+        {state === "not_found" && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            </div>
+            <h1 className="text-[20px] font-semibold text-gray-100">Convite inválido</h1>
+            <p className="text-gray-400 text-[14px]">Este link de convite não existe ou foi removido.</p>
+          </div>
+        )}
+
+        {state === "email_mismatch" && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+            </div>
+            <h1 className="text-[20px] font-semibold text-gray-100">E-mail incorreto</h1>
+            <p className="text-gray-400 text-[14px]">Este convite foi enviado para um e-mail diferente da sua conta atual. Faça login com o e-mail correto para aceitar.</p>
+            <button
+              onClick={() => supabase.auth.signOut().then(() => router.push(`/login?redirect=/invite/${token}`))}
+              className="mt-2 bg-primary-700 hover:bg-primary-600 text-gray-100 font-medium rounded-xl px-6 py-2.5 text-[15px] transition-colors border border-primary-600"
+            >
+              Trocar conta
+            </button>
+          </div>
+        )}
+
+        {state === "error" && (
+          <div className="flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h1 className="text-[20px] font-semibold text-gray-100">Algo deu errado</h1>
+            <p className="text-gray-400 text-[14px]">{errorMsg || "Ocorreu um erro ao processar o convite."}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

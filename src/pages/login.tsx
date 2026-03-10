@@ -10,17 +10,19 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const redirectTo = typeof router.query.redirect === "string" ? router.query.redirect : "/dashboard";
+
   useEffect(() => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
-        router.push("/dashboard");
+        router.push(redirectTo);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, redirectTo]);
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -37,7 +39,7 @@ export default function LoginPage() {
     if (error) {
       alert(`Erro: ${error.message}`);
     } else {
-      router.push("/dashboard");
+      router.push(redirectTo);
     }
 
     setLoading(false);
@@ -78,7 +80,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}${redirectTo}`,
         },
       });
       if (error) throw error;
