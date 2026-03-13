@@ -1,3 +1,4 @@
+import Head from "next/head";
 import type { AppProps } from "next/app";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import "@/styles/globals.css";
@@ -67,11 +68,45 @@ export default function App({ Component, pageProps, router }: AppProps) {
   }, [router.events]);
 
   return (
-    <AuthProvider>
-      {progress && (
-        <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] bg-primary-500 page-progress-bar" />
-      )}
-      <PageContent Component={Component} pageProps={pageProps} pathname={router.pathname} />
-    </AuthProvider>
+    <>
+      <Head>
+        <title>FlowDesk — Gestão de Projetos para Freelancers</title>
+
+        <meta
+          name="description"
+          content="Gerencie projetos, tarefas, clientes e colaboradores em um único lugar. FlowDesk é a plataforma completa para freelancers."
+        />
+
+        <link rel="icon" href="/favicon-light.png" />
+        <link rel="icon" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
+        <link rel="icon" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
+
+        <meta property="og:title" content="FlowDesk — Gestão de Projetos para Freelancers" />
+        <meta
+          property="og:description"
+          content="Gerencie projetos, tarefas, clientes e colaboradores em um único lugar. FlowDesk é a plataforma completa para freelancers."
+        />
+        <meta property="og:image" content="https://app.oflowdesk.com/social-preview.jpg" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://app.oflowdesk.com" />
+
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="FlowDesk — Gestão de Projetos para Freelancers" />
+        <meta
+          name="twitter:description"
+          content="Gerencie projetos, tarefas, clientes e colaboradores em um único lugar. FlowDesk é a plataforma completa para freelancers."
+        />
+        <meta name="twitter:image" content="https://app.oflowdesk.com/social-preview.jpg" />
+      </Head>
+
+      <AuthProvider>
+        {progress && (
+          <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] bg-primary-500 page-progress-bar" />
+        )}
+        <PageContent Component={Component} pageProps={pageProps} pathname={router.pathname} />
+      </AuthProvider>
+    </>
   );
 }
