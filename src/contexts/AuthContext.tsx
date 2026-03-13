@@ -38,6 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }){
             if (_event === 'SIGNED_IN' && router.pathname === '/login') {
                 router.replace('/dashboard');
             }
+            if (_event === 'SIGNED_IN' && router.pathname === '/signup') {
+                router.replace('/onboarding');
+            }
             if (_event === 'SIGNED_OUT') {
                 if (router.pathname !== '/login') router.replace('/login');
             }

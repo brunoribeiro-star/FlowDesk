@@ -370,7 +370,6 @@ export default function ProjetoDetalhesPage() {
 
         setError(null);
 
-        // Non-blocking background fetches — not needed for initial render
         if (authUser.id !== proj.user_id) {
           supabase
             .from("users")
@@ -991,6 +990,11 @@ export default function ProjetoDetalhesPage() {
         });
         setEditingSplitMemberId(null);
         setNotify({ open: true, msg: "Divisão atualizada com sucesso!" });
+        supabase
+          .from("collaborator_payment_splits")
+          .select("id, pagamento_id, member_user_id, amount, status, paid_at")
+          .eq("project_id", projeto.id)
+          .then(({ data }) => { if (data) setOwnerCollabSplits(data as any[]); });
       } else {
         const json = await res.json();
         setNotify({ open: true, msg: json.error || "Erro ao salvar divisão." });
@@ -1926,21 +1930,24 @@ const CollaboratorsSection = memo(function CollaboratorsSection({
                         </div>
                         {isEditingThis && (
                           <div className="flex items-center gap-2 mt-1">
-                            <select
-                              value={editSplitType}
-                              onChange={(e) => setEditSplitType(e.target.value as any)}
-                              className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[13px] text-gray-100 cursor-pointer"
-                            >
-                              <option value="percentage">%</option>
-                              <option value="fixed">R$ fixo</option>
-                            </select>
+                            <div className="relative">
+                              <select
+                                value={editSplitType}
+                                onChange={(e) => setEditSplitType(e.target.value as any)}
+                                className="appearance-none bg-primary-800 border border-gray-700 rounded-lg pl-3 pr-8 py-1.5 text-[13px] text-gray-100 cursor-pointer focus:outline-none focus:border-primary-500"
+                              >
+                                <option value="percentage">%</option>
+                                <option value="fixed">R$ fixo</option>
+                              </select>
+                              <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </div>
                             <input
                               type="number"
                               min="0"
                               value={editSplitValue}
                               onChange={(e) => setEditSplitValue(e.target.value)}
                               placeholder={editSplitType === "percentage" ? "50" : "2500"}
-                              className="w-24 bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                              className="w-24 bg-primary-800 border border-gray-700 rounded-lg px-3 py-1.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
                             <button
                               type="button"
@@ -1963,13 +1970,13 @@ const CollaboratorsSection = memo(function CollaboratorsSection({
                             const memberSplit = memberSplits.find(s => s.member_user_id === m.user_id);
                             if ((memberSplit as any)?.payment_status === "paid") {
                               return (
-                                <div className="mt-1 pt-2 border-t border-primary-700/60">
+                                <div className="mt-1 pt-2 border-t border-gray-700">
                                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-400/30">Pago</span>
                                 </div>
                               );
                             }
                             return (
-                              <div className="mt-1 pt-2 border-t border-primary-700/60">
+                              <div className="mt-1 pt-2 border-t border-gray-700">
                                 <button
                                   type="button"
                                   onClick={() => handleMarkMemberFullyPaid(m.user_id)}
@@ -1982,7 +1989,7 @@ const CollaboratorsSection = memo(function CollaboratorsSection({
                             );
                           }
                           return (
-                            <div className="flex flex-col gap-1.5 mt-1 pt-2 border-t border-primary-700/60">
+                            <div className="flex flex-col gap-1.5 mt-1 pt-2 border-t border-gray-700">
                               {memberSplitRows.map((cs, i) => (
                                 <div key={cs.id} className="flex items-center justify-between">
                                   <span className="text-[12px] text-gray-400">
@@ -2031,7 +2038,7 @@ const CollaboratorsSection = memo(function CollaboratorsSection({
                 </div>
               )}
 
-              <div className="flex flex-col gap-3 pt-3 border-t border-primary-700/60">
+              <div className="flex flex-col gap-3 pt-3 border-t border-gray-700">
                 <span className="text-[13px] text-gray-300">Convidar novo colaborador</span>
                 <form onSubmit={handleCreateInvite} className="flex flex-col gap-3">
                   <div className="flex items-center gap-3">
@@ -2041,25 +2048,28 @@ const CollaboratorsSection = memo(function CollaboratorsSection({
                       placeholder="Email do colaborador"
                       value={inviteEmail}
                       onChange={(e) => setInviteEmail(e.target.value)}
-                      className="flex-1 bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                      className="flex-1 bg-primary-900 border border-gray-700 rounded-xl px-4 py-2 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <select
-                      value={inviteSplitType}
-                      onChange={(e) => setInviteSplitType(e.target.value as any)}
-                      className="bg-primary-900 border border-primary-700 rounded-xl px-3 py-2 text-[13px] text-gray-100 cursor-pointer"
-                    >
-                      <option value="percentage">% do total</option>
-                      <option value="fixed">Valor fixo</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={inviteSplitType}
+                        onChange={(e) => setInviteSplitType(e.target.value as any)}
+                        className="appearance-none bg-primary-900 border border-gray-700 rounded-xl pl-3 pr-8 py-2 text-[13px] text-gray-100 cursor-pointer focus:outline-none focus:border-primary-500"
+                      >
+                        <option value="percentage">% do total</option>
+                        <option value="fixed">Valor fixo</option>
+                      </select>
+                      <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
                     <input
                       type="number"
                       min="0"
                       value={inviteSplitValue}
                       onChange={(e) => setInviteSplitValue(e.target.value)}
                       placeholder={inviteSplitType === "percentage" ? "50" : "2500"}
-                      className="w-28 bg-primary-900 border border-primary-700 rounded-xl px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                      className="w-28 bg-primary-900 border border-gray-700 rounded-xl px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                     />
                     <span className="text-gray-400 text-[13px]">{inviteSplitType === "percentage" ? "%" : "R$"}</span>
                     <button

@@ -1,18 +1,22 @@
 import { useState } from "react";
-import { useRouter } from "next/router";
-import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 import Image from "next/image";
-import { ChevronLeft } from "lucide-react";
+import { Mail, ChevronLeft } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import AuthBackground from "@/components/auth/AuthBackground";
+import AuthCard from "@/components/auth/AuthCard";
+import AuthInput from "@/components/auth/AuthInput";
 
 export default function ForgotPassword() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -21,70 +25,100 @@ export default function ForgotPassword() {
     setLoading(false);
 
     if (error) {
-      alert("Erro ao enviar o e-mail. Tente novamente.");
-      console.error(error.message);
+      setError("Erro ao enviar o e-mail. Tente novamente.");
     } else {
       setSent(true);
     }
   }
 
   return (
-    <main className="flex min-h-screen bg-primary-900 text-gray-100 font-sans overflow-hidden">
-      <section className="w-[40%] flex flex-col justify-center px-8 lg:px-16 py-6">
-        <button
-          onClick={() => router.push("/login")}
-          className="flex items-center gap-2 border border-primary-700 rounded-lg px-4 py-3 w-fit mb-8 text-gray-300 hover:text-primary-400 transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          <span className="text-[16px]">Voltar</span>
-        </button>
-
-        <div className="mb-8">
-          <h1 className="text-[48px] font-semibold text-gray-100 leading-[110%]">
-            Recuperar senha
-          </h1>
-          <p className="text-[20px] text-gray-300 leading-[150%] mt-3">
-            Digite o e-mail do seu cadastro para enviarmos um link de
-            recuperação para redefinir sua senha.
-          </p>
+    <AuthBackground>
+      <AuthCard>
+        <div className="flex justify-center mb-8">
+          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-[16px] text-gray-200">E-mail</label>
-            <input
-              type="email"
-              required
-              placeholder="Insira seu E-mail"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 px-6 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-            />
+        {sent ? (
+          <div className="flex flex-col items-center gap-5">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ background: "color-mix(in srgb, var(--primary-500) 15%, transparent)" }}
+            >
+              <Mail className="w-6 h-6" style={{ color: "var(--primary-500)" }} />
+            </div>
+            <div className="text-center">
+              <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--gray-100)" }}>
+                E-mail enviado
+              </h2>
+              <p className="text-sm" style={{ color: "var(--gray-400)" }}>
+                Enviamos um link de recuperação para{" "}
+                <span style={{ color: "var(--gray-200)" }}>{email}</span>.
+                Verifique sua caixa de entrada.
+              </p>
+            </div>
+            <Link
+              href="/login"
+              className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-opacity mt-2"
+              style={{ background: "var(--primary-500)", color: "var(--primary-900)" }}
+            >
+              Voltar para o login
+            </Link>
           </div>
+        ) : (
+          <>
+            <h1 className="text-xl font-semibold text-center mb-1" style={{ color: "var(--gray-100)" }}>
+              Recuperar senha
+            </h1>
+            <p className="text-sm text-center mb-7" style={{ color: "var(--gray-400)" }}>
+              Informe seu e-mail e enviaremos um link para redefinir sua senha.
+            </p>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[20px] py-4 rounded-lg mt-4 transition-colors disabled:opacity-50"
-          >
-            {sent
-              ? "Link enviado!"
-              : loading
-              ? "Enviando..."
-              : "Enviar link"}
-          </button>
-        </form>
-      </section>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <AuthInput
+                label="E-mail"
+                type="email"
+                placeholder="seu@email.com"
+                required
+                icon={<Mail className="w-4 h-4" />}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                maxLength={254}
+              />
 
-      <section className="w-[60%] h-screen relative hidden md:block">
-        <Image
-          src="/login-illustration.webp"
-          alt="FlowDesk Illustration"
-          fill
-          className="object-cover"
-          priority
-        />
-      </section>
-    </main>
+              {error && (
+                <p className="text-xs text-center" style={{ color: "var(--error-medium)" }}>
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full h-11 rounded-xl text-sm font-semibold transition-opacity mt-1"
+                style={{
+                  background: "var(--primary-500)",
+                  color: "var(--primary-900)",
+                  opacity: loading ? 0.6 : 1,
+                }}
+              >
+                {loading ? "Enviando..." : "Enviar link de recuperação"}
+              </button>
+            </form>
+
+            <div className="flex justify-center mt-6">
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 text-sm transition-colors"
+                style={{ color: "var(--gray-400)" }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Voltar para o login
+              </Link>
+            </div>
+          </>
+        )}
+      </AuthCard>
+    </AuthBackground>
   );
 }

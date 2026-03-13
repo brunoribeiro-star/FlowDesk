@@ -1,327 +1,165 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Image from "next/image";
-import { Mail, Lock, User } from "lucide-react";
+import Link from "next/link";
+import { Mail, Lock } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
+import AuthBackground from "@/components/auth/AuthBackground";
+import AuthCard from "@/components/auth/AuthCard";
+import AuthInput from "@/components/auth/AuthInput";
+
+function traduzirErroSupabase(msg: string): string {
+  if (msg.includes("Invalid login credentials")) return "E-mail ou senha incorretos.";
+  if (msg.includes("Email not confirmed")) return "E-mail não confirmado. Verifique sua caixa de entrada.";
+  if (msg.includes("rate limit") || msg.includes("after")) return "Muitas tentativas. Aguarde um momento e tente novamente.";
+  if (msg.includes("invalid format")) return "Formato de e-mail inválido.";
+  if (msg.includes("User not found")) return "Nenhuma conta encontrada com esse e-mail.";
+  return msg;
+}
 
 export default function LoginPage() {
-  const [tab, setTab] = useState<"login" | "register">("login");
-  const [role, setRole] = useState<"freelancer" | "contratante" | "">("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const redirectTo = typeof router.query.redirect === "string" ? router.query.redirect : "/dashboard";
-
-  useEffect(() => {
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        router.push(redirectTo);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [router, redirectTo]);
+  const redirectTo =
+    typeof router.query.redirect === "string" ? router.query.redirect : "/dashboard";
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
+    setError(null);
+
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      alert(`Erro: ${error.message}`);
+      setError(traduzirErroSupabase(error.message));
     } else {
       router.push(redirectTo);
     }
-
-    setLoading(false);
-  }
-
-  async function handleRegister(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setLoading(true);
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get("name") as string;
-    const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name, role },
-      },
-    });
-
-    if (error) {
-      alert(`Erro: ${error.message}`);
-    } else {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (sessionData.session) {
-        router.push("/dashboard");
-      } else {
-        alert("Conta criada! Verifique seu e-mail antes de entrar.");
-      }
-    }
-
     setLoading(false);
   }
 
   async function handleGoogleAuth() {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}${redirectTo}`,
-        },
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      alert(`Erro ao autenticar com Google: ${err.message}`);
-    }
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}${redirectTo}` },
+    });
+    if (error) setError(traduzirErroSupabase(error.message));
   }
 
   return (
-    <main className="flex min-h-screen bg-primary-900 text-gray-100 font-sans overflow-hidden">
-      <section className="w-[40%] flex flex-col justify-center px-8 lg:px-16 py-6">
-        <div className="flex justify-center w-full mb-6 border-b border-gray-700">
-          <div className="grid grid-cols-2 w-full max-w-md mx-auto">
-            <button
-              onClick={() => setTab("login")}
-              className={`w-full py-4 text-[20px] transition-colors border-b-2 ${
-                tab === "login"
-                  ? "text-primary-500 border-primary-500"
-                  : "text-gray-400 border-transparent hover:text-primary-400"
-              }`}
-            >
-              Fazer Login
-            </button>
-            <button
-              onClick={() => setTab("register")}
-              className={`w-full py-4 text-[20px] transition-colors border-b-2 ${
-                tab === "register"
-                  ? "text-primary-500 border-primary-500"
-                  : "text-gray-400 border-transparent hover:text-primary-400"
-              }`}
-            >
-              Criar Conta
-            </button>
-          </div>
+    <AuthBackground>
+      <AuthCard>
+        <div className="flex justify-center mb-8">
+          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
         </div>
 
-        {tab === "login" && (
-          <>
-            <div className="mb-6">
-              <h1 className="text-[48px] font-semibold text-gray-100 leading-[110%]">
-                Bem-vindo(a) de volta ao FlowDesk
-              </h1>
-              <p className="text-[20px] text-gray-300 leading-[150%] mt-3">
-                Acesse sua conta para continuar gerenciando seus projetos e
-                clientes com facilidade.
-              </p>
-            </div>
+        <h1
+          className="text-xl font-semibold text-center mb-1"
+          style={{ color: "var(--gray-100)" }}
+        >
+          Entrar no FlowDesk
+        </h1>
+        <p className="text-sm text-center mb-7" style={{ color: "var(--gray-400)" }}>
+          Acesse sua conta para continuar
+        </p>
 
-            <form onSubmit={handleLogin} className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2">
-                <label className="text-[16px] text-gray-200">E-mail</label>
-                <div className="relative flex items-center">
-                  <Mail className="absolute left-4 text-gray-400 w-5 h-5" />
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Insira seu E-mail"
-                    required
-                    className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 pl-12 pr-6 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-                  />
-                </div>
-              </div>
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <AuthInput
+            label="E-mail"
+            name="email"
+            type="email"
+            placeholder="seu@email.com"
+            required
+            icon={<Mail className="w-4 h-4" />}
+            autoComplete="email"
+            maxLength={254}
+          />
+          <AuthInput
+            label="Senha"
+            name="password"
+            type="password"
+            placeholder="Sua senha"
+            required
+            icon={<Lock className="w-4 h-4" />}
+            autoComplete="current-password"
+            maxLength={128}
+          />
 
-              <div className="flex flex-col gap-2">
-                <label className="text-[16px] text-gray-200">Senha</label>
-                <div className="relative flex items-center">
-                  <Lock className="absolute left-4 text-gray-400 w-5 h-5" />
-                  <input
-                    type="password"
-                    name="password"
-                    placeholder="Insira sua senha"
-                    required
-                    className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 pl-12 pr-24 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => router.push("/forgot-password")}
-                    className="absolute right-4 top-[18px] text-primary-300 text-[16px] hover:text-primary-500 transition-colors"
-                  >
-                    Esqueceu a senha?
-                  </button>
-                </div>
-              </div>
+          <div className="flex justify-end -mt-1">
+            <Link
+              href="/forgot-password"
+              className="text-xs transition-colors"
+              style={{ color: "var(--primary-400)" }}
+            >
+              Esqueceu a senha?
+            </Link>
+          </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className={`bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[20px] py-4 rounded-lg mt-4 transition-colors ${
-                  loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                {loading ? "Entrando..." : "Fazer Login"}
-              </button>
-            </form>
+          {error && (
+            <p className="text-xs text-center" style={{ color: "var(--error-medium)" }}>
+              {error}
+            </p>
+          )}
 
-            <div className="flex items-center gap-4 text-gray-400 text-[14px] mt-6">
-              <div className="flex-1 h-[1px] bg-gray-400" />
-              ou
-              <div className="flex-1 h-[1px] bg-gray-400" />
-            </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-11 rounded-xl text-sm font-semibold transition-opacity mt-1"
+            style={{
+              background: "var(--primary-500)",
+              color: "var(--primary-900)",
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
 
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleGoogleAuth}
-                className="flex items-center justify-center gap-2 bg-primary-800 border border-primary-600 rounded-lg py-4 px-6 flex-1 text-gray-300 hover:bg-primary-700 transition"
-              >
-                <Image src="/google.svg" alt="Google" width={20} height={20} />
-                Login com Google
-              </button>
-            </div>
-          </>
-        )}
+        <div className="flex items-center gap-3 my-5">
+          <div className="flex-1 h-px" style={{ background: "var(--primary-700)" }} />
+          <span className="text-xs" style={{ color: "var(--gray-500)" }}>
+            ou
+          </span>
+          <div className="flex-1 h-px" style={{ background: "var(--primary-700)" }} />
+        </div>
 
-        {tab === "register" && (
-          <>
-            <div className="mb-6">
-              <h1 className="text-[48px] font-semibold text-gray-100 leading-[110%]">
-                Crie agora sua conta no FlowDesk
-              </h1>
-            </div>
+        <button
+          onClick={handleGoogleAuth}
+          className="w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-sm transition-colors"
+          style={{
+            background: "var(--primary-800)",
+            border: "1px solid var(--primary-700)",
+            color: "var(--gray-200)",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary-500)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary-700)";
+          }}
+        >
+          <Image src="/google.svg" alt="Google" width={18} height={18} />
+          Continuar com Google
+        </button>
 
-            <form onSubmit={handleRegister} className="flex flex-col gap-5">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="freelancer"
-                      checked={role === "freelancer"}
-                      onChange={() => setRole("freelancer")}
-                      className="w-4 h-4 text-primary-500 border-gray-500 focus:ring-primary-500 accent-primary-500"
-                    />
-                    <span
-                      className={`text-[16px] transition-colors ${
-                        role === "freelancer"
-                          ? "text-primary-500"
-                          : "text-gray-300"
-                      }`}
-                    >
-                      Sou Freelancer
-                    </span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="role"
-                      value="contratante"
-                      checked={role === "contratante"}
-                      onChange={() => setRole("contratante")}
-                      className="w-4 h-4 text-primary-500 border-gray-500 focus:ring-primary-500 accent-primary-500"
-                    />
-                    <span
-                      className={`text-[16px] transition-colors ${
-                        role === "contratante"
-                          ? "text-primary-500"
-                          : "text-gray-300"
-                      }`}
-                    >
-                      Sou Contratante
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-[16px] text-gray-200">Nome</label>
-                <div className="relative flex items-center">
-                  <User className="absolute left-4 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Insira seu nome completo"
-                    required
-                    className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 pl-12 pr-6 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-[16px] text-gray-200">E-mail</label>
-                <div className="relative flex items-center">
-                  <Mail className="absolute left-4 text-gray-400 w-5 h-5" />
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Insira seu E-mail"
-                    required
-                    className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 pl-12 pr-6 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label className="text-[16px] text-gray-200">Senha</label>
-                <div className="relative flex items-center">
-                  <Lock className="absolute left-4 text-gray-400 w-5 h-5" />
-                  <input
-                    type="password"
-                    name="password"
-                    placeholder="Crie sua senha"
-                    required
-                    className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 pl-12 pr-6 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className={`bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[20px] py-4 rounded-lg mt-3 transition-colors ${
-                  loading ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                {loading ? "Criando..." : "Criar Conta"}
-              </button>
-            </form>
-
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={handleGoogleAuth}
-                className="flex items-center justify-center gap-2 bg-primary-800 border border-primary-600 rounded-lg py-4 px-6 flex-1 text-gray-300 hover:bg-primary-700 transition"
-              >
-                <Image src="/google.svg" alt="Google" width={20} height={20} />
-                Criar com Google
-              </button>
-            </div>
-          </>
-        )}
-      </section>
-
-      <section className="w-[60%] h-screen relative hidden md:block">
-        <Image
-          src="/login-illustration.webp"
-          alt="FlowDesk Illustration"
-          fill
-          className="object-cover"
-          priority
-        />
-      </section>
-    </main>
+        <p className="text-center text-xs mt-7" style={{ color: "var(--gray-500)" }}>
+          Não tem uma conta?{" "}
+          <Link
+            href="/signup"
+            className="transition-colors"
+            style={{ color: "var(--primary-400)" }}
+          >
+            Criar conta
+          </Link>
+        </p>
+      </AuthCard>
+    </AuthBackground>
   );
 }

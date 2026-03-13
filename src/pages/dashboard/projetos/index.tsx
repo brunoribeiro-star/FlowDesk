@@ -564,11 +564,34 @@ export default function ProjetosPage() {
     if (unpaidCollabs.length > 0) {
       openConfirm({
         title: "Colaboradores sem pagamento",
-        message: `Você ainda tem ${unpaidCollabs.length} colaborador${unpaidCollabs.length > 1 ? "es" : ""} sem pagamento registrado. Deseja finalizar o projeto mesmo assim?`,
-        confirmLabel: "Finalizar mesmo assim",
+        message: `Você ainda tem ${unpaidCollabs.length} colaborador${unpaidCollabs.length > 1 ? "es" : ""} sem pagamento registrado. Deseja pagar e finalizar o projeto?`,
+        confirmLabel: "Pagar e finalizar",
         cancelLabel: "Cancelar",
         onConfirm: async () => {
           closeConfirm();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await Promise.all(
+              unpaidCollabs.map((collab) =>
+                fetch("/api/collaborators/mark-paid", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    project_id: collab.project_id,
+                    member_user_id: collab.member_user_id,
+                  }),
+                })
+              )
+            );
+            setOwnedMemberSplits((prev) =>
+              prev.map((s) =>
+                s.project_id === projectId ? { ...s, payment_status: "paid" } : s
+              )
+            );
+          }
           await marcarPagamentosComoPagosEConcluir(projectId);
         },
       });

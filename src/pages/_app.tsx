@@ -5,7 +5,7 @@ import "@/styles/globals.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
-const PROTECTED_ROUTES = ["/dashboard"];
+const PROTECTED_ROUTES = ["/dashboard", "/onboarding"];
 
 function PageContent({ Component, pageProps, pathname }: { Component: any; pageProps: any; pathname: string }) {
   const { loading, user } = useAuth();
@@ -70,7 +70,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
   return (
     <>
       <Head>
-        <title>FlowDesk — Gestão de Projetos para Freelancers</title>
+        <title>FlowDesk - Gestão de Projetos para Freelancers</title>
 
         <meta
           name="description"
@@ -81,7 +81,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <link rel="icon" href="/favicon-light.png" media="(prefers-color-scheme: light)" />
         <link rel="icon" href="/favicon-dark.png" media="(prefers-color-scheme: dark)" />
 
-        <meta property="og:title" content="FlowDesk — Gestão de Projetos para Freelancers" />
+        <meta property="og:title" content="FlowDesk - Gestão de Projetos para Freelancers" />
         <meta
           property="og:description"
           content="Gerencie projetos, tarefas, clientes e colaboradores em um único lugar. FlowDesk é a plataforma completa para freelancers."
@@ -93,7 +93,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
         <meta property="og:url" content="https://app.oflowdesk.com" />
 
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="FlowDesk — Gestão de Projetos para Freelancers" />
+        <meta name="twitter:title" content="FlowDesk - Gestão de Projetos para Freelancers" />
         <meta
           name="twitter:description"
           content="Gerencie projetos, tarefas, clientes e colaboradores em um único lugar. FlowDesk é a plataforma completa para freelancers."

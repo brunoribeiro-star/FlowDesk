@@ -19,28 +19,57 @@ export async function syncCollaboratorPaymentSplits(
 
   const totalParcelas = pagamentos.length;
 
-  const splits = pagamentos.map((p: any) => {
+  const { data: existingSplits } = await supabase
+    .from("collaborator_payment_splits")
+    .select("id, pagamento_id, status")
+    .eq("project_id", project_id)
+    .eq("member_user_id", member_user_id);
+
+  const existingMap = new Map<string, { id: string; pagamento_id: string; status: string }>(
+    ((existingSplits || []) as any[]).map((s: any) => [s.pagamento_id as string, s])
+  );
+
+  const toInsert: any[] = [];
+  const toUpdate: { id: string; amount: number }[] = [];
+
+  for (const p of pagamentos) {
     let amount: number;
     if (split_type === "percentage") {
       amount = Number(p.valor) * (split_value / 100);
     } else {
       amount = split_value / totalParcelas;
     }
+    amount = Math.round(amount * 100) / 100;
 
-    return {
-      project_id,
-      member_user_id,
-      pagamento_id: p.id,
-      amount: Math.round(amount * 100) / 100,
-      status: "pendente",
-    };
-  });
+    const existing = existingMap.get(p.id);
+    if (existing) {
+      toUpdate.push({ id: existing.id, amount });
+    } else {
+      toInsert.push({
+        project_id,
+        member_user_id,
+        pagamento_id: p.id,
+        amount,
+        status: "pendente",
+      });
+    }
+  }
 
-  const { error: splitsErr } = await supabase
-    .from("collaborator_payment_splits")
-    .upsert(splits, { onConflict: "pagamento_id,member_user_id" });
+  if (toInsert.length > 0) {
+    const { error: insertErr } = await supabase
+      .from("collaborator_payment_splits")
+      .insert(toInsert);
+    if (insertErr) return { error: insertErr.message };
+  }
 
-  if (splitsErr) return { error: splitsErr.message };
+  for (const u of toUpdate) {
+    const { error: updateErr } = await supabase
+      .from("collaborator_payment_splits")
+      .update({ amount: u.amount })
+      .eq("id", u.id);
+    if (updateErr) return { error: updateErr.message };
+  }
+
   return { ok: true };
 }
 

@@ -1,8 +1,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { supabase } from "@/lib/supabaseClient";
+import Link from "next/link";
 import Image from "next/image";
-import { Lock, ChevronLeft } from "lucide-react";
+import { Lock, CheckCircle } from "lucide-react";
+import { supabase } from "@/lib/supabaseClient";
+import AuthBackground from "@/components/auth/AuthBackground";
+import AuthCard from "@/components/auth/AuthCard";
+import AuthInput from "@/components/auth/AuthInput";
 
 export default function ResetPassword() {
   const router = useRouter();
@@ -10,6 +14,8 @@ export default function ResetPassword() {
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -19,104 +25,142 @@ export default function ResetPassword() {
 
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
 
     if (password !== confirm) {
-      alert("As senhas não coincidem. Verifique e tente novamente.");
+      setError("As senhas não coincidem.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("A senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
     setLoading(true);
-
     const { error } = await supabase.auth.updateUser({ password });
     setLoading(false);
 
     if (error) {
-      alert("Erro ao redefinir senha. Tente novamente.");
-      console.error(error);
+      setError("Erro ao redefinir a senha. Tente novamente.");
     } else {
-      alert("Senha redefinida com sucesso!");
-      router.push("/login");
+      setDone(true);
     }
   }
 
   if (!ready) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-primary-900 text-gray-300">
-        Validando link de redefinição...
-      </main>
+      <AuthBackground>
+        <AuthCard>
+          <div className="flex justify-center mb-8">
+            <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
+          </div>
+          <div className="flex flex-col items-center gap-3 py-4">
+            <div
+              className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
+              style={{ borderColor: "var(--primary-500)", borderTopColor: "transparent" }}
+            />
+            <p className="text-sm" style={{ color: "var(--gray-400)" }}>
+              Validando link de recuperação...
+            </p>
+          </div>
+        </AuthCard>
+      </AuthBackground>
+    );
+  }
+
+  if (done) {
+    return (
+      <AuthBackground>
+        <AuthCard>
+          <div className="flex justify-center mb-8">
+            <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
+          </div>
+          <div className="flex flex-col items-center gap-5">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center"
+              style={{ background: "color-mix(in srgb, var(--primary-500) 15%, transparent)" }}
+            >
+              <CheckCircle className="w-6 h-6" style={{ color: "var(--primary-500)" }} />
+            </div>
+            <div className="text-center">
+              <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--gray-100)" }}>
+                Senha redefinida
+              </h2>
+              <p className="text-sm" style={{ color: "var(--gray-400)" }}>
+                Sua senha foi atualizada com sucesso. Faça login para continuar.
+              </p>
+            </div>
+            <Link
+              href="/login"
+              className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center transition-opacity mt-2"
+              style={{ background: "var(--primary-500)", color: "var(--primary-900)" }}
+            >
+              Ir para o login
+            </Link>
+          </div>
+        </AuthCard>
+      </AuthBackground>
     );
   }
 
   return (
-    <main className="flex min-h-screen bg-primary-900 text-gray-100 font-sans overflow-hidden">
-      <section className="w-[40%] flex flex-col justify-center px-8 lg:px-16 py-6">
-        <button
-          onClick={() => router.push("/login")}
-          className="flex items-center gap-2 border border-primary-700 rounded-lg px-4 py-3 w-fit mb-8 text-gray-300 hover:text-primary-400 transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5" />
-          <span className="text-[16px]">Voltar</span>
-        </button>
-
-        <div className="mb-8">
-          <h1 className="text-[48px] font-semibold text-gray-100 leading-[110%]">
-            Criar Nova Senha
-          </h1>
-          <p className="text-[20px] text-gray-300 leading-[150%] mt-3">
-            Crie uma nova senha para sua conta do FlowDesk.
-          </p>
+    <AuthBackground>
+      <AuthCard>
+        <div className="flex justify-center mb-8">
+          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
         </div>
 
-        <form onSubmit={handleReset} className="flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-[16px] text-gray-200">Nova Senha</label>
-            <div className="relative flex items-center">
-              <Lock className="absolute left-4 text-gray-400 w-5 h-5" />
-              <input
-                type="password"
-                required
-                placeholder="Digite sua nova senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 pl-12 pr-6 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-              />
-            </div>
-          </div>
+        <h1 className="text-xl font-semibold text-center mb-1" style={{ color: "var(--gray-100)" }}>
+          Criar nova senha
+        </h1>
+        <p className="text-sm text-center mb-7" style={{ color: "var(--gray-400)" }}>
+          Escolha uma senha segura para sua conta.
+        </p>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-[16px] text-gray-200">Confirmar Senha</label>
-            <div className="relative flex items-center">
-              <Lock className="absolute left-4 text-gray-400 w-5 h-5" />
-              <input
-                type="password"
-                required
-                placeholder="Digite a senha novamente"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="w-full h-[58px] rounded-lg bg-primary-900 border border-primary-700 pl-12 pr-6 text-gray-100 placeholder-gray-400 focus:outline-none focus:border-primary-500"
-              />
-            </div>
-          </div>
+        <form onSubmit={handleReset} className="flex flex-col gap-4">
+          <AuthInput
+            label="Nova senha"
+            type="password"
+            placeholder="Digite sua nova senha"
+            required
+            icon={<Lock className="w-4 h-4" />}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            maxLength={128}
+          />
+          <AuthInput
+            label="Confirmar senha"
+            type="password"
+            placeholder="Repita a nova senha"
+            required
+            icon={<Lock className="w-4 h-4" />}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            maxLength={128}
+          />
+
+          {error && (
+            <p className="text-xs text-center" style={{ color: "var(--error-medium)" }}>
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
             disabled={loading}
-            className="bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[20px] py-4 rounded-lg mt-4 transition-colors disabled:opacity-50"
+            className="w-full h-11 rounded-xl text-sm font-semibold transition-opacity mt-1"
+            style={{
+              background: "var(--primary-500)",
+              color: "var(--primary-900)",
+              opacity: loading ? 0.6 : 1,
+            }}
           >
-            {loading ? "Redefinindo..." : "Redefinir Senha"}
+            {loading ? "Redefinindo..." : "Redefinir senha"}
           </button>
         </form>
-      </section>
-
-      <section className="w-[60%] h-screen relative hidden md:block">
-        <Image
-          src="/login-illustration.webp"
-          alt="FlowDesk Illustration"
-          fill
-          className="object-cover"
-          priority
-        />
-      </section>
-    </main>
+      </AuthCard>
+    </AuthBackground>
   );
 }

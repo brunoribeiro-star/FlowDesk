@@ -387,7 +387,7 @@ export default function NovoProjetoPage() {
   }
 
   async function criarPagamentos(projeto_id: string, user_id: string) {
-    const valor = Number(form.orcamento);
+    const valor = Number(form.orcamento.replace(/\D/g, "")) / 100;
     if (!valor || valor <= 0) return;
 
     const hoje = new Date().toISOString().slice(0, 10);
