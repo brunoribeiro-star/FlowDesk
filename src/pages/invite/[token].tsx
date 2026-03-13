@@ -18,7 +18,6 @@ export default function InvitePage() {
     let cancelled = false;
 
     (async () => {
-      // 1. Validate the token (public)
       const validateRes = await fetch(`/api/invites/validate?token=${encodeURIComponent(token)}`);
       const validateJson = await validateRes.json();
 
@@ -43,17 +42,14 @@ export default function InvitePage() {
         return;
       }
 
-      // 2. Check authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (cancelled) return;
 
       if (!session) {
-        // Redirect to login preserving the return URL
         router.replace(`/login?redirect=/invite/${token}`);
         return;
       }
 
-      // 3. Accept the invite
       setState("accepting");
       const acceptRes = await fetch("/api/invites/accept", {
         method: "POST",
@@ -84,7 +80,6 @@ export default function InvitePage() {
       setState("accepted");
       setProjectId(acceptJson.project_id);
 
-      // Redirect to the project after a short delay
       setTimeout(() => {
         if (!cancelled) router.push(`/dashboard/projetos/${acceptJson.project_id}`);
       }, 2000);
@@ -93,7 +88,6 @@ export default function InvitePage() {
     return () => { cancelled = true; };
   }, [router, token]);
 
-  // Handle redirect to project for already_accepted state
   function goToProject() {
     if (projectId) router.push(`/dashboard/projetos/${projectId}`);
     else router.push("/dashboard");

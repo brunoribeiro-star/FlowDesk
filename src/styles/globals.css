@@ -48,7 +48,6 @@ select.flow-select {
   fill: var(--icon-color) !important;
 }
 
-/* ── Skeleton shimmer ── */
 @keyframes skeleton-shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
@@ -65,7 +64,6 @@ select.flow-select {
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
-/* ── Page transition progress bar ── */
 @keyframes page-progress {
   0%   { width: 0%; opacity: 1; }
   80%  { width: 85%; opacity: 1; }

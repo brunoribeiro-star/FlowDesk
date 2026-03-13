@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useCallback, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { updateTask, deleteTask } from "@/lib/supabaseQueries/tasks";
@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList } from "@/components/Skeleton";
 import { jsonToPlainText, calcularUrgencia, formatarDataCurta, tempoRelativo } from "@/lib/utils";
+import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 
 interface Projeto {
   id: string;
@@ -19,6 +20,7 @@ interface Task {
   titulo: string;
   descricao: any;
   projeto_id: string | null;
+  user_id: string | null;
   status: "para_fazer" | "em_andamento" | "concluida" | string;
   due_date: string | null;
   created_at: string;
@@ -32,39 +34,6 @@ interface Subtask {
 }
 
 
-function UrgenciaIndicator({ nivel }: { nivel: string }) {
-  const total = 4;
-  let ativos = 0;
-
-  switch (nivel) {
-    case "Muito urgente": ativos = 4; break;
-    case "Urgente":       ativos = 3; break;
-    case "Normal":        ativos = 2; break;
-    case "Baixa":         ativos = 1; break;
-    default:              ativos = 0;
-  }
-
-  const colorClass =
-    nivel === "Muito urgente" ? "bg-rose-400"    :
-    nivel === "Urgente"       ? "bg-amber-400"   :
-    nivel === "Normal"        ? "bg-sky-400"     :
-    nivel === "Baixa"         ? "bg-emerald-400" :
-    "bg-gray-600";
-
-  const barras = Array.from({ length: total }, (_, i) => i < ativos);
-
-  return (
-    <div className="flex items-end gap-[3px]">
-      {barras.map((ativa, idx) => (
-        <div
-          key={idx}
-          className={`w-[3px] rounded-full ${ativa ? colorClass : "bg-primary-800"}`}
-          style={{ height: 6 + idx * 3 }}
-        />
-      ))}
-    </div>
-  );
-}
 
 const URGENCY_COLUMNS = [
   { id: "Sem prioridade", title: "Nenhuma", iconColor: "text-slate-400" },
@@ -89,6 +58,9 @@ export default function TarefasPage() {
 
   const [subtasksByTask, setSubtasksByTask] = useState<Record<string, Subtask[]>>({});
   const [dragSub, setDragSub] = useState<{ taskId: string; fromIndex: number; subId: string } | null>(null);
+
+  const taskIdsRef = useRef<Set<string>>(new Set());
+  const collabProjectIdsRef = useRef<Set<string>>(new Set());
 
   const [view, setView] = useState<"list" | "boards" | "calendar">("list");
 
@@ -167,10 +139,11 @@ export default function TarefasPage() {
 
     const user = authUser;
 
-    const [{ data: tasksData, error: tasksError }, { data: projetosData, error: projetosError }, { data: subtasksData }] = await Promise.all([
+    const [{ data: tasksData, error: tasksError }, { data: projetosData, error: projetosError }, { data: subtasksData }, { data: membersData }] = await Promise.all([
       supabase.from("tasks").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("projetos").select("id, titulo").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("subtasks").select("id, task_id, titulo, concluida").eq("user_id", user.id).order("created_at", { ascending: true }),
+      supabase.from("project_members").select("project_id").eq("user_id", user.id),
     ]);
 
     if (tasksError || projetosError) {
@@ -181,40 +154,151 @@ export default function TarefasPage() {
       return;
     }
 
-    const safeTasks = (tasksData || []) as Task[];
-    setTasks(safeTasks);
-    setProjetos((projetosData || []) as Projeto[]);
+    const ownedIds = new Set((projetosData || []).map((p: any) => p.id));
+    const collabProjectIds = (membersData || []).map((m: any) => m.project_id).filter((id: string) => !ownedIds.has(id));
+    collabProjectIdsRef.current = new Set(collabProjectIds);
 
-    const map: Record<string, Subtask[]> = {};
-    (subtasksData || []).forEach((st: any) => {
-      if (!st?.task_id) return;
-      const key = String(st.task_id);
-      if (!map[key]) map[key] = [];
-      map[key].push({
-        id: String(st.id),
-        task_id: String(st.task_id),
-        titulo: String(st.titulo || ""),
-        concluida: st.concluida ?? null,
+    const ownedTasks = (tasksData || []) as Task[];
+    const ownedProjetos = (projetosData || []) as Projeto[];
+
+    function buildSubtaskMap(subs: any[]): Record<string, Subtask[]> {
+      const map: Record<string, Subtask[]> = {};
+      subs.forEach((st: any) => {
+        if (!st?.task_id) return;
+        const key = String(st.task_id);
+        if (!map[key]) map[key] = [];
+        map[key].push({ id: String(st.id), task_id: String(st.task_id), titulo: String(st.titulo || ""), concluida: st.concluida ?? null });
       });
-    });
-    setSubtasksByTask(map);
+      return map;
+    }
+
+    setTasks(ownedTasks);
+    setProjetos(ownedProjetos);
+    setSubtasksByTask(buildSubtaskMap(subtasksData || []));
     setLoading(false);
+
+    if (collabProjectIds.length > 0) {
+      Promise.all([
+        supabase.from("tasks").select("*").in("projeto_id", collabProjectIds).order("created_at", { ascending: false }),
+        supabase.from("projetos").select("id, titulo").in("id", collabProjectIds),
+      ]).then(([{ data: collabTasks }, { data: collabProjetos }]) => {
+        const newTasks: Task[] = [];
+        const existingIds = new Set(ownedTasks.map(t => t.id));
+        (collabTasks || []).forEach((t: any) => { if (!existingIds.has(t.id)) newTasks.push(t as Task); });
+
+        const newProjetos: Projeto[] = [];
+        const projExistingIds = new Set(ownedProjetos.map(p => p.id));
+        (collabProjetos || []).forEach((p: any) => { if (!projExistingIds.has(p.id)) newProjetos.push(p as Projeto); });
+
+        if (newTasks.length > 0 || newProjetos.length > 0) {
+          collabProjectIdsRef.current = new Set(collabProjectIds);
+          setTasks(prev => [...prev, ...newTasks]);
+          setProjetos(prev => [...prev, ...newProjetos]);
+
+          const collabTaskIds = newTasks.map(t => t.id);
+          if (collabTaskIds.length > 0) {
+            supabase.from("subtasks").select("id, task_id, titulo, concluida").in("task_id", collabTaskIds).order("created_at", { ascending: true })
+              .then(({ data: collabSubtasks }) => {
+                if (collabSubtasks && collabSubtasks.length > 0) {
+                  setSubtasksByTask(prev => {
+                    const next = { ...prev };
+                    (collabSubtasks as any[]).forEach((st: any) => {
+                      if (!st?.task_id) return;
+                      const key = String(st.task_id);
+                      if (!next[key]) next[key] = [];
+                      next[key].push({ id: String(st.id), task_id: String(st.task_id), titulo: String(st.titulo || ""), concluida: st.concluida ?? null });
+                    });
+                    return next;
+                  });
+                }
+              });
+          }
+        }
+      });
+    }
   }
 
   useEffect(() => {
     carregarDados();
-  }, [authUser]);;
+  }, [authUser]);
 
-  async function alternarStatus(task: Task) {
+  useEffect(() => {
+    taskIdsRef.current = new Set(tasks.map((t) => t.id));
+  }, [tasks]);
+
+  useEffect(() => {
+    if (!authUser) return;
+
+    const channel = supabase
+      .channel("tarefas-realtime")
+
+      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "tasks" }, (payload: any) => {
+        const t = payload.new as Task;
+        const isOwned = t.user_id === authUser.id;
+        const isCollab = t.projeto_id ? collabProjectIdsRef.current.has(t.projeto_id) : false;
+        if (!isOwned && !isCollab) return;
+        setTasks((prev) => {
+          if (prev.some((x) => x.id === t.id)) return prev;
+          return [t, ...prev];
+        });
+      })
+      .on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: "tasks" }, (payload: any) => {
+        const t = payload.new as Task;
+        if (!taskIdsRef.current.has(t.id)) return;
+        setTasks((prev) => prev.map((x) => (x.id === t.id ? { ...x, ...t } : x)));
+      })
+      .on("postgres_changes" as any, { event: "DELETE", schema: "public", table: "tasks" }, (payload: any) => {
+        const id = payload.old?.id;
+        if (!id || !taskIdsRef.current.has(id)) return;
+        setTasks((prev) => prev.filter((x) => x.id !== id));
+        setSubtasksByTask((prev) => {
+          const next = { ...prev };
+          delete next[id];
+          return next;
+        });
+      })
+
+      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "subtasks" }, (payload: any) => {
+        const s = payload.new;
+        if (!s?.task_id || !taskIdsRef.current.has(String(s.task_id))) return;
+        const sub: Subtask = { id: String(s.id), task_id: String(s.task_id), titulo: String(s.titulo || ""), concluida: s.concluida ?? null };
+        setSubtasksByTask((prev) => {
+          const lista = prev[sub.task_id] || [];
+          if (lista.some((x) => x.id === sub.id)) return prev;
+          return { ...prev, [sub.task_id]: [...lista, sub] };
+        });
+      })
+      .on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: "subtasks" }, (payload: any) => {
+        const s = payload.new;
+        if (!s?.task_id || !taskIdsRef.current.has(String(s.task_id))) return;
+        setSubtasksByTask((prev) => {
+          const lista = prev[String(s.task_id)] || [];
+          return { ...prev, [String(s.task_id)]: lista.map((x) => (x.id === String(s.id) ? { ...x, titulo: s.titulo, concluida: s.concluida } : x)) };
+        });
+      })
+      .on("postgres_changes" as any, { event: "DELETE", schema: "public", table: "subtasks" }, (payload: any) => {
+        const s = payload.old;
+        if (!s?.task_id || !taskIdsRef.current.has(String(s.task_id))) return;
+        setSubtasksByTask((prev) => {
+          const lista = prev[String(s.task_id)] || [];
+          return { ...prev, [String(s.task_id)]: lista.filter((x) => x.id !== String(s.id)) };
+        });
+      })
+
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [authUser]);
+
+  const alternarStatus = useCallback(async (task: Task) => {
     const novoStatus = task.status === "concluida" ? "para_fazer" : "concluida";
     await updateTask(task.id, { status: novoStatus });
     setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: novoStatus } : t)));
-  }
+  }, []);
 
-  async function alternarSubtask(subtask: Subtask) {
+  const alternarSubtask = useCallback(async (subtask: Subtask) => {
     const novaSituacao = !subtask.concluida;
     await supabase.from("subtasks").update({ concluida: novaSituacao }).eq("id", subtask.id);
-
     setSubtasksByTask((prev) => {
       const lista = prev[subtask.task_id] || [];
       return {
@@ -222,18 +306,26 @@ export default function TarefasPage() {
         [subtask.task_id]: lista.map((st) => (st.id === subtask.id ? { ...st, concluida: novaSituacao } : st)),
       };
     });
-  }
+  }, []);
+
+  const urgencyByTask = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const t of tasks) {
+      map[t.id] = calcularUrgencia(t.due_date);
+    }
+    return map;
+  }, [tasks]);
 
   const tasksFiltradas = useMemo(() => {
     return tasks.filter((t) => {
-      const urgencia = calcularUrgencia(t.due_date);
+      const urgencia = urgencyByTask[t.id];
       const condStatus =
         filtroStatus === "" ||
         (filtroStatus === "para_fazer" ? t.status !== "concluida" : t.status === "concluida");
       const condUrgencia = filtroUrgencia === "" || urgencia === filtroUrgencia;
       return condStatus && condUrgencia;
     });
-  }, [tasks, filtroStatus, filtroUrgencia]);
+  }, [tasks, filtroStatus, filtroUrgencia, urgencyByTask]);
 
   async function excluirTask(id: string) {
     if (!confirm("Excluir esta tarefa?")) return;
@@ -246,13 +338,13 @@ export default function TarefasPage() {
     return projetos.find((p) => p.id === id)?.titulo || "Projeto";
   }
 
-  function abrirDetalhes(taskId: string) {
+  const abrirDetalhes = useCallback((taskId: string) => {
     router.push(`/dashboard/tarefas/${taskId}`);
-  }
+  }, [router]);
 
-  function editarTarefa(taskId: string) {
+  const editarTarefa = useCallback((taskId: string) => {
     router.push(`/dashboard/tarefas/editar/${taskId}`);
-  }
+  }, [router]);
 
   function reorderSubtasks(taskId: string, fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
@@ -478,7 +570,7 @@ export default function TarefasPage() {
               ) : (
                 <div className="divide-y divide-primary-800">
                   {tasksFiltradas.map((t) => {
-                    const urgencia = calcularUrgencia(t.due_date);
+                    const urgencia = urgencyByTask[t.id] ?? "Sem prioridade";
                     const ehConcluida = t.status === "concluida";
                     const preview = jsonToPlainText(t.descricao).slice(0, 140);
                     const subtasks = subtasksByTask[t.id] || [];
@@ -688,8 +780,7 @@ export default function TarefasPage() {
             <div className="flex w-full px-4 gap-4 min-h-full">
               {URGENCY_COLUMNS.map((col, idx) => {
                 const colTasks = tasksFiltradas.filter((t) => {
-                    let urg = calcularUrgencia(t.due_date);
-                    if (urg === "Vencida") urg = "Muito urgente";
+                    const urg = urgencyByTask[t.id] === "Vencida" ? "Muito urgente" : (urgencyByTask[t.id] ?? "Sem prioridade");
                     return urg === col.id;
                 });
 
@@ -859,7 +950,7 @@ export default function TarefasPage() {
 
                     <div className="flex flex-col gap-2 overflow-y-auto tasks-scroll">
                       {daysTasks.map((t) => {
-                        const urgencia = calcularUrgencia(t.due_date);
+                        const urgencia = urgencyByTask[t.id] ?? "Sem prioridade";
                         return (
                           <div
                             key={t.id}

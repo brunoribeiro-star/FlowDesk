@@ -8,6 +8,7 @@ interface DatePickerProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  buttonClassName?: string;
   disabled?: boolean;
   id?: string;
 }
@@ -50,6 +51,7 @@ export default function DatePicker({
   onChange,
   placeholder = "dd/mm/aaaa",
   className = "",
+  buttonClassName,
   disabled = false,
   id,
 }: DatePickerProps) {
@@ -130,7 +132,7 @@ export default function DatePicker({
         id={id}
         disabled={disabled}
         onClick={() => !disabled && setOpen((v) => !v)}
-        className={`
+        className={buttonClassName ?? `
           w-full flex items-center gap-3 px-4 py-2.5 rounded-xl
           bg-primary-900 border transition-colors text-left
           ${open ? "border-primary-500" : "border-primary-700 hover:border-primary-600"}

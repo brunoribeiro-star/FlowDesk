@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabaseClient";
 import Sidebar from "@/components/Sidebar";
 import { updateTask, deleteTask } from "@/lib/supabaseQueries/tasks";
 import { Clock, ArrowLeft, CheckCircle2, Circle, Calendar } from "lucide-react";
+import { calcularUrgencia, tempoRelativo, formatarData } from "@/lib/utils";
+import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -35,71 +37,6 @@ interface Subtask {
   task_id: string | null;
   titulo: string;
   concluida: boolean | null;
-}
-
-function calcularUrgencia(due_date: string | null): string {
-  if (!due_date) return "Sem prioridade";
-  const hoje = new Date();
-  const limite = new Date(due_date + "T00:00:00");
-  const diff = limite.getTime() - hoje.getTime();
-  const dias = diff / (1000 * 60 * 60 * 24);
-  if (dias < 0) return "Vencida";
-  if (dias <= 1) return "Muito urgente";
-  if (dias <= 2) return "Urgente";
-  if (dias <= 7) return "Normal";
-  return "Baixa";
-}
-
-function tempoRelativo(dateStr: string) {
-  const d = new Date(dateStr);
-  const diffMs = Date.now() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "agora";
-  if (diffMin < 60) return `há ${diffMin} min`;
-  const diffHoras = Math.floor(diffMin / 60);
-  if (diffHoras < 24) return `há ${diffHoras} hora${diffHoras > 1 ? "s" : ""}`;
-  const diffDias = Math.floor(diffHoras / 24);
-  if (diffDias < 30) return `há ${diffDias} dia${diffDias > 1 ? "s" : ""}`;
-  const diffMeses = Math.floor(diffDias / 30);
-  return `há ${diffMeses} mês${diffMeses > 1 ? "es" : ""}`;
-}
-
-function formatarDataCurta(dateStr: string | null) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("pt-BR");
-}
-
-function UrgenciaIndicator({ nivel }: { nivel: string }) {
-  const total = 4;
-  let ativos = 0;
-  switch (nivel) {
-    case "Muito urgente":
-      ativos = 4;
-      break;
-    case "Urgente":
-      ativos = 3;
-      break;
-    case "Normal":
-      ativos = 2;
-      break;
-    case "Baixa":
-      ativos = 1;
-      break;
-  }
-  return (
-    <div className="flex items-end gap-[2px]">
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={`w-[3px] rounded-full ${
-            i < ativos ? "bg-primary-500" : "bg-primary-700"
-          }`}
-          style={{ height: 6 + i * 3 }}
-        />
-      ))}
-    </div>
-  );
 }
 
 export default function DetalhesTarefaPage() {
@@ -295,7 +232,7 @@ export default function DetalhesTarefaPage() {
                  <div className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-primary-700 border border-primary-700 rounded-2xl bg-primary-800/20 text-sm overflow-hidden">
                      <div className="p-5 flex flex-col gap-1">
                         <span className="font-semibold text-gray-100">Vencimento</span>
-                        <span className="text-gray-400">{formatarDataCurta(task.due_date)}</span>
+                        <span className="text-gray-400">{formatarData(task.due_date)}</span>
                      </div>
                      <div className="p-5 flex flex-col gap-2">
                         <span className="font-semibold text-gray-100">Urgência</span>

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
-import { validateImageFile } from "@/lib/utils";
+import { validateImageFile, calcularUrgencia } from "@/lib/utils";
+import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
@@ -57,6 +58,7 @@ type Task = {
   status?: string | null;
   concluida?: boolean | null;
   due_date: string | null;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -118,51 +120,6 @@ function safeParseJSON(value: any) {
   }
 }
 
-function calcularUrgencia(data: string | null): string {
-  if (!data) return "Sem prioridade";
-  const hoje = new Date();
-  const limite = new Date(data + "T00:00:00");
-  const diff = limite.getTime() - hoje.getTime();
-  const dias = diff / (1000 * 60 * 60 * 24);
-  if (dias < 0) return "Vencida";
-  if (dias <= 1) return "Muito urgente";
-  if (dias <= 2) return "Urgente";
-  if (dias <= 7) return "Normal";
-  return "Baixa";
-}
-
-function UrgenciaIndicator({ nivel }: { nivel: string }) {
-  const total = 4;
-  let ativos = 0;
-  switch (nivel) {
-    case "Muito urgente":
-      ativos = 4;
-      break;
-    case "Urgente":
-      ativos = 3;
-      break;
-    case "Normal":
-      ativos = 2;
-      break;
-    case "Baixa":
-      ativos = 1;
-      break;
-    default:
-      ativos = 0;
-      break;
-  }
-  return (
-    <div className="flex items-end gap-[2px]">
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={`w-[3px] rounded-full ${i < ativos ? "bg-primary-500" : "bg-primary-700"}`}
-          style={{ height: 6 + i * 3 }}
-        />
-      ))}
-    </div>
-  );
-}
 
 function timeAgoPtBR(iso: string) {
   const d = new Date(iso);
@@ -227,6 +184,15 @@ function Modal({
   );
 }
 
+type MemberSplit = { project_id: string; member_user_id: string; split_type: string; split_value: number; payment_status?: string; paid_at?: string | null; payment_requested_at?: string | null };
+type ProjectMember = { user_id: string; role: string; email?: string | null; nome?: string | null; avatar_url?: string | null };
+type PendingInvite = { id: string; invited_email: string; status: string; split_type?: string; split_value?: number };
+type CollabPaySplit = { id: string; pagamento_id: string; amount: number; status: string; paid_at?: string };
+
+function isTaskDone(t: Task) {
+  return !!(t.concluida || (t.status || "").toLowerCase() === "concluida");
+}
+
 export default function ProjetoDetalhesPage() {
   const router = useRouter();
   const idRaw = router.query?.id;
@@ -282,6 +248,33 @@ export default function ProjetoDetalhesPage() {
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const [inviteSplitType, setInviteSplitType] = useState<"percentage" | "fixed">("percentage");
+  const [inviteSplitValue, setInviteSplitValue] = useState("");
+
+
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [memberSplits, setMemberSplits] = useState<MemberSplit[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [myCollabSplits, setMyCollabSplits] = useState<CollabPaySplit[]>([]);
+  const [mySplit, setMySplit] = useState<MemberSplit | null>(null);
+  const [editingSplitMemberId, setEditingSplitMemberId] = useState<string | null>(null);
+  const [editSplitType, setEditSplitType] = useState<"percentage" | "fixed">("percentage");
+  const [editSplitValue, setEditSplitValue] = useState("");
+  const [savingSplit, setSavingSplit] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [inviteAlreadyPaid, setInviteAlreadyPaid] = useState(false);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [markingSplitId, setMarkingSplitId] = useState<string | null>(null);
+  const [markingMemberId, setMarkingMemberId] = useState<string | null>(null);
+  const [requestingPayment, setRequestingPayment] = useState(false);
+  const [ownerCollabSplits, setOwnerCollabSplits] = useState<any[]>([]);
+
+  const [newTaskOpen, setNewTaskOpen] = useState(false);
+  const [newTaskForm, setNewTaskForm] = useState({ titulo: "", due_date: "", assigned_to: "", subtasks: [] as string[] });
+  const [addingTask, setAddingTask] = useState(false);
+  const [ownerProfile, setOwnerProfile] = useState<{ nome: string | null; avatar_url: string | null } | null>(null);
+
+  const taskIdsRef = useRef<Set<string>>(new Set());
 
   const editor = useEditor({
     extensions: [
@@ -325,10 +318,16 @@ export default function ProjetoDetalhesPage() {
           { data: briefData, error: briefErr },
           { data: envsData },
           { data: clientesData },
+          { data: membersData },
+          { data: memberSplitsData },
+          { data: pendingInvitesData },
+          { data: mySplitData },
+          { data: myCollabSplitsData },
+          { data: ownerCollabSplitsData },
         ] = await Promise.all([
           supabase
             .from("projetos")
-            .select(`*, clientes:cliente_id (id, nome, empresa, foto_url)`)
+            .select(`*, clientes:cliente_id (id, nome, empresa, email, telefone, foto_url)`)
             .eq("id", id)
             .single(),
           supabase.from("tasks").select("*").eq("projeto_id", id).order("created_at", { ascending: true }),
@@ -337,6 +336,12 @@ export default function ProjetoDetalhesPage() {
           supabase.from("briefings").select("*").eq("projeto_id", id).maybeSingle(),
           supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, created_at, template:template_id(id, titulo)").eq("user_id", authUser.id).order("created_at", { ascending: false }),
           supabase.from("clientes").select("id, nome, empresa").eq("user_id", authUser.id).order("nome", { ascending: true }),
+          supabase.from("project_members").select("user_id, role, email, nome, avatar_url").eq("project_id", id),
+          supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status").eq("project_id", id),
+          supabase.from("project_invites").select("id, invited_email, status, split_type, split_value").eq("project_id", id).eq("status", "pending"),
+          supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id).maybeSingle(),
+          supabase.from("collaborator_payment_splits").select("id, pagamento_id, amount, status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id),
+          supabase.from("collaborator_payment_splits").select("id, pagamento_id, member_user_id, amount, status, paid_at").eq("project_id", id),
         ]);
 
         if (projetoErr) throw projetoErr;
@@ -356,30 +361,45 @@ export default function ProjetoDetalhesPage() {
         setBriefing(briefData ? (briefData as Briefing) : null);
         setBriefingEnvios((envsData || []) as unknown as BriefingEnvio[]);
         setClientes((clientesData || []) as { id: string; nome: string | null; empresa: string | null }[]);
+        setMembers((membersData || []) as any[]);
+        setMemberSplits((memberSplitsData || []) as any[]);
+        setPendingInvites((pendingInvitesData || []) as any[]);
+        setMySplit((mySplitData as any) || null);
+        setMyCollabSplits((myCollabSplitsData || []) as any[]);
+        setOwnerCollabSplits((ownerCollabSplitsData || []) as any[]);
+
+        setError(null);
+
+        // Non-blocking background fetches — not needed for initial render
+        if (authUser.id !== proj.user_id) {
+          supabase
+            .from("users")
+            .select("nome, avatar_url")
+            .eq("id", proj.user_id)
+            .maybeSingle()
+            .then(({ data }) => { if (!cancelled) setOwnerProfile(data || null); });
+        }
 
         if (tks.length) {
           const taskIds = tks.map((t) => t.id);
-          const { data: subsData, error: subsErr } = await supabase
+          supabase
             .from("subtasks")
             .select("*")
             .in("task_id", taskIds)
-            .order("created_at", { ascending: true });
-
-          if (subsErr) throw subsErr;
-          if (cancelled) return;
-
-          const grouped: Record<string, Subtask[]> = {};
-          (subsData || []).forEach((s: any) => {
-            const key = String(s.task_id);
-            if (!grouped[key]) grouped[key] = [];
-            grouped[key].push(s as Subtask);
-          });
-          setSubtasksByTask(grouped);
+            .order("created_at", { ascending: true })
+            .then(({ data: subsData, error: subsErr }) => {
+              if (subsErr || cancelled) return;
+              const grouped: Record<string, Subtask[]> = {};
+              (subsData || []).forEach((s: any) => {
+                const key = String(s.task_id);
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(s as Subtask);
+              });
+              setSubtasksByTask(grouped);
+            });
         } else {
           setSubtasksByTask({});
         }
-
-        setError(null);
       } catch (err: any) {
         setError(err.message || "Erro ao carregar o projeto.");
       } finally {
@@ -392,6 +412,77 @@ export default function ProjetoDetalhesPage() {
     };
   }, [id, router.isReady, router, authUser]);
 
+  useEffect(() => {
+    if (!id || !router.isReady || !authUser) return;
+
+    const refetchSplits = () => {
+      supabase.from("collaborator_payment_splits").select("id, pagamento_id, amount, status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id)
+        .then(({ data }) => { if (data) setMyCollabSplits(data as any[]); });
+      supabase.from("collaborator_payment_splits").select("id, pagamento_id, member_user_id, amount, status, paid_at").eq("project_id", id)
+        .then(({ data }) => { if (data) setOwnerCollabSplits(data as any[]); });
+    };
+
+    const refetchMemberSplits = () => {
+      supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status").eq("project_id", id)
+        .then(({ data }) => { if (data) setMemberSplits(data as any[]); });
+      supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id).maybeSingle()
+        .then(({ data }) => { setMySplit((data as any) || null); });
+    };
+
+    const refetchProjeto = () => {
+      supabase.from("projetos").select(`*, clientes:cliente_id (id, nome, empresa, email, telefone, foto_url)`).eq("id", id).single()
+        .then(({ data }) => { if (data) setProjeto(data as any); });
+    };
+
+    const refetchTasks = async () => {
+      const prevTaskIds = Array.from(taskIdsRef.current);
+      const [{ data: tasksData }, { data: subsData }] = await Promise.all([
+        supabase.from("tasks").select("*").eq("projeto_id", id).order("created_at", { ascending: true }),
+        prevTaskIds.length > 0
+          ? supabase.from("subtasks").select("*").in("task_id", prevTaskIds).order("created_at", { ascending: true })
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      if (!tasksData) return;
+      setTasks(tasksData as Task[]);
+      taskIdsRef.current = new Set(tasksData.map((t: any) => t.id));
+      const grouped: Record<string, Subtask[]> = {};
+      (subsData || []).forEach((s: any) => {
+        if (!grouped[s.task_id]) grouped[s.task_id] = [];
+        grouped[s.task_id].push(s as Subtask);
+      });
+      setSubtasksByTask(grouped);
+    };
+
+    const refetchFiles = () => {
+      supabase.from("arquivos_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false })
+        .then(({ data }) => { if (data) setFiles(data as ArquivoProjeto[]); });
+    };
+
+    const refetchLinks = () => {
+      supabase.from("links_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false })
+        .then(({ data }) => { if (data) setLinks(data as LinkProjeto[]); });
+    };
+
+    const channel = supabase
+      .channel(`project-detail-realtime-${id}`)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "collaborator_payment_splits", filter: `project_id=eq.${id}` }, refetchSplits)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "project_member_splits", filter: `project_id=eq.${id}` }, refetchMemberSplits)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "projetos", filter: `id=eq.${id}` }, refetchProjeto)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "tasks", filter: `projeto_id=eq.${id}` }, refetchTasks)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "subtasks" }, (payload: any) => {
+        const taskId = payload.new?.task_id || payload.old?.task_id;
+        if (taskId && taskIdsRef.current.has(taskId)) refetchTasks();
+      })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "arquivos_projeto", filter: `projeto_id=eq.${id}` }, refetchFiles)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "links_projeto", filter: `projeto_id=eq.${id}` }, refetchLinks)
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [id, router.isReady, authUser]);
+
+  useEffect(() => {
+    taskIdsRef.current = new Set(tasks.map((t) => t.id));
+  }, [tasks]);
 
 
   const pct = useMemo(() => {
@@ -627,25 +718,86 @@ export default function ProjetoDetalhesPage() {
     return <div className="text-gray-300 whitespace-pre-wrap">{String(respostas)}</div>;
   }
 
-  function isTaskDone(t: Task) {
-    return !!(t.concluida || (t.status || "").toLowerCase() === "concluida");
-  }
+  const toggleTaskCompletion = useCallback(async (task: Task) => {
+    const isOwner = user && projeto && user.id === projeto.user_id;
+    if (!isOwner && task.user_id !== user?.id) return;
 
-  async function toggleTaskCompletion(task: Task) {
     const done = isTaskDone(task);
     const novoStatus = done ? "para_fazer" : "concluida";
+    const novaConcluida = novoStatus === "concluida";
 
     try {
-      const { error } = await supabase.from("tasks").update({ status: novoStatus, concluida: novoStatus === "concluida" }).eq("id", task.id);
+      const { error } = await supabase.from("tasks").update({ status: novoStatus, concluida: novaConcluida }).eq("id", task.id);
       if (error) throw error;
 
-      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: novoStatus, concluida: novoStatus === "concluida" } : t)));
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: novoStatus, concluida: novaConcluida } : t)));
+
+      if (novaConcluida) {
+        const subs = subtasksByTask[task.id] || [];
+        const pendentes = subs.filter((s) => !s.concluida);
+        if (pendentes.length > 0) {
+          await supabase.from("subtasks").update({ concluida: true }).eq("task_id", task.id).eq("concluida", false);
+          setSubtasksByTask((prev) => ({
+            ...prev,
+            [task.id]: (prev[task.id] || []).map((s) => ({ ...s, concluida: true })),
+          }));
+        }
+      }
     } catch (err: any) {
       setNotify({ open: true, msg: "Erro ao atualizar tarefa: " + (err.message || "Erro desconhecido") });
     }
-  }
+  }, [user, projeto, subtasksByTask]);
 
-  async function toggleSubtaskCompletion(sub: Subtask) {
+  const handleAddTask = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projeto || !newTaskForm.titulo.trim()) return;
+    setAddingTask(true);
+    try {
+      const assignedTo = newTaskForm.assigned_to || user?.id || projeto.user_id;
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert([{
+          projeto_id: projeto.id,
+          user_id: assignedTo,
+          titulo: newTaskForm.titulo.trim(),
+          due_date: newTaskForm.due_date || null,
+          status: "para_fazer",
+          concluida: false,
+        }])
+        .select()
+        .single();
+      if (error) throw error;
+      const newTask = data as Task;
+
+      const validSubs = newTaskForm.subtasks.filter((s) => s.trim());
+      let newSubs: Subtask[] = [];
+      if (validSubs.length > 0) {
+        const { data: subsData, error: subsErr } = await supabase
+          .from("subtasks")
+          .insert(validSubs.map((titulo) => ({
+            task_id: newTask.id,
+            user_id: user?.id,
+            titulo: titulo.trim(),
+            concluida: false,
+          })))
+          .select();
+        if (subsErr) throw subsErr;
+        newSubs = (subsData || []) as Subtask[];
+      }
+
+      setTasks((prev) => [...prev, newTask]);
+      setSubtasksByTask((prev) => ({ ...prev, [newTask.id]: newSubs }));
+      setNewTaskForm({ titulo: "", due_date: "", assigned_to: "", subtasks: [] });
+      setNewTaskOpen(false);
+      setNotify({ open: true, msg: "Tarefa adicionada!" });
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao adicionar tarefa: " + (err.message || "Erro desconhecido") });
+    } finally {
+      setAddingTask(false);
+    }
+  }, [projeto, user, newTaskForm]);
+
+  const toggleSubtaskCompletion = useCallback(async (sub: Subtask) => {
     const nova = !sub.concluida;
     try {
       const { error } = await supabase.from("subtasks").update({ concluida: nova }).eq("id", sub.id);
@@ -659,7 +811,7 @@ export default function ProjetoDetalhesPage() {
     } catch (err: any) {
       setNotify({ open: true, msg: "Erro ao atualizar subtask: " + (err.message || "Erro desconhecido") });
     }
-  }
+  }, []);
 
   function toggleTaskExpanded(taskId: string) {
     setExpandedTasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
@@ -782,7 +934,7 @@ export default function ProjetoDetalhesPage() {
     }
   }
 
-  async function handleCreateInvite(e: React.FormEvent) {
+  const handleCreateInvite = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projeto || !inviteEmail.trim()) return;
     setInviteLoading(true);
@@ -798,19 +950,129 @@ export default function ProjetoDetalhesPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ project_id: projeto.id, invited_email: inviteEmail.trim() }),
+        body: JSON.stringify({
+          project_id: projeto.id,
+          invited_email: inviteEmail.trim(),
+          split_type: inviteSplitValue ? inviteSplitType : undefined,
+          split_value: inviteSplitValue ? Number(inviteSplitValue) : undefined,
+          already_paid: inviteAlreadyPaid,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Erro desconhecido");
       setInviteLink(json.inviteLink);
+      setPendingInvites(prev => [...prev, { id: crypto.randomUUID(), invited_email: inviteEmail.trim(), status: "pending", split_type: inviteSplitValue ? inviteSplitType : undefined, split_value: inviteSplitValue ? Number(inviteSplitValue) : undefined }]);
       setInviteEmail("");
-      setInviteMsg(null);
+      setInviteSplitValue("");
+      setInviteAlreadyPaid(false);
+      setInviteMsg(json.email_sent ? "✓ Email de convite enviado automaticamente." : null);
     } catch (err: any) {
       setInviteMsg(err.message || "Erro ao criar convite.");
     } finally {
       setInviteLoading(false);
     }
-  }
+  }, [projeto, inviteEmail, inviteSplitType, inviteSplitValue, inviteAlreadyPaid]);
+
+  const handleSaveSplit = useCallback(async (memberUserId: string) => {
+    if (!projeto || !editSplitValue) return;
+    setSavingSplit(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/collaborators/set-split", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: projeto.id, member_user_id: memberUserId, split_type: editSplitType, split_value: Number(editSplitValue) }),
+      });
+      if (res.ok) {
+        setMemberSplits(prev => {
+          const filtered = prev.filter(s => s.member_user_id !== memberUserId);
+          return [...filtered, { project_id: projeto.id, member_user_id: memberUserId, split_type: editSplitType, split_value: Number(editSplitValue) }];
+        });
+        setEditingSplitMemberId(null);
+        setNotify({ open: true, msg: "Divisão atualizada com sucesso!" });
+      } else {
+        const json = await res.json();
+        setNotify({ open: true, msg: json.error || "Erro ao salvar divisão." });
+      }
+    } finally {
+      setSavingSplit(false);
+    }
+  }, [projeto, editSplitType, editSplitValue]);
+
+  const handleMarkSplitPaid = useCallback(async (splitId: string) => {
+    if (!projeto) return;
+    setMarkingSplitId(splitId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/collaborators/mark-split-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: projeto.id, split_id: splitId }),
+      });
+      if (res.ok) {
+        setOwnerCollabSplits(prev =>
+          prev.map(s => s.id === splitId ? { ...s, status: "pago", paid_at: new Date().toISOString() } : s)
+        );
+        setNotify({ open: true, msg: "Parcela marcada como paga!" });
+      } else {
+        const json = await res.json();
+        setNotify({ open: true, msg: json.error || "Erro ao marcar parcela." });
+      }
+    } finally {
+      setMarkingSplitId(null);
+    }
+  }, [projeto]);
+
+  const handleMarkMemberFullyPaid = useCallback(async (memberUserId: string) => {
+    if (!projeto) return;
+    setMarkingMemberId(memberUserId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/collaborators/mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: projeto.id, member_user_id: memberUserId }),
+      });
+      if (res.ok) {
+        setNotify({ open: true, msg: "Colaborador marcado como pago!" });
+        supabase.from("collaborator_payment_splits").select("id, pagamento_id, member_user_id, amount, status, paid_at").eq("project_id", projeto.id)
+          .then(({ data }) => { if (data) setOwnerCollabSplits(data as any[]); });
+      } else {
+        const json = await res.json();
+        setNotify({ open: true, msg: json.error || "Erro ao marcar como pago." });
+      }
+    } finally {
+      setMarkingMemberId(null);
+    }
+  }, [projeto]);
+
+  const handleRemoveMember = useCallback(async (memberUserId: string) => {
+    if (!projeto) return;
+    if (!confirm("Remover este colaborador do projeto?")) return;
+    setRemovingMemberId(memberUserId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/collaborators/remove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: projeto.id, member_user_id: memberUserId }),
+      });
+      if (res.ok) {
+        setMembers(prev => prev.filter(m => m.user_id !== memberUserId));
+        setMemberSplits(prev => prev.filter(s => s.member_user_id !== memberUserId));
+        setNotify({ open: true, msg: "Colaborador removido com sucesso." });
+      } else {
+        const json = await res.json();
+        setNotify({ open: true, msg: json.error || "Erro ao remover colaborador." });
+      }
+    } finally {
+      setRemovingMemberId(null);
+    }
+  }, [projeto]);
 
 
   if (loading) {
@@ -984,14 +1246,16 @@ export default function ProjetoDetalhesPage() {
                   </div>
 
                   <div className="flex flex-col items-start md:items-end gap-2">
-                    <button
-                      type="button"
-                      onClick={openEditHeader}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
-                    >
-                      <Pencil size={14} />
-                      Editar projeto
-                    </button>
+                    {user && projeto.user_id === user.id && (
+                      <button
+                        type="button"
+                        onClick={openEditHeader}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
+                      >
+                        <Pencil size={14} />
+                        Editar projeto
+                      </button>
+                    )}
                     <div className="w-full md:w-[360px]">
                       <div className="w-full h-2.5 bg-primary-900/60 border border-primary-700 rounded-full overflow-hidden">
                         <div className="h-full bg-primary-400 transition-[width] duration-300" style={{ width: `${pct}%` }} />
@@ -1005,12 +1269,29 @@ export default function ProjetoDetalhesPage() {
               <div className="mt-6 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden">
                 <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-primary-700">
                   <div className="px-5 py-4">
-                    <div className="text-[12px] text-gray-400">Valor</div>
+                    <div className="text-[12px] text-gray-400">{user && projeto.user_id === user.id ? "Valor total" : "Seu valor"}</div>
                     <div className="mt-1 text-[16px] text-gray-100 font-medium">
-                      {projeto.orcamento
-                        ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                        : "—"}
+                      {user && projeto.user_id === user.id
+                        ? (projeto.orcamento ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
+                        : mySplit && projeto.orcamento
+                          ? (mySplit.split_type === "percentage"
+                              ? (projeto.orcamento * mySplit.split_value / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                              : Number(mySplit.split_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }))
+                          : (projeto.orcamento ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
+                      }
                     </div>
+                    {user && projeto.user_id === user.id && memberSplits.length > 0 && projeto.orcamento && (() => {
+                      const totalSplits = memberSplits.reduce((acc, s) => {
+                        const val = s.split_type === "percentage" ? projeto.orcamento! * s.split_value / 100 : s.split_value;
+                        return acc + val;
+                      }, 0);
+                      const net = projeto.orcamento - totalSplits;
+                      return (
+                        <div className="mt-1 text-[12px] text-gray-400">
+                          Líquido: <span className="text-emerald-400 font-medium">{net.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="px-5 py-4">
@@ -1036,64 +1317,45 @@ export default function ProjetoDetalhesPage() {
               </div>
             </div>
 
-            {user && projeto.user_id === user.id && (
-              <div className="mt-4 bg-primary-800 border border-primary-700 rounded-2xl overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => { setInviteOpen((v) => !v); setInviteLink(null); setInviteMsg(null); }}
-                  className="w-full flex items-center justify-between px-5 py-3.5 text-[14px] text-gray-200 hover:bg-primary-700 transition-colors"
-                >
-                  <span className="flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                    Convidar colaborador
-                  </span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: inviteOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-
-                {inviteOpen && (
-                  <div className="px-5 pb-5 flex flex-col gap-3 border-t border-primary-700 pt-4">
-                    <form onSubmit={handleCreateInvite} className="flex items-center gap-3">
-                      <input
-                        type="email"
-                        required
-                        placeholder="Email do colaborador"
-                        value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
-                        className="flex-1 bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
-                      />
-                      <button
-                        type="submit"
-                        disabled={inviteLoading}
-                        className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[14px] font-semibold transition-colors disabled:opacity-60 shrink-0"
-                      >
-                        {inviteLoading ? "Criando..." : "Convidar"}
-                      </button>
-                    </form>
-
-                    {inviteMsg && (
-                      <p className="text-[13px] text-red-400">{inviteMsg}</p>
-                    )}
-
-                    {inviteLink && (
-                      <div className="flex items-center gap-2 bg-primary-900/60 border border-primary-700 rounded-xl px-3 py-2">
-                        <span className="flex-1 text-[13px] text-primary-300 truncate">{inviteLink}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(inviteLink);
-                            setInviteMsg(null);
-                            setNotify({ open: true, msg: "Link copiado!" });
-                          }}
-                          className="shrink-0 text-[13px] text-gray-300 bg-primary-700 hover:bg-primary-600 rounded-lg px-3 py-1 transition-colors"
-                        >
-                          Copiar
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            <CollaboratorsSection
+              user={user}
+              projeto={projeto}
+              members={members}
+              memberSplits={memberSplits}
+              pendingInvites={pendingInvites}
+              myCollabSplits={myCollabSplits}
+              mySplit={mySplit}
+              ownerCollabSplits={ownerCollabSplits}
+              inviteOpen={inviteOpen}
+              setInviteOpen={setInviteOpen}
+              setInviteLink={setInviteLink}
+              setInviteMsg={setInviteMsg}
+              inviteEmail={inviteEmail}
+              setInviteEmail={setInviteEmail}
+              inviteSplitType={inviteSplitType}
+              setInviteSplitType={setInviteSplitType}
+              inviteSplitValue={inviteSplitValue}
+              setInviteSplitValue={setInviteSplitValue}
+              inviteLoading={inviteLoading}
+              inviteMsg={inviteMsg}
+              inviteLink={inviteLink}
+              editingSplitMemberId={editingSplitMemberId}
+              setEditingSplitMemberId={setEditingSplitMemberId}
+              editSplitType={editSplitType}
+              setEditSplitType={setEditSplitType}
+              editSplitValue={editSplitValue}
+              setEditSplitValue={setEditSplitValue}
+              savingSplit={savingSplit}
+              removingMemberId={removingMemberId}
+              markingMemberId={markingMemberId}
+              markingSplitId={markingSplitId}
+              handleCreateInvite={handleCreateInvite}
+              handleSaveSplit={handleSaveSplit}
+              handleMarkSplitPaid={handleMarkSplitPaid}
+              handleMarkMemberFullyPaid={handleMarkMemberFullyPaid}
+              handleRemoveMember={handleRemoveMember}
+              setNotify={setNotify}
+            />
 
             <section className="mt-6 bg-primary-800 border border-primary-700 rounded-3xl p-5 flex flex-col overflow-hidden min-h-[560px]">
               <div className="flex flex-wrap gap-2 border-b border-primary-700 pb-3 mb-4">
@@ -1147,88 +1409,24 @@ export default function ProjetoDetalhesPage() {
                 )}
 
                 {activeTab === "etapas" && (
-                  <div className="flex flex-col h-full">
-                    <h2 className="text-[20px] text-primary-100 font-semibold mb-4">Etapas do projeto</h2>
-
-                    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {tasks.length === 0 ? (
-                        <div className="text-gray-400">Nenhuma task criada ainda.</div>
-                      ) : (
-                        <ul className="flex flex-col gap-3">
-                          {tasks.map((t) => {
-                            const subs = subtasksByTask[t.id] || [];
-                            const done = isTaskDone(t);
-                            const urgencia = calcularUrgencia(t.due_date);
-
-                            return (
-                              <li key={t.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl p-4">
-                                <div className="flex items-start gap-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleTaskCompletion(t)}
-                                    className={`mt-1 w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
-                                      done
-                                        ? "bg-primary-500 border-primary-500 text-white"
-                                        : "border-gray-500 hover:border-gray-300"
-                                    }`}
-                                  >
-                                    {done && (
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="20 6 9 17 4 12" />
-                                      </svg>
-                                    )}
-                                  </button>
-
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between gap-3">
-                                      <div className={`text-gray-100 text-[16px] font-medium ${done ? "line-through text-gray-400" : ""}`}>{t.titulo}</div>
-
-                                      <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-2 bg-primary-800 border border-primary-700 rounded-full px-3 py-1">
-                                          <UrgenciaIndicator nivel={urgencia} />
-                                          <span className="text-[12px] text-gray-100">{urgencia}</span>
-                                        </div>
-                                        {t.due_date && (
-                                          <div className="text-[12px] text-gray-200 bg-primary-800 border border-primary-700 rounded-full px-3 py-1">
-                                            {new Date(t.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {subs.length > 0 && (
-                                      <div className="mt-3 pl-1 flex flex-col gap-2">
-                                        {subs.map((s) => (
-                                          <div key={s.id} className="flex items-center gap-2">
-                                            <button
-                                              type="button"
-                                              onClick={() => toggleSubtaskCompletion(s)}
-                                              className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
-                                                s.concluida
-                                                  ? "bg-primary-500 border-primary-500 text-white"
-                                                  : "border-gray-500 hover:border-gray-300"
-                                              }`}
-                                            >
-                                              {s.concluida && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                                  <polyline points="20 6 9 17 4 12" />
-                                                </svg>
-                                              )}
-                                            </button>
-                                            <span className={`text-[14px] ${s.concluida ? "line-through text-gray-500" : "text-gray-300"}`}>{s.titulo}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
+                  <TaskList
+                    tasks={tasks}
+                    subtasksByTask={subtasksByTask}
+                    user={user}
+                    projeto={projeto}
+                    members={members}
+                    ownerProfile={ownerProfile}
+                    displayName={displayName}
+                    avatarSrc={avatarSrc}
+                    newTaskOpen={newTaskOpen}
+                    newTaskForm={newTaskForm}
+                    setNewTaskOpen={setNewTaskOpen}
+                    setNewTaskForm={setNewTaskForm}
+                    handleAddTask={handleAddTask}
+                    addingTask={addingTask}
+                    toggleTaskCompletion={toggleTaskCompletion}
+                    toggleSubtaskCompletion={toggleSubtaskCompletion}
+                  />
                 )}
 
 
@@ -1592,6 +1790,662 @@ export default function ProjetoDetalhesPage() {
     </div>
   );
 }
+
+type CollaboratorsSectionProps = {
+  user: any;
+  projeto: Projeto;
+  members: ProjectMember[];
+  memberSplits: MemberSplit[];
+  pendingInvites: PendingInvite[];
+  myCollabSplits: CollabPaySplit[];
+  mySplit: MemberSplit | null;
+  ownerCollabSplits: any[];
+  inviteOpen: boolean;
+  setInviteOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setInviteLink: React.Dispatch<React.SetStateAction<string | null>>;
+  setInviteMsg: React.Dispatch<React.SetStateAction<string | null>>;
+  inviteEmail: string;
+  setInviteEmail: React.Dispatch<React.SetStateAction<string>>;
+  inviteSplitType: "percentage" | "fixed";
+  setInviteSplitType: React.Dispatch<React.SetStateAction<"percentage" | "fixed">>;
+  inviteSplitValue: string;
+  setInviteSplitValue: React.Dispatch<React.SetStateAction<string>>;
+  inviteLoading: boolean;
+  inviteMsg: string | null;
+  inviteLink: string | null;
+  editingSplitMemberId: string | null;
+  setEditingSplitMemberId: React.Dispatch<React.SetStateAction<string | null>>;
+  editSplitType: "percentage" | "fixed";
+  setEditSplitType: React.Dispatch<React.SetStateAction<"percentage" | "fixed">>;
+  editSplitValue: string;
+  setEditSplitValue: React.Dispatch<React.SetStateAction<string>>;
+  savingSplit: boolean;
+  removingMemberId: string | null;
+  markingMemberId: string | null;
+  markingSplitId: string | null;
+  handleCreateInvite: (e: React.FormEvent) => void;
+  handleSaveSplit: (userId: string) => void;
+  handleMarkSplitPaid: (splitId: string) => void;
+  handleMarkMemberFullyPaid: (userId: string) => void;
+  handleRemoveMember: (userId: string) => void;
+  setNotify: React.Dispatch<React.SetStateAction<{ open: boolean; msg: string }>>;
+};
+
+const CollaboratorsSection = memo(function CollaboratorsSection({
+  user, projeto, members, memberSplits, pendingInvites, myCollabSplits, mySplit, ownerCollabSplits,
+  inviteOpen, setInviteOpen, setInviteLink, setInviteMsg,
+  inviteEmail, setInviteEmail, inviteSplitType, setInviteSplitType, inviteSplitValue, setInviteSplitValue,
+  inviteLoading, inviteMsg, inviteLink,
+  editingSplitMemberId, setEditingSplitMemberId, editSplitType, setEditSplitType, editSplitValue, setEditSplitValue,
+  savingSplit, removingMemberId, markingMemberId, markingSplitId,
+  handleCreateInvite, handleSaveSplit, handleMarkSplitPaid, handleMarkMemberFullyPaid, handleRemoveMember,
+  setNotify,
+}: CollaboratorsSectionProps) {
+  const isOwner = user && projeto.user_id === user.id;
+
+  return (
+    <>
+      {isOwner && (
+        <div className="mt-4 bg-primary-800 border border-primary-700 rounded-2xl overflow-hidden">
+          <button
+            type="button"
+            onClick={() => { setInviteOpen(v => !v); setInviteLink(null); setInviteMsg(null); }}
+            className="w-full flex items-center justify-between px-5 py-3.5 text-[14px] text-gray-200 hover:bg-primary-700 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              Colaboradores
+              {(members.length + pendingInvites.length) > 0 && (
+                <span className="ml-1 text-[12px] px-1.5 py-0.5 rounded-full bg-primary-600 text-gray-300">
+                  {members.length + pendingInvites.length}
+                </span>
+              )}
+            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: inviteOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+
+          {inviteOpen && (
+            <div className="px-5 pb-5 flex flex-col gap-4 border-t border-primary-700 pt-4">
+              {members.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-[12px] text-gray-400 font-medium uppercase tracking-wide">Membros ativos</span>
+                  {members.map((m) => {
+                    const split = memberSplits.find(s => s.member_user_id === m.user_id);
+                    const isEditingThis = editingSplitMemberId === m.user_id;
+                    const isRemoving = removingMemberId === m.user_id;
+                    const splitLabel = split
+                      ? split.split_type === "percentage" ? `${split.split_value}%` : Number(split.split_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                      : "Sem divisão";
+                    const memberDisplayName = m.nome || m.email?.split("@")[0] || "Colaborador";
+                    const displayEmail = m.email || "";
+                    const avatarUrl = m.avatar_url || "";
+                    const initials = memberDisplayName.slice(0, 2).toUpperCase();
+                    return (
+                      <div key={m.user_id} className="bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-primary-700 border border-primary-600 flex items-center justify-center shrink-0 text-[11px] text-gray-300 font-medium">
+                              {avatarUrl ? (
+                                <img src={avatarUrl} alt={memberDisplayName} className="w-full h-full object-cover" />
+                              ) : (
+                                <span>{initials}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[13px] text-gray-200 font-medium truncate">{memberDisplayName}</span>
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-400/30 shrink-0">Ativo</span>
+                              </div>
+                              {displayEmail && (
+                                <div className="text-[12px] text-gray-400 truncate">{displayEmail}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <span className="text-[12px] text-gray-400">{splitLabel}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingSplitMemberId(m.user_id);
+                                setEditSplitType(split?.split_type as any || "percentage");
+                                setEditSplitValue(split ? String(split.split_value) : "");
+                              }}
+                              className="text-[12px] text-primary-400 hover:text-primary-300 transition-colors"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMember(m.user_id)}
+                              disabled={isRemoving}
+                              className="text-[12px] text-red-400 hover:text-red-300 transition-colors disabled:opacity-50"
+                            >
+                              {isRemoving ? "..." : "Remover"}
+                            </button>
+                          </div>
+                        </div>
+                        {isEditingThis && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <select
+                              value={editSplitType}
+                              onChange={(e) => setEditSplitType(e.target.value as any)}
+                              className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[13px] text-gray-100 cursor-pointer"
+                            >
+                              <option value="percentage">%</option>
+                              <option value="fixed">R$ fixo</option>
+                            </select>
+                            <input
+                              type="number"
+                              min="0"
+                              value={editSplitValue}
+                              onChange={(e) => setEditSplitValue(e.target.value)}
+                              placeholder={editSplitType === "percentage" ? "50" : "2500"}
+                              className="w-24 bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveSplit(m.user_id)}
+                              disabled={savingSplit}
+                              className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors disabled:opacity-60"
+                            >
+                              {savingSplit ? "..." : "Salvar"}
+                            </button>
+                            <button type="button" onClick={() => setEditingSplitMemberId(null)} className="text-gray-400 hover:text-gray-200 text-[13px]">
+                              Cancelar
+                            </button>
+                          </div>
+                        )}
+                        {(() => {
+                          const memberSplitRows = ownerCollabSplits.filter(s => s.member_user_id === m.user_id);
+                          const hasSplitConfig = memberSplits.some(s => s.member_user_id === m.user_id);
+                          if (!memberSplitRows.length) {
+                            if (!hasSplitConfig) return null;
+                            const memberSplit = memberSplits.find(s => s.member_user_id === m.user_id);
+                            if ((memberSplit as any)?.payment_status === "paid") {
+                              return (
+                                <div className="mt-1 pt-2 border-t border-primary-700/60">
+                                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-400/30">Pago</span>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="mt-1 pt-2 border-t border-primary-700/60">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkMemberFullyPaid(m.user_id)}
+                                  disabled={markingMemberId === m.user_id}
+                                  className="text-[11px] px-3 py-1 rounded-full bg-primary-600 border border-primary-500 text-gray-200 hover:bg-primary-500 transition-colors disabled:opacity-50"
+                                >
+                                  {markingMemberId === m.user_id ? "..." : "Marcar como pago"}
+                                </button>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div className="flex flex-col gap-1.5 mt-1 pt-2 border-t border-primary-700/60">
+                              {memberSplitRows.map((cs, i) => (
+                                <div key={cs.id} className="flex items-center justify-between">
+                                  <span className="text-[12px] text-gray-400">
+                                    Parcela {i + 1} — {Number(cs.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                                  </span>
+                                  {cs.status === "pago" ? (
+                                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-400/30">Pago</span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleMarkSplitPaid(cs.id)}
+                                      disabled={markingSplitId === cs.id}
+                                      className="text-[11px] px-2 py-0.5 rounded-full bg-primary-600 border border-primary-500 text-gray-200 hover:bg-primary-500 transition-colors disabled:opacity-50"
+                                    >
+                                      {markingSplitId === cs.id ? "..." : "Marcar pago"}
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {pendingInvites.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <span className="text-[12px] text-gray-400 font-medium uppercase tracking-wide">Convites pendentes</span>
+                  {pendingInvites.map((inv) => (
+                    <div key={inv.id} className="bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                        <span className="text-[13px] text-gray-200">{inv.invited_email}</span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-400/30">Aguardando</span>
+                      </div>
+                      {inv.split_value != null && (
+                        <span className="text-[12px] text-gray-400">
+                          {inv.split_type === "percentage" ? `${inv.split_value}%` : Number(inv.split_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-3 pt-3 border-t border-primary-700/60">
+                <span className="text-[13px] text-gray-300">Convidar novo colaborador</span>
+                <form onSubmit={handleCreateInvite} className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="email"
+                      required
+                      placeholder="Email do colaborador"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="flex-1 bg-primary-900 border border-primary-700 rounded-xl px-4 py-2 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={inviteSplitType}
+                      onChange={(e) => setInviteSplitType(e.target.value as any)}
+                      className="bg-primary-900 border border-primary-700 rounded-xl px-3 py-2 text-[13px] text-gray-100 cursor-pointer"
+                    >
+                      <option value="percentage">% do total</option>
+                      <option value="fixed">Valor fixo</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="0"
+                      value={inviteSplitValue}
+                      onChange={(e) => setInviteSplitValue(e.target.value)}
+                      placeholder={inviteSplitType === "percentage" ? "50" : "2500"}
+                      className="w-28 bg-primary-900 border border-primary-700 rounded-xl px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                    />
+                    <span className="text-gray-400 text-[13px]">{inviteSplitType === "percentage" ? "%" : "R$"}</span>
+                    <button
+                      type="submit"
+                      disabled={inviteLoading}
+                      className="ml-auto bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[14px] font-semibold transition-colors disabled:opacity-60 shrink-0"
+                    >
+                      {inviteLoading ? "Criando..." : "Convidar"}
+                    </button>
+                  </div>
+                </form>
+                {inviteMsg && <p className="text-[13px] text-red-400">{inviteMsg}</p>}
+                {inviteLink && (
+                  <div className="flex items-center gap-2 bg-primary-900/60 border border-primary-700 rounded-xl px-3 py-2">
+                    <span className="flex-1 text-[13px] text-primary-300 truncate">{inviteLink}</span>
+                    <button
+                      type="button"
+                      onClick={() => { navigator.clipboard.writeText(inviteLink); setNotify({ open: true, msg: "Link copiado!" }); }}
+                      className="shrink-0 text-[13px] text-gray-300 bg-primary-700 hover:bg-primary-600 rounded-lg px-3 py-1 transition-colors"
+                    >
+                      Copiar
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isOwner && mySplit && (() => {
+        const totalValue = mySplit.split_type === "percentage"
+          ? (Number(projeto.orcamento ?? 0) * mySplit.split_value / 100)
+          : Number(mySplit.split_value ?? 0);
+        return (
+          <div className="mt-4 bg-sky-500/5 border border-sky-500/20 rounded-2xl px-5 py-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-sky-400"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span className="text-[14px] text-sky-300 font-medium">Você é colaborador neste projeto</span>
+            </div>
+            <div className="flex items-center justify-between text-[13px]">
+              <span className="text-gray-400">
+                Divisão: <span className="text-gray-200 font-medium">
+                  {mySplit.split_type === "percentage"
+                    ? `${mySplit.split_value}% do total`
+                    : Number(mySplit.split_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              </span>
+              {totalValue > 0 && (
+                <span className="text-sky-200 font-semibold text-[14px]">
+                  {totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+              )}
+            </div>
+            {myCollabSplits.length > 0 ? (
+              <div className="mt-3 flex flex-col gap-2">
+                <span className="text-[12px] text-gray-400 font-medium uppercase tracking-wide">Suas parcelas</span>
+                {myCollabSplits.map((cs, i) => (
+                  <div key={cs.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-2.5">
+                    <span className="text-[13px] text-gray-200">
+                      Parcela {i + 1} — {Number(cs.amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                    <span className={`text-[12px] px-2 py-0.5 rounded-full border ${
+                      cs.status === "pago"
+                        ? "bg-emerald-500/10 text-emerald-300 border-emerald-400/30"
+                        : "bg-amber-500/10 text-amber-300 border-amber-400/30"
+                    }`}>
+                      {cs.status === "pago" ? "Pago" : "Pendente"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-3 flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-2.5">
+                <span className="text-[13px] text-gray-200">
+                  Total — {totalValue > 0
+                    ? totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                    : "valor a definir"}
+                </span>
+                <span className={`text-[12px] px-2 py-0.5 rounded-full border ${
+                  (mySplit as any)?.payment_status === "paid"
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-400/30"
+                    : "bg-amber-500/10 text-amber-300 border-amber-400/30"
+                }`}>
+                  {(mySplit as any)?.payment_status === "paid" ? "Pago" : "Pendente"}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+    </>
+  );
+});
+
+type TaskListProps = {
+  tasks: Task[];
+  subtasksByTask: Record<string, Subtask[]>;
+  user: any;
+  projeto: Projeto;
+  members: ProjectMember[];
+  ownerProfile: { nome: string | null; avatar_url: string | null } | null;
+  displayName: string;
+  avatarSrc: string;
+  newTaskOpen: boolean;
+  newTaskForm: { titulo: string; due_date: string; assigned_to: string; subtasks: string[] };
+  setNewTaskOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setNewTaskForm: React.Dispatch<React.SetStateAction<{ titulo: string; due_date: string; assigned_to: string; subtasks: string[] }>>;
+  handleAddTask: (e: React.FormEvent) => void;
+  addingTask: boolean;
+  toggleTaskCompletion: (t: Task) => void;
+  toggleSubtaskCompletion: (s: Subtask) => void;
+};
+
+const TaskList = memo(function TaskList({
+  tasks,
+  subtasksByTask,
+  user,
+  projeto,
+  members,
+  ownerProfile,
+  displayName,
+  avatarSrc,
+  newTaskOpen,
+  newTaskForm,
+  setNewTaskOpen,
+  setNewTaskForm,
+  handleAddTask,
+  addingTask,
+  toggleTaskCompletion,
+  toggleSubtaskCompletion,
+}: TaskListProps) {
+  const isOwner = user && projeto && user.id === projeto.user_id;
+  const ownerEntry = (() => {
+    if (isOwner) return { user_id: projeto.user_id, name: `${displayName} (eu)`, avatar: avatarSrc };
+    const ownerMember = members.find((m) => m.user_id === projeto.user_id);
+    const ownerName = ownerMember?.nome || ownerProfile?.nome || "Dono do projeto";
+    const ownerAvatar = ownerMember?.avatar_url || ownerProfile?.avatar_url || "";
+    return { user_id: projeto.user_id, name: ownerName, avatar: ownerAvatar };
+  })();
+  const assignableMembers = [
+    ownerEntry,
+    ...members
+      .filter((m) => m.user_id !== projeto.user_id)
+      .map((m) => ({
+        user_id: m.user_id,
+        name: m.user_id === user?.id
+          ? `${m.nome || m.email?.split("@")[0] || "Colaborador"} (eu)`
+          : (m.nome || m.email?.split("@")[0] || "Colaborador"),
+        avatar: m.avatar_url || "",
+      })),
+  ];
+
+  function getAssigneeName(userId: string | null) {
+    if (!userId) return null;
+    const found = assignableMembers.find((m) => m.user_id === userId);
+    return found?.name || null;
+  }
+
+  function getAssigneeAvatar(userId: string | null) {
+    if (!userId) return "";
+    const found = assignableMembers.find((m) => m.user_id === userId);
+    return found?.avatar || "";
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-[20px] text-primary-100 font-semibold">Etapas do projeto</h2>
+        <button
+          type="button"
+          onClick={() => {
+            setNewTaskForm({ titulo: "", due_date: "", assigned_to: user?.id || "", subtasks: [] });
+            setNewTaskOpen((v) => !v);
+          }}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nova tarefa
+        </button>
+      </div>
+
+      {newTaskOpen && (
+        <form onSubmit={handleAddTask} className="mb-2 border-b border-gray-700 pb-3">
+          <div className="flex items-center gap-3 py-2">
+            <div className="w-7 h-7 rounded-full border-2 border-primary-600 shrink-0" />
+            <input
+              type="text"
+              placeholder="Nome da tarefa"
+              required
+              value={newTaskForm.titulo}
+              onChange={(e) => setNewTaskForm((p) => ({ ...p, titulo: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setNewTaskForm((p) => ({ ...p, subtasks: [...p.subtasks, ""] }));
+                }
+              }}
+              className="flex-1 bg-transparent text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none font-medium"
+              autoFocus
+            />
+          </div>
+
+          {newTaskForm.subtasks.map((sub, idx) => (
+            <div key={idx} className="ml-10 flex items-center gap-2 py-1.5 border-t border-gray-700">
+              <span className="text-gray-600 text-[13px] select-none">⠿</span>
+              <div className="w-5 h-5 rounded-md border-2 border-primary-600 shrink-0" />
+              <input
+                type="text"
+                placeholder="Nome da subtarefa"
+                value={sub}
+                autoFocus
+                onChange={(e) => setNewTaskForm((p) => {
+                  const updated = [...p.subtasks];
+                  updated[idx] = e.target.value;
+                  return { ...p, subtasks: updated };
+                })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    setNewTaskForm((p) => ({ ...p, subtasks: [...p.subtasks, ""] }));
+                  }
+                  if (e.key === "Backspace" && sub === "") {
+                    e.preventDefault();
+                    setNewTaskForm((p) => ({ ...p, subtasks: p.subtasks.filter((_, i) => i !== idx) }));
+                  }
+                }}
+                className="flex-1 bg-transparent text-[14px] text-gray-300 placeholder-gray-500 focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setNewTaskForm((p) => ({ ...p, subtasks: p.subtasks.filter((_, i) => i !== idx) }))}
+                className="text-gray-600 hover:text-red-400 transition-colors shrink-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+          ))}
+
+          <div className="ml-10 mt-1 border-t border-gray-700 pt-1.5">
+            <button
+              type="button"
+              onClick={() => setNewTaskForm((p) => ({ ...p, subtasks: [...p.subtasks, ""] }))}
+              className="flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Adicionar subtarefa (Enter ou clicar +)
+            </button>
+          </div>
+
+          <div className="ml-10 mt-2 border-t border-gray-700 pt-2 flex items-center gap-3">
+            <DatePicker
+              value={newTaskForm.due_date}
+              onChange={(v) => setNewTaskForm((p) => ({ ...p, due_date: v }))}
+              placeholder="Prazo (opcional)"
+              className="w-44"
+              buttonClassName={`w-full flex items-center gap-2 px-0 py-1 bg-transparent text-left cursor-pointer text-[13px] ${newTaskForm.due_date ? "text-gray-200" : "text-gray-500"}`}
+            />
+            {isOwner && assignableMembers.length > 1 && (
+              <select
+                value={newTaskForm.assigned_to}
+                onChange={(e) => setNewTaskForm((p) => ({ ...p, assigned_to: e.target.value }))}
+                className="bg-transparent border-0 text-[13px] text-gray-500 focus:outline-none cursor-pointer"
+              >
+                {assignableMembers.map((m) => (
+                  <option key={m.user_id} value={m.user_id} className="bg-primary-800 text-gray-100">{m.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="ml-10 mt-3 flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={addingTask}
+              className="px-4 py-1.5 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[13px] transition-colors disabled:opacity-60"
+            >
+              {addingTask ? "Salvando..." : "Salvar tarefa"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewTaskOpen(false)}
+              className="px-3 py-1.5 rounded-lg bg-primary-800 border border-primary-700 text-gray-300 text-[13px] hover:bg-primary-700 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+        {tasks.length === 0 ? (
+          <div className="text-gray-400 text-[14px]">Nenhuma tarefa criada ainda.</div>
+        ) : (
+          <ul className="flex flex-col divide-y divide-gray-700">
+            {tasks.map((t) => {
+              const subs = subtasksByTask[t.id] || [];
+              const done = isTaskDone(t);
+              const canToggle = isOwner || t.user_id === user?.id;
+              const assigneeName = getAssigneeName(t.user_id);
+              const assigneeAvatar = getAssigneeAvatar(t.user_id);
+              const assigneeInitials = assigneeName ? assigneeName.slice(0, 2).toUpperCase() : "?";
+
+              return (
+                <li key={t.id} className="py-3 first:pt-0">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => canToggle && toggleTaskCompletion(t)}
+                      className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${
+                        canToggle ? "cursor-pointer" : "cursor-not-allowed opacity-40"
+                      } ${
+                        done
+                          ? "bg-primary-500/20 border-primary-400 text-primary-300"
+                          : "bg-primary-900 border-primary-600 hover:border-primary-400"
+                      }`}
+                      title={canToggle ? undefined : "Você só pode concluir suas próprias tarefas"}
+                    >
+                      {done && (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+
+                    <span className={`flex-1 text-[15px] font-medium ${done ? "line-through text-gray-500" : "text-gray-100"}`}>
+                      {t.titulo}
+                    </span>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {assigneeName && (
+                        <div className="flex items-center gap-1.5 bg-primary-800 border border-primary-700 rounded-full pl-1 pr-2.5 py-0.5">
+                          <div className="w-4 h-4 rounded-full overflow-hidden bg-primary-600 flex items-center justify-center shrink-0 text-[8px] text-gray-300 font-medium">
+                            {assigneeAvatar ? (
+                              <img src={assigneeAvatar} alt={assigneeName} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{assigneeInitials}</span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-gray-400">{assigneeName}</span>
+                        </div>
+                      )}
+                      {t.due_date && (
+                        <span className="text-[12px] text-gray-500">
+                          {new Date(t.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {subs.length > 0 && (
+                    <div className="mt-1 ml-11 flex flex-col">
+                      {subs.map((s) => (
+                        <div key={s.id} className="flex items-center gap-2 py-1.5 border-t border-gray-700 first:border-t-0">
+                          <span className="text-primary-700 text-[13px] select-none shrink-0">⠿</span>
+                          <button
+                            type="button"
+                            onClick={() => toggleSubtaskCompletion(s)}
+                            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                              s.concluida
+                                ? "bg-primary-500/20 border-primary-400 text-primary-300"
+                                : "bg-primary-900 border-primary-600 hover:border-primary-400"
+                            }`}
+                          >
+                            {s.concluida && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12" />
+                              </svg>
+                            )}
+                          </button>
+                          <span className={`text-[14px] ${s.concluida ? "line-through text-gray-600" : "text-gray-300"}`}>
+                            {s.titulo}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+});
 
 function EditorToolbar({
   editor,

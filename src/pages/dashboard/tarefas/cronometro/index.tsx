@@ -112,7 +112,6 @@ export default function CronometroConfigPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState(30);
-  // Pomodoro config
   const [pomodoroWork, setPomodoroWork] = useState(25);
   const [pomodoroBreak, setPomodoroBreak] = useState(5);
   const [pomodoroCycles, setPomodoroCycles] = useState(4);

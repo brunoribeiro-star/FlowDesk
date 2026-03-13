@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import Sidebar from "@/components/Sidebar";
@@ -9,7 +9,8 @@ import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList, SkeletonBoardCards } from "@/components/Skeleton";
 import { Search } from "lucide-react";
-import { jsonToPlainText } from "@/lib/utils";
+import { jsonToPlainText, calcularUrgencia } from "@/lib/utils";
+import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 
 type ProjetoStatus = "arquivado" | "para fazer" | "fazendo" | "pausado" | "concluído" | "pgto pendente" | "finalizado";
 
@@ -31,6 +32,8 @@ type Projeto = {
   created_at: string;
   updated_at: string;
   forma_pagamento?: string;
+  isCollaborator?: boolean;
+  collaboratorValue?: number | null;
   clientes?: {
     id: string;
     nome: string | null;
@@ -106,63 +109,17 @@ function statusPillClasses(s: string) {
   return "bg-emerald-500/10 border border-emerald-400/30 text-emerald-300";
 }
 
-function calcularUrgencia(due_date: string | null): string {
-  if (!due_date) return "Sem prioridade";
-  const hoje = new Date();
-  const limite = new Date(due_date + "T00:00:00");
-  const diff = limite.getTime() - hoje.getTime();
-  const dias = diff / (1000 * 60 * 60 * 24);
-  if (dias < 0) return "Vencida";
-  if (dias <= 1) return "Muito urgente";
-  if (dias <= 2) return "Urgente";
-  if (dias <= 7) return "Normal";
-  return "Baixa";
-}
 
-function urgenciaColor(nivel: string) {
-  if (nivel === "Muito urgente" || nivel === "Vencida") return "bg-red-400";
-  if (nivel === "Urgente") return "bg-amber-400";
-  if (nivel === "Normal") return "bg-emerald-400";
-  if (nivel === "Baixa") return "bg-gray-400";
-  return "bg-primary-700";
-}
+const KANBAN_COLUMNS = [
+  { status: "para fazer", label: "Para fazer" },
+  { status: "fazendo", label: "Fazendo" },
+  { status: "pgto pendente", label: "Pgto. Pendente" },
+  { status: "finalizado", label: "Finalizado" },
+] as const;
 
-function UrgenciaIndicator({ nivel }: { nivel: string }) {
-  const total = 4;
-  let ativos = 0;
-  switch (nivel) {
-    case "Muito urgente":
-    case "Vencida":
-      ativos = 4;
-      break;
-    case "Urgente":
-      ativos = 3;
-      break;
-    case "Normal":
-      ativos = 2;
-      break;
-    case "Baixa":
-      ativos = 1;
-      break;
-    default:
-      ativos = 0;
-      break;
-  }
-
-  const fill = urgenciaColor(nivel);
-
-  return (
-    <div className="flex items-end gap-[3px]">
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={`w-[4px] rounded-full ${i < ativos ? fill : "bg-primary-700/60"}`}
-          style={{ height: 7 + i * 3 }}
-        />
-      ))}
-    </div>
-  );
-}
+const ARCHIVED_COLUMNS = [
+  { status: "arquivado", label: "Arquivado" },
+] as const;
 
 export default function ProjetosPage() {
   const router = useRouter();
@@ -186,6 +143,7 @@ export default function ProjetosPage() {
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [trashActive, setTrashActive] = useState(false);
+  const [ownedMemberSplits, setOwnedMemberSplits] = useState<any[]>([]);
 
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
@@ -227,20 +185,15 @@ export default function ProjetosPage() {
 
   function hasPagamentoPendente(p: Projeto): boolean {
     const list = getPagamentos(p.id);
-    
-    // Check dynamic project logic 
-    const formaPagamento = (p as any).forma_pagamento;
-    if (formaPagamento === "pix_2x" || formaPagamento === "50/50") {
-      if (p.status !== "Concluído" && p.status !== "concluído") {
-        return false;
-      }
+    const isConcluido = p.status === "Concluído" || p.status === "concluído";
+
+    if (!isConcluido) {
+      if (list.length === 0) return false;
+      return list.some((pag) => (pag.status || "").toLowerCase() !== "pago");
     }
 
     if (list.length > 0) {
       return list.some((pag) => (pag.status || "").toLowerCase() !== "pago");
-    }
-    if ((formaPagamento === "pix_2x" || formaPagamento === "50/50") && (p.status === "Concluído" || p.status === "concluído")) {
-        return true; 
     }
 
     return false;
@@ -248,23 +201,23 @@ export default function ProjetosPage() {
 
   function valorPendente(p: Projeto): number {
     const list = getPagamentos(p.id);
-    let totalTable = list
+    const totalTable = list
       .filter((pag) => (pag.status || "").toLowerCase() !== "pago")
       .reduce((acc, cur) => acc + Number(cur.valor || 0), 0);
-    
-    if (totalTable > 0) return totalTable;
-    
-    const formaPagamento = (p as any).forma_pagamento;
-    if ((formaPagamento === "pix_2x" || formaPagamento === "50/50") && (p.status === "Concluído" || p.status === "concluído")) {
-       return Number(p.orcamento || 0) / 2;
-    }
 
-    return 0;
+    if (totalTable > 0) return totalTable;
+
+    const orcamento = Number(p.orcamento || 0);
+    if (orcamento <= 0) return 0;
+
+    const formaPagamento = (p as any).forma_pagamento;
+    const isPix2x = formaPagamento === "pix_2x" || formaPagamento === "50/50";
+    return isPix2x ? orcamento / 2 : orcamento;
   }
 
-  async function fetchProjetos() {
+  async function fetchProjetos(silent = false) {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
 
       const user = authUser;
 
@@ -272,7 +225,7 @@ export default function ProjetosPage() {
         setError("Usuário não autenticado.");
         setProjetos([]);
         setPagamentosByProjeto({});
-        setLoading(false);
+        if (!silent) setLoading(false);
         return;
       }
 
@@ -280,7 +233,7 @@ export default function ProjetosPage() {
       setUserName(meta.nome || user.email || "Usuário");
       setUserAvatarUrl(meta.avatar_url || "/perfil.svg");
 
-      const [{ data: projData, error: projError }, { data: payAllData }] = await Promise.all([
+      const [{ data: projData, error: projError }, { data: payAllData }, { data: memberRows }, { data: splitRows }] = await Promise.all([
         supabase
           .from("projetos")
           .select(
@@ -295,11 +248,37 @@ export default function ProjetosPage() {
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
         supabase.from("pagamentos").select("id, valor, status, projeto_id").eq("user_id", user.id),
+        supabase
+          .from("project_members")
+          .select(`project_id, projetos:project_id (id, user_id, titulo, cover_url, cliente_id, orcamento, prazo_entrega, status, progresso, created_at, updated_at, forma_pagamento, clientes:cliente_id(id, nome, empresa, foto_url))`)
+          .eq("user_id", user.id),
+        supabase
+          .from("project_member_splits")
+          .select("project_id, split_type, split_value, payment_status")
+          .eq("member_user_id", user.id),
       ]);
 
       if (projError) throw projError;
 
+      const ownedIds = new Set((projData || []).map((p: any) => p.id));
       const projetosLista = (projData || []) as unknown as Projeto[];
+
+      const splitMap: Record<string, { split_type: string; split_value: number }> = {};
+      (splitRows || []).forEach((s: any) => { splitMap[s.project_id] = s; });
+
+      (memberRows || []).forEach((row: any) => {
+        const proj = row.projetos;
+        if (!proj || ownedIds.has(proj.id)) return;
+        const split = splitMap[proj.id];
+        let collaboratorValue: number | null = null;
+        if (split && proj.orcamento) {
+          collaboratorValue = split.split_type === "percentage"
+            ? proj.orcamento * (split.split_value / 100)
+            : split.split_value;
+        }
+        projetosLista.push({ ...proj, isCollaborator: true, collaboratorValue });
+      });
+
       setProjetos(projetosLista);
 
       const map: Record<string, Pagamento[]> = {};
@@ -311,10 +290,22 @@ export default function ProjetosPage() {
       setPagamentosByProjeto(map);
 
       setError(null);
+
+      const ownedProjectIds = Array.from(ownedIds);
+      if (ownedProjectIds.length > 0) {
+        supabase
+          .from("project_member_splits")
+          .select("project_id, member_user_id, split_type, split_value, payment_status")
+          .in("project_id", ownedProjectIds)
+          .neq("member_user_id", user.id)
+          .then(({ data }) => setOwnedMemberSplits(data || []));
+      } else {
+        setOwnedMemberSplits([]);
+      }
     } catch (err: any) {
       setError(err.message || "Erro ao carregar projetos.");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
@@ -328,22 +319,79 @@ export default function ProjetosPage() {
   }, [authUser]);
 
   useEffect(() => {
-    function closeMenusOnOutside(e: any) {
-      const target = e.target as HTMLElement;
-      if (!target.closest?.("[data-project-menu]")) setMenuOpenId(null);
-    }
+    if (!authUser) return;
+
+    const channel = supabase
+      .channel("projetos-page-realtime")
+      .on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: "projetos" }, (payload: any) => {
+        const updated = payload.new;
+        if (!updated?.id) { fetchProjetos(true); return; }
+        setProjetos((prev) => {
+          const idx = prev.findIndex((p) => p.id === updated.id);
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...updated };
+          return next;
+        });
+      })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "pagamentos", filter: `user_id=eq.${authUser.id}` }, (payload: any) => {
+        const record = payload.new || payload.old;
+        const projetoId = record?.projeto_id ? String(record.projeto_id) : null;
+        if (!projetoId) { fetchProjetos(true); return; }
+        supabase
+          .from("pagamentos")
+          .select("id, valor, status, projeto_id")
+          .eq("projeto_id", projetoId)
+          .eq("user_id", authUser.id)
+          .then(({ data }) => {
+            if (data) setPagamentosByProjeto((prev) => ({ ...prev, [projetoId]: data as Pagamento[] }));
+          });
+      })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "collaborator_payment_splits", filter: `member_user_id=eq.${authUser.id}` }, () => {
+        fetchProjetos(true);
+      })
+      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "project_members", filter: `user_id=eq.${authUser.id}` }, () => {
+        fetchProjetos(true);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [authUser]);
+
+  const closeMenusOnOutside = useCallback((e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest?.("[data-project-menu]")) setMenuOpenId(null);
+  }, []);
+
+  useEffect(() => {
     document.addEventListener("mousedown", closeMenusOnOutside);
     return () => document.removeEventListener("mousedown", closeMenusOnOutside);
-  }, []);
+  }, [closeMenusOnOutside]);
+
+  const statusByProject = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of projetos) {
+      map[p.id] = normalizeStatus(p, hasPagamentoPendente(p));
+    }
+    return map;
+  }, [projetos, pagamentosByProjeto]);
+
+  const urgencyByProject = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of projetos) {
+      map[p.id] = calcularUrgencia(p.prazo_entrega);
+    }
+    return map;
+  }, [projetos]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return projetos.filter((p) => {
-      const ns = normalizeStatus(p, hasPagamentoPendente(p));
-      
+      const ns = statusByProject[p.id];
+
       if (showArchived && ns !== "arquivado") return false;
       if (!showArchived && ns === "arquivado") return false;
-      
+
       const statusOk = statusFilter === "Todos" ? true : ns === statusFilter;
       if (!statusOk) return false;
       if (!q) return true;
@@ -351,7 +399,7 @@ export default function ProjetosPage() {
       const haystack = `${p.titulo} ${ns} ${nomeCliente}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [projetos, query, statusFilter, showArchived, pagamentosByProjeto]);
+  }, [projetos, query, statusFilter, showArchived, statusByProject]);
 
   function openConfirm(config: Partial<ConfirmState>) {
     setConfirm((prev) => ({
@@ -435,31 +483,13 @@ export default function ProjetosPage() {
 
   async function marcarPagamentosComoPagosEConcluir(projectId: string) {
     try {
-      const pendentes = getPagamentos(projectId).filter((p) => (p.status || "").toLowerCase() !== "pago");
+      const today = new Date().toISOString().slice(0, 10);
 
-      if (pendentes.length > 0) {
-        await supabase
-          .from("pagamentos")
-          .update({ status: "pago", data_pagamento: new Date().toISOString().slice(0, 10) })
-          .eq("projeto_id", projectId)
-          .neq("status", "pago");
-      } else {
-        const projeto = projetos.find(p => p.id === projectId);
-        if (projeto) {
-            const val = valorPendente(projeto);
-            if (val > 0) {
-                await supabase.from("pagamentos").insert([
-                  {
-                    projeto_id: projectId,
-                    user_id: authUser?.id,
-                    valor: val,
-                    status: "pago",
-                    data_pagamento: new Date().toISOString().slice(0, 10)
-                  }
-                ]);
-            }
-        }
-      }
+      await supabase
+        .from("pagamentos")
+        .update({ status: "pago", data_pagamento: today })
+        .eq("projeto_id", projectId)
+        .neq("status", "pago");
 
       setPagamentosByProjeto((prev) => {
         const clone = { ...prev };
@@ -468,25 +498,84 @@ export default function ProjetosPage() {
         return clone;
       });
 
+      const now = new Date().toISOString();
       const prevState = projetos;
-      setProjetos((prev) => prev.map((p) => (p.id === projectId ? { ...p, status: "concluído" } : p)));
+      setProjetos((prev) => prev.map((p) => (p.id === projectId ? { ...p, status: "concluído", updated_at: now } : p)));
 
-      const { error } = await supabase.from("projetos").update({ status: "concluído" }).eq("id", projectId);
+      const { error } = await supabase.from("projetos").update({ status: "concluído", updated_at: now }).eq("id", projectId);
       if (error) setProjetos(prevState);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        fetch("/api/payments/sync-splits", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ project_id: projectId }),
+        }).catch(() => {});
+      }
     } catch {}
   }
 
-  function handleDragStart(projectId: string) {
+  const handleDragStart = useCallback((projectId: string) => {
     setDraggingId(projectId);
-  }
+  }, []);
 
-  function handleDragEnd() {
+  const handleDragEnd = useCallback(() => {
     setDraggingId(null);
     setTrashActive(false);
+  }, []);
+
+  const handleColumnDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  }, []);
+
+  async function handleFinalizeProject(projectId: string) {
+    const proj = projetos.find((p) => p.id === projectId);
+    if (!proj) return;
+
+    const clientePendente = hasPagamentoPendente(proj);
+
+    if (clientePendente) {
+      const valor = valorPendente(proj);
+      openConfirm({
+        title: "Confirmar recebimento",
+        message: `O pagamento do cliente ainda está pendente (R$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}). Confirma que já recebeu o valor?`,
+        confirmLabel: "Sim, já recebi",
+        cancelLabel: "Cancelar",
+        onConfirm: async () => {
+          closeConfirm();
+          await checkCollabAndFinalize(projectId);
+        },
+      });
+      return;
+    }
+
+    await checkCollabAndFinalize(projectId);
   }
 
-  function handleColumnDragOver(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
+  async function checkCollabAndFinalize(projectId: string) {
+    const unpaidCollabs = ownedMemberSplits.filter(
+      (s) => s.project_id === projectId && s.payment_status !== "paid"
+    );
+
+    if (unpaidCollabs.length > 0) {
+      openConfirm({
+        title: "Colaboradores sem pagamento",
+        message: `Você ainda tem ${unpaidCollabs.length} colaborador${unpaidCollabs.length > 1 ? "es" : ""} sem pagamento registrado. Deseja finalizar o projeto mesmo assim?`,
+        confirmLabel: "Finalizar mesmo assim",
+        cancelLabel: "Cancelar",
+        onConfirm: async () => {
+          closeConfirm();
+          await marcarPagamentosComoPagosEConcluir(projectId);
+        },
+      });
+      return;
+    }
+
+    await marcarPagamentosComoPagosEConcluir(projectId);
   }
 
   async function handleColumnDrop(coluna: ProjetoStatus) {
@@ -499,39 +588,65 @@ export default function ProjetosPage() {
     }
     const current = draggingId;
     setDraggingId(null);
-    
-    let dbStatus = coluna;
-    if (coluna === "pgto pendente" || coluna === "finalizado") {
-        dbStatus = "concluído";
-    }
+
+    const currentNs = normalizeStatus(proj, hasPagamentoPendente(proj));
+
+    if (currentNs === coluna) return;
 
     if (coluna === "finalizado") {
-       await marcarPagamentosComoPagosEConcluir(current);
-       return;
+      await handleFinalizeProject(current);
+      return;
     }
 
     if (coluna === "pgto pendente") {
-       const prevState = [...projetos];
-       setProjetos((prev) => prev.map((p) => (p.id === current ? { ...p, status: "concluído" } : p)));
-       const { error } = await supabase.from("projetos").update({ status: "concluído" }).eq("id", current);
-       if (error) setProjetos(prevState);
-       return;
+      const pagList = getPagamentos(proj.id);
+      const allAlreadyPaid = pagList.length > 0 && pagList.every((pg) => (pg.status || "").toLowerCase() === "pago");
+      if (currentNs === "finalizado" || allAlreadyPaid) {
+        openConfirm({
+          title: "Pagamento já recebido",
+          message: "Este projeto já tem todos os pagamentos marcados como recebidos. Ele não pode ser movido para 'Pgto. Pendente'.",
+          confirmLabel: "Entendido",
+          cancelLabel: "",
+          onConfirm: () => { closeConfirm(); },
+        });
+        return;
+      }
+
+      if (pagList.length === 0 && Number(proj.orcamento || 0) > 0 && authUser) {
+        const newPag = {
+          projeto_id: proj.id,
+          user_id: authUser.id,
+          valor: Number(proj.orcamento),
+          status: "pendente",
+          forma_pagamento: proj.forma_pagamento || "outros",
+          parcela: 1,
+          total_parcelas: 1,
+        };
+        const { data: insertedPag, error: pagErr } = await supabase
+          .from("pagamentos")
+          .insert([newPag])
+          .select("id, valor, status, projeto_id")
+          .single();
+        if (!pagErr && insertedPag) {
+          setPagamentosByProjeto((prev) => ({
+            ...prev,
+            [proj.id]: [...(prev[proj.id] || []), insertedPag as Pagamento],
+          }));
+        }
+      }
+
+      const nowTs = new Date().toISOString();
+      const prevState = [...projetos];
+      setProjetos((prev) => prev.map((p) => (p.id === current ? { ...p, status: "concluído", updated_at: nowTs } : p)));
+      const { error } = await supabase.from("projetos").update({ status: "concluído", updated_at: nowTs }).eq("id", current);
+      if (error) setProjetos(prevState);
+      return;
     }
-    
-    await updateProjectStatus(current, dbStatus);
+
+    await updateProjectStatus(current, coluna);
   }
 
-  const columns = showArchived ? 
-  [
-    { status: "arquivado", label: "Arquivado" }
-  ]
-  : 
-  [
-    { status: "para fazer", label: "Para fazer" },
-    { status: "fazendo", label: "Fazendo" },
-    { status: "pgto pendente", label: "Pgto. Pendente" },
-    { status: "finalizado", label: "Finalizado" },
-  ];
+  const columns = showArchived ? ARCHIVED_COLUMNS : KANBAN_COLUMNS;
 
   const totalProjetos = projetos.length;
 
@@ -623,8 +738,8 @@ export default function ProjetosPage() {
   
                   <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1">
                     {daysProjects.map((p) => {
-                      const urgencia = calcularUrgencia(p.prazo_entrega);
-                      const ns = normalizeStatus(p, hasPagamentoPendente(p));
+                      const urgencia = urgencyByProject[p.id] ?? "Sem prioridade";
+                      const ns = statusByProject[p.id];
                       const isCompleted = ns === 'finalizado' || ns === 'arquivado';
 
                       return (
@@ -713,14 +828,14 @@ export default function ProjetosPage() {
           ) : (
             <div className="px-5 py-5 flex flex-col gap-3">
               {filtered.map((p) => {
-                const ns = normalizeStatus(p, hasPagamentoPendente(p));
+                const ns = statusByProject[p.id];
                 const clienteNome = p.clientes?.nome || "Cliente não informado";
                 const clienteFoto = p.clientes?.foto_url || "/perfil.svg";
-                const pendente = hasPagamentoPendente(p);
+                const pendente = ns === "pgto pendente";
                 const valorRestante = valorPendente(p);
                 const previewDescricao = p.descricao ? jsonToPlainText(p.descricao).slice(0, 110) : "";
                 const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR") : "—";
-                const urg = calcularUrgencia(p.prazo_entrega);
+                const urg = urgencyByProject[p.id] ?? "Sem prioridade";
 
                 return (
                   <div
@@ -745,6 +860,12 @@ export default function ProjetosPage() {
                           <span className={`hidden md:inline-flex items-center px-3 py-1 rounded-full text-[12px] ${statusPillClasses(ns)}`}>
                             {statusLabel(ns)}
                           </span>
+                          {p.isCollaborator && (
+                            <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-sky-500/10 text-sky-300 border border-sky-400/30">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                              Colaborador
+                            </span>
+                          )}
                         </div>
 
                         <div className="mt-1 text-[13px] text-gray-400 line-clamp-1">{previewDescricao || clienteNome}</div>
@@ -770,11 +891,19 @@ export default function ProjetosPage() {
 
                     <div className="w-[140px] hidden md:block">
                       <div className="text-[14px] text-gray-100">
-                        {p.orcamento ? p.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
+                        {p.isCollaborator
+                          ? (p.collaboratorValue != null ? p.collaboratorValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
+                          : (p.orcamento ? p.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
+                        }
                       </div>
-                      {pendente && (
+                      {pendente && !p.isCollaborator && (
                         <div className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-400/30 inline-flex">
                           Pend.: {valorRestante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </div>
+                      )}
+                      {p.isCollaborator && (
+                        <div className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-400/30 inline-flex">
+                          Colaborador
                         </div>
                       )}
                     </div>
@@ -858,7 +987,7 @@ export default function ProjetosPage() {
       <div className="mt-6 overflow-y-auto pb-4 custom-scrollbar h-full">
         <div className="flex divide-x divide-primary-700 min-h-full">
           {columns.map((col) => {
-            const colProjects = filtered.filter((p) => normalizeStatus(p, hasPagamentoPendente(p)) === col.status);
+            const colProjects = filtered.filter((p) => statusByProject[p.id] === col.status);
 
             return (
               <div key={col.status} className="flex-1 min-w-0 px-4 flex flex-col">
@@ -880,13 +1009,13 @@ export default function ProjetosPage() {
                     <div className="text-[13px] text-gray-500 italic px-1">Nenhum projeto.</div>
                   ) : (
                     colProjects.map((p) => {
-                      const ns = normalizeStatus(p, hasPagamentoPendente(p));
+                      const ns = statusByProject[p.id];
                       const clienteNome = p.clientes?.nome || "Cliente não informado";
                       const clienteFoto = p.clientes?.foto_url || "/perfil.svg";
-                      const pendente = hasPagamentoPendente(p);
+                      const pendente = ns === "pgto pendente";
                       const valorRestante = valorPendente(p);
                       const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR") : "—";
-                      const urg = calcularUrgencia(p.prazo_entrega);
+                      const urg = urgencyByProject[p.id] ?? "Sem prioridade";
 
                       return (
                         <div
@@ -975,18 +1104,7 @@ export default function ProjetosPage() {
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    openConfirm({
-                                      title: "Confirmar pagamento",
-                                      message: "Confirma que o valor restante deste projeto já foi recebido?",
-                                      confirmLabel: "Sim, já recebi",
-                                      cancelLabel: "Cancelar",
-                                      onConfirm: async () => {
-                                        closeConfirm();
-                                        await marcarPagamentosComoPagosEConcluir(p.id);
-                                      },
-                                    })
-                                  }
+                                  onClick={() => checkCollabAndFinalize(p.id)}
                                   className="text-[14px] w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors shadow-lg shadow-emerald-500/20"
                                 >
                                   Pagamento recebido

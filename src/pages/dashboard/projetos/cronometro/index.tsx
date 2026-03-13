@@ -235,7 +235,6 @@ export default function ProjetoCronometroConfigPage() {
                       <div className="text-xs text-gray-500 mt-1">{mode.description}</div>
                     </div>
 
-                    {/* Pomodoro config */}
                     {mode.id === "pomodoro" && isSelected && (
                       <div
                         className="flex flex-wrap items-end gap-4 mt-2 pt-3 border-t border-primary-700/60"

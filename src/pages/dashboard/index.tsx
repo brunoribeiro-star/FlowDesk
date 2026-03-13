@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, KeyboardEvent } from "react";
+import { useMemo, useState, useEffect, useCallback, KeyboardEvent } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
@@ -28,6 +28,11 @@ export default function DashboardHome() {
   const [atividades, setAtividades] = useState<any[]>([]);
   const [pagamentos, setPagamentos] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [collaboratedActiveCount, setCollaboratedActiveCount] = useState(0);
+  const [collabPaySplits, setCollabPaySplits] = useState<any[]>([]);
+  const [collabMemberSplits, setCollabMemberSplits] = useState<any[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+  const [ownedMemberSplits, setOwnedMemberSplits] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -59,7 +64,7 @@ export default function DashboardHome() {
     async function fetchData() {
       setLoading(true);
 
-      const [projRes, atvRes, payRes, tasksRes] = await Promise.all([
+      const [projRes, atvRes, payRes, tasksRes, memberProjectsRes, collabPayRes, collabSplitRes, pendingInvitesRes] = await Promise.all([
         supabase
           .from("projetos")
           .select("id, titulo, status, progresso, prazo_entrega, cliente_id, orcamento, cover_url, created_at, forma_pagamento, updated_at")
@@ -79,28 +84,102 @@ export default function DashboardHome() {
           .from("tasks")
           .select("id, titulo, status, due_date, projeto_id, projetos!inner(user_id)")
           .eq("projetos.user_id", authUser!.id),
+        supabase
+          .from("project_members")
+          .select("project_id, projetos:project_id(id, status)")
+          .eq("user_id", authUser!.id),
+        supabase
+          .from("collaborator_payment_splits")
+          .select("id, project_id, amount, status, paid_at, created_at")
+          .eq("member_user_id", authUser!.id),
+        supabase
+          .from("project_member_splits")
+          .select("project_id, split_type, split_value, payment_status, projetos:project_id(orcamento, status, updated_at)")
+          .eq("member_user_id", authUser!.id),
+        supabase
+          .from("project_invites")
+          .select("id, token, project_id, invited_by, split_type, split_value, expires_at, projetos:project_id(titulo)")
+          .eq("invited_email", (authUser!.email || "").toLowerCase())
+          .eq("status", "pending"),
       ]);
+
+      const ownedIds = new Set((projRes.data || []).map((p: any) => p.id));
+
+      const collaboratedActiveProjects = (memberProjectsRes.data || []).filter((row: any) => {
+        const proj = row.projetos;
+        if (!proj || ownedIds.has(proj.id)) return false;
+        const s = String(proj.status || "").toLowerCase();
+        return s !== "concluído" && s !== "concluido" && s !== "cancelado" && s !== "arquivado";
+      });
 
       setProjetos(projRes.data || []);
       setAtividades(atvRes.data || []);
       setPagamentos(payRes.data || []);
       setTasks(tasksRes.data || []);
+      setCollaboratedActiveCount(collaboratedActiveProjects.length);
+      setCollabPaySplits((collabPayRes.data || []) as any[]);
+      setCollabMemberSplits((collabSplitRes.data || []) as any[]);
+      setPendingInvites((pendingInvitesRes.data || []) as any[]);
       setLoading(false);
+
+      const ownedProjectIds = (projRes.data || []).map((p: any) => p.id);
+      if (ownedProjectIds.length > 0) {
+        supabase
+          .from("project_member_splits")
+          .select("project_id, member_user_id, split_type, split_value")
+          .in("project_id", ownedProjectIds)
+          .neq("member_user_id", authUser!.id)
+          .then(({ data }) => setOwnedMemberSplits(data || []));
+      }
     }
 
     fetchData();
   }, [authUser]);
 
-  const now = new Date();
-  const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  useEffect(() => {
+    if (!authUser?.email) return;
+
+    const email = (authUser.email || "").toLowerCase();
+
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "project_invites", filter: `invited_email=eq.${email}` }, () => {
+        supabase
+          .from("project_invites")
+          .select("id, token, project_id, invited_by, split_type, split_value, expires_at, projetos:project_id(titulo)")
+          .eq("invited_email", email)
+          .eq("status", "pending")
+          .then(({ data }) => { if (data) setPendingInvites(data as any[]); });
+      })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "collaborator_payment_splits", filter: `member_user_id=eq.${authUser.id}` }, () => {
+        supabase
+          .from("collaborator_payment_splits")
+          .select("id, project_id, amount, status, paid_at, created_at")
+          .eq("member_user_id", authUser.id)
+          .then(({ data }) => { if (data) setCollabPaySplits(data as any[]); });
+      })
+      .on("postgres_changes" as any, { event: "UPDATE", schema: "public", table: "project_member_splits", filter: `member_user_id=eq.${authUser.id}` }, () => {
+        supabase
+          .from("project_member_splits")
+          .select("project_id, split_type, split_value, payment_status, projetos:project_id(orcamento, status, updated_at)")
+          .eq("member_user_id", authUser.id)
+          .then(({ data }) => { if (data) setCollabMemberSplits(data as any[]); });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [authUser]);
+
+  const now = useMemo(() => new Date(), []);
+  const prevMonth = useMemo(() => new Date(now.getFullYear(), now.getMonth() - 1, 1), [now]);
 
   const weeklyCurrent = useMemo(
-    () => buildWeeklyRevenue(pagamentos, projetos, now),
-    [pagamentos, projetos]
+    () => buildWeeklyRevenue(pagamentos, projetos, now, collabPaySplits, collabMemberSplits, ownedMemberSplits),
+    [pagamentos, projetos, collabPaySplits, collabMemberSplits, ownedMemberSplits, now]
   );
   const weeklyLast = useMemo(
-    () => buildWeeklyRevenue(pagamentos, projetos, prevMonth),
-    [pagamentos, projetos]
+    () => buildWeeklyRevenue(pagamentos, projetos, prevMonth, collabPaySplits, collabMemberSplits, ownedMemberSplits),
+    [pagamentos, projetos, collabPaySplits, collabMemberSplits, ownedMemberSplits, prevMonth]
   );
   const maxValue = Math.max(...weeklyCurrent, ...weeklyLast, 1);
 
@@ -121,8 +200,8 @@ export default function DashboardHome() {
     () => projetos.filter((p) => {
       const s = String(p.status || "").toLowerCase();
       return s !== "concluído" && s !== "concluido" && s !== "cancelado" && s !== "arquivado";
-    }).length,
-    [projetos]
+    }).length + collaboratedActiveCount,
+    [projetos, collaboratedActiveCount]
   );
 
   const projetosConcluidos = useMemo(
@@ -159,8 +238,33 @@ export default function DashboardHome() {
       }
     });
 
-    return total;
-  }, [pagamentos, projetos]);
+    const collabPending = collabPaySplits
+      .filter((s: any) => {
+        const st = String(s.status || "").toLowerCase();
+        return st !== "pago";
+      })
+      .reduce((acc: number, s: any) => acc + Number(s.amount ?? 0), 0);
+
+    const projectsWithCollabPaySplits = new Set(collabPaySplits.map((s: any) => s.project_id));
+    let collabFallbackPending = 0;
+    collabMemberSplits.forEach((ms: any) => {
+      if (projectsWithCollabPaySplits.has(ms.project_id)) return;
+      const proj = ms.projetos as any;
+      if (!proj) return;
+      if (ms.payment_status === "paid") return;
+      const s = String(proj.status || "").toLowerCase();
+      const isPaid = s === "concluído" || s === "concluido";
+      if (isPaid) return;
+      const orcamento = Number(proj.orcamento ?? 0);
+      if (ms.split_type === "percentage") {
+        collabFallbackPending += orcamento * (Number(ms.split_value) / 100);
+      } else {
+        collabFallbackPending += Number(ms.split_value ?? 0);
+      }
+    });
+
+    return total + collabPending + collabFallbackPending;
+  }, [pagamentos, projetos, collabPaySplits, collabMemberSplits]);
 
   const tarefasVencendo = useMemo(() => {
     const now = new Date();
@@ -304,6 +408,44 @@ export default function DashboardHome() {
         </header>
 
         <section className="flex-1 flex flex-col gap-4 min-h-0">
+          {pendingInvites.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {pendingInvites.map((inv: any) => {
+                const projetoTitulo = inv.projetos?.titulo || "Projeto";
+                const splitLabel = inv.split_value != null
+                  ? (inv.split_type === "percentage"
+                      ? ` · ${inv.split_value}% do projeto`
+                      : ` · ${Number(inv.split_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`)
+                  : "";
+                return (
+                  <div key={inv.id} className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg bg-primary-800 border border-primary-600">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-2 h-2 rounded-full bg-primary-400 shrink-0" />
+                      <span className="text-[14px] text-gray-200 truncate">
+                        Você foi convidado para colaborar em <strong className="text-primary-200">{projetoTitulo}</strong>{splitLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard.writeText(`${window.location.origin}/invite/${inv.token}`).then(() => {})}
+                        className="text-[13px] text-gray-400 hover:text-gray-200 bg-primary-700 border border-primary-600 rounded-lg px-3 py-1.5 transition-colors"
+                      >
+                        Copiar link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/invite/${inv.token}`)}
+                        className="text-[13px] font-semibold text-primary-900 bg-primary-500 hover:bg-primary-300 rounded-lg px-3 py-1.5 transition-colors"
+                      >
+                        Ver convite
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
           <div className="w-full grid grid-cols-4 gap-4">
             {METRICS.map((m) => (
               <button
@@ -500,7 +642,20 @@ function toCurrency(v: number) {
   });
 }
 
-function buildWeeklyRevenue(payments: any[], projetos: any[], refDate: Date): number[] {
+function getCollabShare(projectId: string, paymentValue: number, ownedMemberSplits: any[]): number {
+  const splits = ownedMemberSplits.filter((s) => s.project_id === projectId);
+  let total = 0;
+  for (const split of splits) {
+    if (split.split_type === "percentage") {
+      total += paymentValue * (Number(split.split_value) / 100);
+    } else {
+      total += Number(split.split_value ?? 0);
+    }
+  }
+  return Math.min(total, paymentValue);
+}
+
+function buildWeeklyRevenue(payments: any[], projetos: any[], refDate: Date, paidCollabSplits: any[] = [], collabMemberSplits: any[] = [], ownedMemberSplits: any[] = []): number[] {
   const month = refDate.getMonth();
   const year = refDate.getFullYear();
   const weeks = [0, 0, 0, 0];
@@ -546,7 +701,8 @@ function buildWeeklyRevenue(payments: any[], projetos: any[], refDate: Date): nu
     const day = d.getDate();
     const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
 
-    weeks[idx] += valor;
+    const collabShare = getCollabShare(p.projeto_id, valor, ownedMemberSplits);
+    weeks[idx] += Math.max(0, valor - collabShare);
   });
 
   projetos.forEach((p) => {
@@ -555,26 +711,53 @@ function buildWeeklyRevenue(payments: any[], projetos: any[], refDate: Date): nu
     const orcamento = Number(p.orcamento) || 0;
     if (orcamento <= 0) return;
 
-    const dCreated = new Date(p.created_at);
-    if (isNaN(dCreated.getTime())) return;
+    const statusNorm = String(p.status || "").toLowerCase();
+    const isConcluido = statusNorm === "concluído" || statusNorm === "concluido";
+    if (!isConcluido) return;
 
-    const isPix2x = p.forma_pagamento === "pix_2x" || p.forma_pagamento === "50/50";
-    
-    const firstValor = isPix2x ? orcamento / 2 : orcamento;
-    if (dCreated.getMonth() === month && dCreated.getFullYear() === year) {
-      const day = dCreated.getDate();
-      const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
-      weeks[idx] += firstValor;
-    }
+    const dCompleted = p.updated_at ? new Date(p.updated_at) : new Date(p.created_at);
+    if (isNaN(dCompleted.getTime())) return;
+    if (dCompleted.getMonth() !== month || dCompleted.getFullYear() !== year) return;
 
-    if (isPix2x && p.status === "Concluído") {
-      const dCompleted = p.updated_at ? new Date(p.updated_at) : dCreated;
-      if (!isNaN(dCompleted.getTime()) && dCompleted.getMonth() === month && dCompleted.getFullYear() === year) {
-        const day = dCompleted.getDate();
-        const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
-        weeks[idx] += orcamento / 2;
-      }
-    }
+    const day = dCompleted.getDate();
+    const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+    const collabShare = getCollabShare(p.id, orcamento, ownedMemberSplits);
+    weeks[idx] += Math.max(0, orcamento - collabShare);
+  });
+
+  paidCollabSplits.forEach((s) => {
+    const st = String(s.status || "").toLowerCase();
+    if (st !== "pago") return;
+    const d = new Date(s.paid_at || s.created_at);
+    if (isNaN(d.getTime())) return;
+    if (d.getMonth() !== month || d.getFullYear() !== year) return;
+    const valor = Number(s.amount ?? 0);
+    if (valor <= 0) return;
+    const day = d.getDate();
+    const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+    weeks[idx] += valor;
+  });
+
+  const projectsWithSplitRecords = new Set(paidCollabSplits.map((s: any) => s.project_id));
+  collabMemberSplits.forEach((ms: any) => {
+    if (projectsWithSplitRecords.has(ms.project_id)) return;
+    const proj = ms.projetos as any;
+    if (!proj) return;
+    const s = String(proj.status || "").toLowerCase();
+    const projConcluido = s === "concluído" || s === "concluido";
+    const isPaid = projConcluido || ms.payment_status === "paid";
+    if (!isPaid) return;
+    const orcamento = Number(proj.orcamento ?? 0);
+    const valor = ms.split_type === "percentage"
+      ? orcamento * (Number(ms.split_value) / 100)
+      : Number(ms.split_value ?? 0);
+    if (valor <= 0) return;
+    const d = new Date(proj.updated_at || proj.created_at);
+    if (isNaN(d.getTime())) return;
+    if (d.getMonth() !== month || d.getFullYear() !== year) return;
+    const day = d.getDate();
+    const idx = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
+    weeks[idx] += valor;
   });
 
   return weeks;
