@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   compress: true,
+  transpilePackages: ["@react-pdf/renderer"],
 
   images: {
     minimumCacheTTL: 3600,

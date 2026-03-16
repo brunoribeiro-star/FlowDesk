@@ -85,12 +85,10 @@ function StatusBadge({ status }: { status: string }) {
 
 function RankTable<T extends { titulo: string }>({
   rows,
-  metricLabel,
   metricValue,
   subtitleKey,
 }: {
   rows: T[];
-  metricLabel: string;
   metricValue: (row: T) => string;
   subtitleKey?: (row: T) => string | undefined;
 }) {
@@ -160,7 +158,7 @@ export default function PerformanceSection({ data }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="text-[14px] font-medium text-gray-400 uppercase tracking-wide text-[12px]">
+      <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wide">
         Projetos
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -173,8 +171,7 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={projetos.mais_lentos_ciclo}
-            metricLabel="Ciclo"
-            metricValue={(r) => fmtDias(r.ciclo_dias)}
+                        metricValue={(r) => fmtDias(r.ciclo_dias)}
           />
         </RankCard>
 
@@ -187,13 +184,12 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={projetos.mais_tempo_execucao}
-            metricLabel="Execução"
-            metricValue={(r) => fmtHoras(r.execucao_horas)}
+                        metricValue={(r) => fmtHoras(r.execucao_horas)}
           />
         </RankCard>
       </div>
 
-      <div className="text-[14px] font-medium text-gray-400 uppercase tracking-wide text-[12px] mt-2">
+      <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wide mt-2">
         Tarefas
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -206,8 +202,7 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={tarefas.mais_lentas_ciclo}
-            metricLabel="Ciclo"
-            metricValue={(r) => fmtDias(r.ciclo_dias)}
+                        metricValue={(r) => fmtDias(r.ciclo_dias)}
             subtitleKey={(r) => r.projeto_titulo}
           />
         </RankCard>
@@ -221,8 +216,7 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={tarefas.mais_tempo_execucao}
-            metricLabel="Execução"
-            metricValue={(r) => fmtHoras(r.execucao_horas)}
+                        metricValue={(r) => fmtHoras(r.execucao_horas)}
             subtitleKey={(r) => r.projeto_titulo}
           />
         </RankCard>

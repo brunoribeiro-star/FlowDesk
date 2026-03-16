@@ -5,6 +5,8 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 import Template1, { DEFAULT_CONTENT, ProposalContent } from "@/components/proposals/Template1";
+import Template2 from "@/components/proposals/Template2";
+import Template3 from "@/components/proposals/Template3";
 import CreateClienteModal from "@/components/modals/CreateClientModal";
 import Toast, { ToastType } from "@/components/Toast";
 import HeaderProfile from "@/components/HeaderProfile";
@@ -80,6 +82,8 @@ export default function NovaProposta() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
 
+  const [dragOver, setDragOver] = useState<"cover" | "banner" | "logo" | null>(null);
+
   const { converterState, triggerConverter, cancelConverter } = useImageConverter();
 
   const [clients, setClients] = useState<Client[]>([]);
@@ -93,6 +97,7 @@ export default function NovaProposta() {
   const [techDropdownOpen, setTechDropdownOpen] = useState(false);
 
   const [content, setContent] = useState<ProposalContent>(DEFAULT_CONTENT);
+  const [selectedTemplate, setSelectedTemplate] = useState<"template1" | "template2" | "template3">("template1");
 
   useEffect(() => {
     async function loadClients() {
@@ -149,6 +154,29 @@ export default function NovaProposta() {
 
   function removeTech(name: string) {
     setSelectedTechs((prev) => prev.filter((t) => t !== name));
+  }
+
+  function handleFileForZone(
+    zone: "cover" | "banner" | "logo",
+    file: File | undefined | null
+  ) {
+    if (!file) return;
+    if (zone === "cover") {
+      triggerConverter(file, IMAGE_SPECS.thumbnail, (f) => {
+        setCoverFile(f);
+        setCoverPreviewUrl(URL.createObjectURL(f));
+      });
+    } else if (zone === "banner") {
+      triggerConverter(file, IMAGE_SPECS.hero, (f) => {
+        setBannerFile(f);
+        setBannerPreviewUrl(URL.createObjectURL(f));
+      });
+    } else if (zone === "logo") {
+      triggerConverter(file, IMAGE_SPECS.logo, (f) => {
+        setLogoFile(f);
+        setLogoPreviewUrl(URL.createObjectURL(f));
+      });
+    }
   }
 
   function handleTechKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -220,6 +248,7 @@ export default function NovaProposta() {
             description,
             technologies: selectedTechs,
             content,
+            template: selectedTemplate,
           },
         },
       ])
@@ -236,12 +265,12 @@ export default function NovaProposta() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-primary-900 flex gap-6 overflow-hidden text-gray-100">
+    <div className="h-screen w-screen bg-primary-900 flex gap-6 overflow-hidden text-gray-100">
       <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-      
+
       {toast && <Toast message={toast.message} type={toast.type} />}
 
-      <div className="flex flex-col flex-1 min-w-0 gap-6 pr-6 py-8">
+      <div className="flex flex-col flex-1 min-w-0 gap-6 pr-6 py-8 overflow-y-auto">
         <header className="flex items-center justify-between">
           <button
             onClick={() => router.push("/dashboard/propostas")}
@@ -268,7 +297,28 @@ export default function NovaProposta() {
           <h2 className="text-xl font-semibold mb-1">Detalhes da proposta</h2>
 
           <div className="flex flex-col md:flex-row gap-6">
-            <div className="w-full md:w-64 h-36 rounded-xl bg-primary-800 border border-primary-700 overflow-hidden relative flex items-center justify-center">
+            <div
+              className={`w-full md:w-64 h-36 rounded-xl border-2 overflow-hidden relative flex items-center justify-center transition-colors cursor-pointer ${
+                dragOver === "cover"
+                  ? "border-primary-500 bg-primary-700"
+                  : "bg-primary-800 border-primary-700 hover:border-primary-600"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver("cover"); }}
+              onDragLeave={() => setDragOver(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(null);
+                handleFileForZone("cover", e.dataTransfer.files?.[0]);
+              }}
+              onPaste={(e) => {
+                const file = Array.from(e.clipboardData.items)
+                  .find((i) => i.type.startsWith("image/"))
+                  ?.getAsFile();
+                handleFileForZone("cover", file);
+              }}
+              tabIndex={0}
+              onClick={() => document.getElementById("cover-file-input")?.click()}
+            >
               {coverPreviewUrl ? (
                 <img
                   src={coverPreviewUrl}
@@ -276,22 +326,28 @@ export default function NovaProposta() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-sm text-gray-400">Capa da listagem</span>
+                <div className="flex flex-col items-center gap-1 text-center px-3">
+                  <span className="text-2xl">🖼️</span>
+                  <span className="text-xs text-gray-400">
+                    {dragOver === "cover" ? "Solte aqui" : "Capa da listagem"}
+                  </span>
+                  <span className="text-[10px] text-gray-600">{IMAGE_SPECS.thumbnail.hint}</span>
+                </div>
               )}
-
-              <label className="absolute bottom-3 right-3 bg-black/60 px-3 py-1 text-xs rounded-full cursor-pointer flex items-center gap-1">
+              <label
+                className="absolute bottom-3 right-3 bg-black/60 px-3 py-1 text-xs rounded-full cursor-pointer flex items-center gap-1"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <span>📷</span> Alterar
                 <input
+                  id="cover-file-input"
                   type="file"
                   className="hidden"
                   accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
-                    triggerConverter(file, IMAGE_SPECS.thumbnail, (f) => {
-                      setCoverFile(f);
-                      setCoverPreviewUrl(URL.createObjectURL(f));
-                    });
+                    handleFileForZone("cover", file);
                     e.target.value = "";
                   }}
                 />
@@ -544,82 +600,242 @@ export default function NovaProposta() {
               />
             </div>
 
-            <div className="flex flex-col gap-2 bg-primary-900 border border-primary-700 rounded-xl px-4 py-3">
+            <div
+              className={`flex flex-col gap-2 bg-primary-900 border-2 rounded-xl px-4 py-3 transition-colors cursor-pointer relative ${
+                dragOver === "logo"
+                  ? "border-primary-500 bg-primary-800"
+                  : "border-primary-700 hover:border-primary-600"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver("logo"); }}
+              onDragLeave={() => setDragOver(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(null);
+                handleFileForZone("logo", e.dataTransfer.files?.[0]);
+              }}
+              onPaste={(e) => {
+                const file = Array.from(e.clipboardData.items)
+                  .find((i) => i.type.startsWith("image/"))
+                  ?.getAsFile();
+                handleFileForZone("logo", file);
+              }}
+              tabIndex={0}
+              onClick={() => document.getElementById("logo-file-input")?.click()}
+            >
               <span className="text-xs text-gray-300">Logo da empresa</span>
-              <label className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 cursor-pointer text-xs flex items-center justify-between">
-                <span className="truncate">
-                  {logoFile ? logoFile.name : "Selecionar arquivo"}
-                </span>
-                <span className="bg-primary-600 px-3 py-1 rounded-full">
-                  Escolher
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    triggerConverter(file, IMAGE_SPECS.logo, (f) => {
-                      setLogoFile(f);
-                      setLogoPreviewUrl(URL.createObjectURL(f));
-                    });
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+              <div className="flex items-center gap-3 min-h-[36px]">
+                {logoPreviewUrl ? (
+                  <img src={logoPreviewUrl} alt="Logo" className="h-8 object-contain rounded" />
+                ) : (
+                  <span className="text-[11px] text-gray-500">
+                    {dragOver === "logo" ? "Solte a imagem aqui" : "Arraste, cole ou clique para escolher"}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-gray-600">{IMAGE_SPECS.logo.hint}</span>
+              <input
+                id="logo-file-input"
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  handleFileForZone("logo", file);
+                  e.target.value = "";
+                }}
+              />
             </div>
 
-            <div className="flex flex-col gap-2 bg-primary-900 border border-primary-700 rounded-xl px-4 py-3">
+            <div
+              className={`flex flex-col gap-2 bg-primary-900 border-2 rounded-xl px-4 py-3 transition-colors cursor-pointer relative ${
+                dragOver === "banner"
+                  ? "border-primary-500 bg-primary-800"
+                  : "border-primary-700 hover:border-primary-600"
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver("banner"); }}
+              onDragLeave={() => setDragOver(null)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(null);
+                handleFileForZone("banner", e.dataTransfer.files?.[0]);
+              }}
+              onPaste={(e) => {
+                const file = Array.from(e.clipboardData.items)
+                  .find((i) => i.type.startsWith("image/"))
+                  ?.getAsFile();
+                handleFileForZone("banner", file);
+              }}
+              tabIndex={0}
+              onClick={() => document.getElementById("banner-file-input")?.click()}
+            >
               <span className="text-xs text-gray-300">Banner interno</span>
-              <label className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 cursor-pointer text-xs flex items-center justify-between">
-                <span className="truncate">
-                  {bannerFile ? bannerFile.name : "Selecionar arquivo"}
-                </span>
-                <span className="bg-primary-600 px-3 py-1 rounded-full">
-                  Escolher
-                </span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    triggerConverter(file, IMAGE_SPECS.hero, (f) => {
-                      setBannerFile(f);
-                      setBannerPreviewUrl(URL.createObjectURL(f));
-                    });
-                    e.target.value = "";
-                  }}
-                />
-              </label>
+              <div className="flex items-center gap-3 min-h-[36px]">
+                {bannerPreviewUrl ? (
+                  <img src={bannerPreviewUrl} alt="Banner" className="h-8 object-contain rounded" />
+                ) : (
+                  <span className="text-[11px] text-gray-500">
+                    {dragOver === "banner" ? "Solte a imagem aqui" : "Arraste, cole ou clique para escolher"}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] text-gray-600">{IMAGE_SPECS.hero.hint}</span>
+              <input
+                id="banner-file-input"
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  handleFileForZone("banner", file);
+                  e.target.value = "";
+                }}
+              />
             </div>
           </div>
         </div>
 
+        <div className="bg-primary-900/40 border border-primary-700 rounded-2xl p-6 flex flex-col gap-4">
+          <h2 className="text-xl font-semibold">Modelo de proposta</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {([
+              {
+                id: "template1",
+                name: "Clássico",
+                description: "Layout clean em fundo branco com cartões e seções bem definidas.",
+                preview: (
+                  <div className="w-full h-full bg-white rounded-lg p-3 flex flex-col gap-1.5">
+                    <div className="h-5 rounded" style={{ backgroundColor: primaryColor }} />
+                    <div className="h-2 w-3/4 bg-slate-200 rounded-full" />
+                    <div className="h-2 w-1/2 bg-slate-200 rounded-full" />
+                    <div className="grid grid-cols-2 gap-1.5 mt-1">
+                      <div className="h-8 bg-slate-100 rounded border border-slate-200" />
+                      <div className="h-8 bg-slate-100 rounded border border-slate-200" />
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: "template2",
+                name: "Dark Premium",
+                description: "Visual escuro e moderno, ideal para projetos tech e criação digital.",
+                preview: (
+                  <div className="w-full h-full bg-[#0d1117] rounded-lg p-3 flex flex-col gap-1.5">
+                    <div className="h-5 rounded" style={{ backgroundColor: primaryColor }} />
+                    <div className="h-2 w-3/4 bg-[#30363d] rounded-full" />
+                    <div className="h-2 w-1/2 bg-[#30363d] rounded-full" />
+                    <div className="grid grid-cols-2 gap-1.5 mt-1">
+                      <div className="h-8 bg-[#161b22] rounded border border-[#30363d]" />
+                      <div className="h-8 bg-[#161b22] rounded border border-[#30363d]" />
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                id: "template3",
+                name: "Editorial",
+                description: "Estilo minimalista com tipografia forte, como uma revista.",
+                preview: (
+                  <div className="w-full h-full bg-white rounded-lg p-3 flex flex-col gap-1.5">
+                    <div className="h-2 w-full bg-gray-100 rounded-full" />
+                    <div className="h-6 w-4/5 bg-gray-100 rounded" />
+                    <div className="h-[3px] w-full rounded-full mt-0.5" style={{ backgroundColor: primaryColor }} />
+                    <div className="h-2 w-2/3 bg-gray-100 rounded-full mt-1" />
+                    <div className="flex gap-1.5 mt-1">
+                      <div className="h-7 flex-1 bg-gray-50 rounded border border-gray-200" />
+                      <div className="h-7 flex-1 bg-gray-50 rounded border border-gray-200" />
+                      <div className="h-7 flex-1 bg-gray-50 rounded border border-gray-200" />
+                    </div>
+                  </div>
+                ),
+              },
+            ] as const).map((tpl) => (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => setSelectedTemplate(tpl.id)}
+                className={`flex flex-col gap-3 rounded-xl border-2 p-4 text-left transition-colors ${
+                  selectedTemplate === tpl.id
+                    ? "border-primary-500 bg-primary-800"
+                    : "border-primary-700 bg-primary-800/50 hover:border-primary-600"
+                }`}
+              >
+                <div className="w-full h-28 rounded-lg overflow-hidden border border-primary-700">
+                  {tpl.preview}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-100">{tpl.name}</span>
+                  {selectedTemplate === tpl.id && (
+                    <span className="text-[11px] bg-primary-500 text-white px-2 py-0.5 rounded-full">Selecionado</span>
+                  )}
+                </div>
+                <p className="text-[12px] text-gray-400 leading-relaxed">{tpl.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="mt-6 flex justify-center max-w-full">
-          <Template1
-            projectName={projectName}
-            clientName={clientName}
-            primaryColor={primaryColor}
-            secondaryColor={secondaryColor}
-            bannerUrl={bannerPreviewUrl}
-            logoUrl={logoPreviewUrl}
-            value={value}
-            valueDiscount={valueDiscount}
-            value12x={value12x}
-            dueDate={
-              dueDate
-                ? new Date(dueDate + "T00:00:00").toLocaleDateString("pt-BR")
-                : ""
-            }
-            date={todayDateStr}
-            editable={true}
-            technologies={selectedTechs}
-            content={content}
-            onContentChange={setContent}
-          />
+          {selectedTemplate === "template2" ? (
+            <Template2
+              projectName={projectName}
+              clientName={clientName}
+              primaryColor={primaryColor}
+              secondaryColor={secondaryColor}
+              bannerUrl={bannerPreviewUrl}
+              logoUrl={logoPreviewUrl}
+              value={value}
+              valueDiscount={valueDiscount}
+              value12x={value12x}
+              dueDate={dueDate ? new Date(dueDate + "T00:00:00").toLocaleDateString("pt-BR") : ""}
+              date={todayDateStr}
+              editable={true}
+              technologies={selectedTechs}
+              content={content}
+              onContentChange={setContent}
+            />
+          ) : selectedTemplate === "template3" ? (
+            <Template3
+              projectName={projectName}
+              clientName={clientName}
+              primaryColor={primaryColor}
+              secondaryColor={secondaryColor}
+              bannerUrl={bannerPreviewUrl}
+              logoUrl={logoPreviewUrl}
+              value={value}
+              valueDiscount={valueDiscount}
+              value12x={value12x}
+              dueDate={dueDate ? new Date(dueDate + "T00:00:00").toLocaleDateString("pt-BR") : ""}
+              date={todayDateStr}
+              editable={true}
+              technologies={selectedTechs}
+              content={content}
+              onContentChange={setContent}
+            />
+          ) : (
+            <Template1
+              projectName={projectName}
+              clientName={clientName}
+              primaryColor={primaryColor}
+              secondaryColor={secondaryColor}
+              bannerUrl={bannerPreviewUrl}
+              logoUrl={logoPreviewUrl}
+              value={value}
+              valueDiscount={valueDiscount}
+              value12x={value12x}
+              dueDate={
+                dueDate
+                  ? new Date(dueDate + "T00:00:00").toLocaleDateString("pt-BR")
+                  : ""
+              }
+              date={todayDateStr}
+              editable={true}
+              technologies={selectedTechs}
+              content={content}
+              onContentChange={setContent}
+            />
+          )}
         </div>
       </div>
 

@@ -836,7 +836,7 @@ export default function Template1({
                 </p>
               </div>
             </div>
-\
+
             <div className="relative rounded-2xl border border-slate-200 bg-white p-6">
               <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] bg-white border border-slate-200 text-slate-800">
                 2ª opção

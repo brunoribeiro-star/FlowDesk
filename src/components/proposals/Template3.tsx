@@ -1,9 +1,15 @@
 import React from "react";
+import {
+  ProposalContent,
+  DEFAULT_CONTENT,
+  formatCurrencyBRL,
+} from "./Template1";
 
 type Template3Props = {
   projectName?: string;
   clientName?: string;
   companyName?: string;
+  technologies?: string[];
   primaryColor?: string;
   secondaryColor?: string;
   bannerUrl?: string | null;
@@ -14,19 +20,56 @@ type Template3Props = {
   dueDate?: string | null;
   date?: string | null;
   editable?: boolean;
+  content?: ProposalContent;
+  onContentChange?: (newContent: ProposalContent) => void;
 };
 
-export function formatCurrencyBRL(v?: number | null) {
-  if (v == null || Number.isNaN(v)) return "";
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-}
+const EditableText = ({
+  text,
+  onChange,
+  className,
+  style,
+  tagName = "span",
+  editable = true,
+}: {
+  text: string;
+  onChange: (val: string) => void;
+  className?: string;
+  style?: React.CSSProperties;
+  tagName?: React.ElementType;
+  editable?: boolean;
+}) => {
+  const Tag = tagName as any;
+
+  if (!editable) {
+    return (
+      <Tag className={className} style={style}>
+        {text}
+      </Tag>
+    );
+  }
+
+  return (
+    <Tag
+      className={className}
+      style={{ ...style, outline: "none", minWidth: "10px" }}
+      contentEditable
+      suppressContentEditableWarning
+      onBlur={(e: React.FocusEvent<HTMLElement>) =>
+        onChange(e.currentTarget.innerText)
+      }
+      dangerouslySetInnerHTML={{ __html: text }}
+    />
+  );
+};
 
 export default function Template3({
   projectName,
   clientName,
   companyName,
-  primaryColor = "#009688",
-  secondaryColor = "#111827",
+  technologies = [],
+  primaryColor = "#22c55e",
+  secondaryColor = "#0f172a",
   bannerUrl,
   logoUrl,
   value,
@@ -35,6 +78,8 @@ export default function Template3({
   dueDate,
   date,
   editable = true,
+  content = DEFAULT_CONTENT,
+  onContentChange,
 }: Template3Props) {
   const safeProject = projectName || "Nome do projeto";
   const safeClient = clientName || "Nome do cliente";
@@ -42,786 +87,733 @@ export default function Template3({
   const safeDate = date || "__/__/____";
   const safeDue = dueDate || "__/__/____";
 
-  const bgCoverStyle: React.CSSProperties = bannerUrl
-    ? {
-        backgroundImage: `url(${bannerUrl})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
-    : {
-        backgroundColor: primaryColor,
-      };
-
-  const footerStyle: React.CSSProperties = {
-    backgroundColor: primaryColor,
+  const updateContent = (path: string[], value: string) => {
+    if (!onContentChange) return;
+    const newContent = JSON.parse(JSON.stringify(content));
+    let current: any = newContent;
+    for (let i = 0; i < path.length - 1; i++) {
+      current = current[path[i]];
+    }
+    current[path[path.length - 1]] = value;
+    onContentChange(newContent);
   };
 
-  const accentStyle: React.CSSProperties = {
-    color: primaryColor,
-  };
-
-  const accentBgStyle: React.CSSProperties = {
-    backgroundColor: primaryColor,
-  };
-
+  const accentStyle: React.CSSProperties = { color: primaryColor };
   const accentBorderStyle: React.CSSProperties = {
-    borderColor: primaryColor,
+    borderLeftColor: primaryColor,
   };
+  const accentBgLightStyle: React.CSSProperties = {
+    backgroundColor: `${primaryColor}08`,
+  };
+  const accentUnderlineStyle: React.CSSProperties = {
+    borderBottomColor: primaryColor,
+  };
+  const accentBgStyle: React.CSSProperties = { backgroundColor: primaryColor };
 
   const pageClass =
-    "w-full flex justify-center py-24 md:py-[100px] bg-white text-slate-900";
+    "w-full flex justify-center py-16 md:py-20 bg-white text-[#111827]";
+  const pageAltClass =
+    "w-full flex justify-center py-16 md:py-20 bg-[#f9fafb] text-[#111827]";
   const pageInnerClass =
-    "w-full max-w-5xl px-6 md:px-10 flex flex-col gap-8 font-[var(--font-dm-sans)]";
+    "w-full max-w-[1200px] px-6 md:px-10 flex flex-col gap-8 font-[var(--font-dm-sans)]";
 
-  const editableProps = editable
-    ? { contentEditable: true, suppressContentEditableWarning: true }
-    : {};
+  const SectionHeader = ({
+    displayNum,
+    title,
+    subtitle,
+    sectionKey,
+  }: {
+    displayNum: string;
+    title: string;
+    subtitle?: string;
+    sectionKey: keyof ProposalContent;
+  }) => (
+    <div className="flex flex-col gap-0 pb-4 border-b border-[#e5e7eb]">
+      <div className="flex items-end gap-4 leading-none">
+        <span
+          className="text-[80px] font-black leading-none select-none"
+          style={{ color: "#f3f4f6" }}
+        >
+          {displayNum}
+        </span>
+        <div className="flex flex-col gap-1 pb-2">
+          <EditableText
+            tagName="h2"
+            className="text-[22px] md:text-[24px] font-semibold tracking-tight"
+            style={accentStyle}
+            text={title}
+            onChange={(val) => updateContent([sectionKey, "title"], val)}
+            editable={editable}
+          />
+          {subtitle && (
+            <EditableText
+              tagName="p"
+              className="text-[13px] md:text-[14px] text-[#6b7280] leading-relaxed"
+              text={subtitle}
+              onChange={(val) => updateContent([sectionKey, "subtitle"], val)}
+              editable={editable}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="w-full bg-white text-slate-900">
-      <section className={`${pageClass}`} style={bgCoverStyle}>
-        <div className={`${pageInnerClass}`}>
-          <div className="bg-white/95 rounded-[26px] shadow-[0_18px_40px_rgba(15,23,42,0.18)] px-8 md:px-12 py-10 md:py-12 flex flex-col justify-between min-h-[360px] gap-10">
-            <header className="flex items-center justify-between gap-6">
-              <div className="flex items-center gap-3">
+    <div className="w-full bg-white text-[#111827]">
+      <section className="w-full flex flex-col bg-white pdf-section">
+        {bannerUrl && (
+          <div
+            className="w-full"
+            style={{
+              height: "260px",
+              backgroundImage: `url(${bannerUrl})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+        )}
+        <div className="flex justify-center py-16 md:py-20">
+          <div className={pageInnerClass}>
+            <div className="flex items-start justify-between">
+              <div>
                 {logoUrl ? (
-                  <div className="w-9 h-9 rounded-xl border-2 border-slate-200 overflow-hidden flex items-center justify-center bg-white">
-                    <img
-                      src={logoUrl}
-                      alt={safeCompany}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
+                  <img
+                    src={logoUrl}
+                    alt={safeCompany}
+                    style={{
+                      maxHeight: "52px",
+                      width: "auto",
+                      objectFit: "contain",
+                    }}
+                  />
                 ) : (
                   <div
-                    className="w-7 h-7 rounded-xl border-2 border-slate-300 border-t-4 rotate-45"
-                    style={accentBorderStyle}
+                    className="w-10 h-10 rounded-xl border-2"
+                    style={{ borderColor: primaryColor }}
                   />
                 )}
-                <span
-                  className="text-base font-semibold text-slate-900"
-                  {...editableProps}
-                >
-                  {safeCompany}
-                </span>
               </div>
-            </header>
+              <span className="text-[13px] text-[#6b7280] mt-1">
+                {safeDate}
+              </span>
+            </div>
 
-            <div className="flex-1 flex items-center">
-              <div className="flex flex-col gap-2">
+            <div className="relative flex flex-col gap-0 mt-4">
+              <span
+                className="text-[160px] font-black leading-none select-none pointer-events-none"
+                style={{ color: "#f3f4f6", marginBottom: "-60px" }}
+              >
+                00
+              </span>
+              <div className="relative z-10 flex flex-col gap-3">
                 <h1
-                  className="text-[30px] md:text-[40px] font-medium leading-tight text-slate-900"
-                  {...editableProps}
+                  className="text-[52px] font-light tracking-tight text-[#111827] border-b-[3px] pb-3"
+                  style={accentUnderlineStyle}
                 >
                   {safeProject}
                 </h1>
-                <p
-                  className="text-sm md:text-base text-slate-500"
-                  {...editableProps}
-                >
-                  Proposta comercial para {safeClient}
+                <p className="text-[15px] text-[#6b7280]">
+                  Proposta comercial para{" "}
+                  <span className="font-medium text-[#111827]">
+                    {safeClient}
+                  </span>
                 </p>
               </div>
             </div>
 
-            <footer className="pt-6 border-t border-slate-200 flex flex-wrap gap-6 md:gap-12">
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Cliente
-                </span>
-                <span className="text-sm text-slate-900" {...editableProps}>
-                  {safeClient}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Vencimento
-                </span>
-                <span className="text-sm text-slate-900" {...editableProps}>
-                  {safeDue}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Data da proposta
-                </span>
-                <span className="text-sm text-slate-900" {...editableProps}>
-                  {safeDate}
-                </span>
-              </div>
-            </footer>
+            <div className="mt-10 pt-6 border-t border-[#e5e7eb] flex flex-wrap gap-8">
+              {[
+                { label: "Cliente", value: safeClient },
+                { label: "Empresa", value: safeCompany },
+                { label: "Vencimento", value: safeDue },
+                { label: "Data da proposta", value: safeDate },
+              ].map((item, idx) => (
+                <div className="flex flex-col gap-1" key={idx}>
+                  <span className="text-[10px] uppercase font-semibold tracking-widest text-[#6b7280]">
+                    {item.label}
+                  </span>
+                  <span className="text-[14px] font-medium text-[#111827]">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className={pageClass}>
+      <section
+        className={`${pageAltClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
         <div className={pageInnerClass}>
-          <div className="flex flex-col items-center text-center gap-3">
-            <h2
-              className="text-[28px] font-medium"
-              style={accentStyle}
-              {...editableProps}
-            >
-              Conteúdo da Proposta
-            </h2>
-            <p
-              className="text-[14px] md:text-[15px] text-slate-500 max-w-2xl"
-              {...editableProps}
-            >
-              Nesta proposta você encontra um resumo claro de como vamos conduzir o
-              projeto, as etapas envolvidas, o que será entregue e como funciona o
-              investimento.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mt-4">
-            {[
-              {
-                num: "01",
-                title: "Alinhamento inicial",
-                text: "Momento para entender contexto, objetivos e necessidades do projeto, definindo escopo e prioridades junto com você.",
-              },
-              {
-                num: "02",
-                title: "Etapas do projeto",
-                text: "Organização do fluxo de trabalho em fases claras, com comunicação transparente e checkpoints definidos.",
-              },
-              {
-                num: "03",
-                title: "Resultados esperados",
-                text: "Alinhamento das entregas finais, padrão de qualidade e indicadores que mostram o sucesso do projeto.",
-              },
-              {
-                num: "04",
-                title: "Investimento e prazos",
-                text: "Detalhamento do investimento, condições de pagamento e prazos estimados para cada etapa da entrega.",
-              },
-            ].map((item, idx) => (
-              <div key={idx} className="text-left">
-                <span
-                  className="block text-[22px] font-medium mb-2"
-                  style={accentStyle}
-                >
-                  {item.num}
-                </span>
-                <h3
-                  className="text-[15px] font-semibold mb-1"
-                  {...editableProps}
-                >
-                  {item.title}
-                </h3>
-                <p
-                  className="text-[13px] leading-relaxed text-slate-500"
-                  {...editableProps}
-                >
-                  {item.text}
-                </p>
-              </div>
-            ))}
-          </div>
+          <SectionHeader
+            displayNum="01"
+            title={content.section5.title}
+            subtitle={content.section5.subtitle}
+            sectionKey="section5"
+          />
 
           <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
+            className="border-l-[4px] pl-6 py-2"
+            style={accentBorderStyle}
           >
-            <span {...editableProps}>Conteúdo da Proposta</span>
-            <span>01</span>
+            <EditableText
+              tagName="p"
+              className="text-[16px] text-[#111827] leading-[1.85] max-w-3xl"
+              text={content.section5.description}
+              onChange={(val) =>
+                updateContent(["section5", "description"], val)
+              }
+              editable={editable}
+            />
           </div>
         </div>
       </section>
 
-      <section className={pageClass}>
+      <section
+        className={`${pageClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
         <div className={pageInnerClass}>
-          <div className="grid grid-cols-1 md:grid-cols-[0.9fr,1.4fr] gap-10">
-            <aside className="bg-gradient-to-b from-slate-50 to-slate-100 rounded-2xl px-6 py-6 md:py-7">
-              <h3 className="text-[18px] font-semibold mb-3" {...editableProps}>
-                Sobre nós
-              </h3>
-              <p
-                className="text-[14px] leading-relaxed text-slate-600"
-                {...editableProps}
-              >
-                Somos um time especializado em tecnologia, design e experiência do
-                usuário. Unimos visão estratégica, estética e desempenho para criar
-                produtos digitais que entregam resultado de verdade.
-              </p>
-            </aside>
+          <SectionHeader
+            displayNum="02"
+            title={content.section8.title}
+            subtitle={content.section8.subtitle}
+            sectionKey="section8"
+          />
 
-            <div className="flex flex-col">
-              <h2
-                className="text-[28px] font-medium"
+          <div
+            className="border-l-[4px] pl-6 py-4 flex flex-col gap-2 rounded-r-xl"
+            style={{ ...accentBorderStyle, ...accentBgLightStyle }}
+          >
+            <div className="flex items-center gap-3 flex-wrap">
+              <span
+                className="text-[11px] uppercase tracking-widest font-semibold px-3 py-1 rounded-full text-white"
+                style={accentBgStyle}
+              >
+                Melhor oferta
+              </span>
+              <EditableText
+                tagName="span"
+                className="text-[15px] font-semibold text-[#111827]"
+                text={content.section8.options.option1.title}
+                onChange={(val) =>
+                  updateContent(
+                    ["section8", "options", "option1", "title"],
+                    val
+                  )
+                }
+                editable={editable}
+              />
+            </div>
+            <EditableText
+              tagName="p"
+              className="text-[13px] text-[#6b7280]"
+              text={content.section8.options.option1.text}
+              onChange={(val) =>
+                updateContent(["section8", "options", "option1", "text"], val)
+              }
+              editable={editable}
+            />
+            <div className="flex items-baseline gap-4 mt-1">
+              {value != null && (
+                <span className="text-[15px] text-[#6b7280] line-through">
+                  {formatCurrencyBRL(value)}
+                </span>
+              )}
+              <span
+                className="text-[40px] font-black tracking-tight leading-none"
                 style={accentStyle}
-                {...editableProps}
               >
-                Nossos valores
-              </h2>
-
-              <ul className="mt-4 flex flex-col gap-4">
-                {[
-                  {
-                    title: "Excelência",
-                    text: "Cuidado em cada etapa do processo, buscando sempre entregar algo acima do esperado.",
-                  },
-                  {
-                    title: "Organização",
-                    text: "Planejamento, cronograma e comunicação claros, para que você acompanhe o projeto com segurança.",
-                  },
-                  {
-                    title: "Qualidade contínua",
-                    text: "Pensamos não só no lançamento, mas também na manutenção e evolução futura do projeto.",
-                  },
-                  {
-                    title: "Parceria",
-                    text: "Trabalhamos lado a lado com você, ouvindo feedbacks e ajustando o caminho sempre que necessário.",
-                  },
-                ].map((item, idx) => (
-                  <li
-                    key={idx}
-                    className="grid grid-cols-[auto,1fr] gap-3 items-start"
-                  >
-                    <div
-                      className="w-2.5 h-2.5 rounded-[3px] rotate-45 mt-1"
-                      style={accentBgStyle}
-                    />
-                    <div>
-                      <h4
-                        className="text-[15px] font-semibold mb-1"
-                        {...editableProps}
-                      >
-                        {item.title}
-                      </h4>
-                      <p
-                        className="text-[13px] text-slate-500"
-                        {...editableProps}
-                      >
-                        {item.text}
-                      </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                {formatCurrencyBRL(valueDiscount)}
+              </span>
             </div>
           </div>
 
-          <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
-          >
-            <span {...editableProps}>Conteúdo da Proposta</span>
-            <span>02</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 flex flex-col gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-[#6b7280] font-semibold">
+                2ª opção
+              </span>
+              <EditableText
+                tagName="h3"
+                className="text-[16px] font-semibold text-[#111827]"
+                text={content.section8.options.option2.title}
+                onChange={(val) =>
+                  updateContent(
+                    ["section8", "options", "option2", "title"],
+                    val
+                  )
+                }
+                editable={editable}
+              />
+              <EditableText
+                tagName="p"
+                className="text-[13px] text-[#6b7280] leading-relaxed"
+                text={content.section8.options.option2.text}
+                onChange={(val) =>
+                  updateContent(
+                    ["section8", "options", "option2", "text"],
+                    val
+                  )
+                }
+                editable={editable}
+              />
+              <span
+                className="text-[22px] font-bold mt-auto pt-3"
+                style={accentStyle}
+              >
+                {formatCurrencyBRL(value)}
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 flex flex-col gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-[#6b7280] font-semibold">
+                3ª opção
+              </span>
+              <EditableText
+                tagName="h3"
+                className="text-[16px] font-semibold text-[#111827]"
+                text={content.section8.options.option3.title}
+                onChange={(val) =>
+                  updateContent(
+                    ["section8", "options", "option3", "title"],
+                    val
+                  )
+                }
+                editable={editable}
+              />
+              <EditableText
+                tagName="p"
+                className="text-[13px] text-[#6b7280] leading-relaxed"
+                text={content.section8.options.option3.text}
+                onChange={(val) =>
+                  updateContent(
+                    ["section8", "options", "option3", "text"],
+                    val
+                  )
+                }
+                editable={editable}
+              />
+              <span
+                className="text-[22px] font-bold mt-auto pt-3"
+                style={accentStyle}
+              >
+                {formatCurrencyBRL(value12x)}
+                <span className="text-[14px] font-normal text-[#6b7280]">
+                  {" "}
+                  / mês
+                </span>
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 flex flex-col gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-[#6b7280] font-semibold">
+                4ª opção
+              </span>
+              <EditableText
+                tagName="h3"
+                className="text-[16px] font-semibold text-[#111827]"
+                text={content.section8.options.option4.title}
+                onChange={(val) =>
+                  updateContent(
+                    ["section8", "options", "option4", "title"],
+                    val
+                  )
+                }
+                editable={editable}
+              />
+              <EditableText
+                tagName="p"
+                className="text-[13px] text-[#6b7280] leading-relaxed"
+                text={content.section8.options.option4.text}
+                onChange={(val) =>
+                  updateContent(
+                    ["section8", "options", "option4", "text"],
+                    val
+                  )
+                }
+                editable={editable}
+              />
+              <span
+                className="text-[22px] font-bold mt-auto pt-3"
+                style={accentStyle}
+              >
+                {formatCurrencyBRL(value)}
+                <span className="text-[14px] font-normal text-[#6b7280]">
+                  {" "}
+                  a combinar
+                </span>
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className={pageClass}>
+      <section
+        className={`${pageAltClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
         <div className={pageInnerClass}>
-          <div className="flex flex-col items-center text-center gap-3">
-            <h2
-              className="text-[28px] font-medium"
-              style={accentStyle}
-              {...editableProps}
-            >
-              Etapas de Criação
-            </h2>
-            <p
-              className="text-[14px] md:text-[15px] text-slate-500 max-w-2xl"
-              {...editableProps}
-            >
-              O processo de criação do projeto é dividido em etapas claras, com pontos
-              de validação e espaço para ajustes.
-            </p>
-          </div>
+          <SectionHeader
+            displayNum="03"
+            title={content.section3.title}
+            subtitle={content.section3.subtitle}
+            sectionKey="section3"
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4">
-            {[
-              {
-                num: "01",
-                title: "Alinhamento inicial",
-                text: "Reunião para entender contexto, objetivos, público e referências. A partir disso, definimos juntos o escopo e o foco do projeto.",
-                highlight: false,
-              },
-              {
-                num: "02",
-                title: "Estrutura e design",
-                text: "Mapeamento das telas ou seções, organização das informações e desenvolvimento do layout com foco em experiência do usuário.",
-                highlight: false,
-              },
-              {
-                num: "03",
-                title: "Refinos e aprovação",
-                text: "Ajustes finos, validação com você e preparação dos arquivos finais que seguirão para desenvolvimento ou publicação.",
-                highlight: true,
-              },
-            ].map((item, idx) => (
+          <div className="flex flex-col">
+            {content.section3.steps.map((item, idx) => (
               <div
                 key={idx}
-                className={`rounded-2xl border px-5 py-6 flex flex-col gap-2 ${
-                  item.highlight
-                    ? "text-white"
-                    : "bg-white text-slate-900 border-slate-200"
+                className={`flex items-start gap-6 py-6 border-b border-[#e5e7eb] ${
+                  item.highlight ? "border-l-[4px] pl-5" : ""
                 }`}
                 style={
                   item.highlight
-                    ? { backgroundColor: primaryColor, borderColor: primaryColor }
+                    ? { ...accentBorderStyle, ...accentBgLightStyle }
                     : {}
                 }
               >
                 <span
-                  className="text-[18px] font-medium"
-                  style={!item.highlight ? accentStyle : {}}
+                  className="text-[36px] font-black leading-none shrink-0 w-16 text-center"
+                  style={accentStyle}
                 >
                   {item.num}
                 </span>
-                <h3
-                  className="text-[16px] font-semibold"
-                  {...editableProps}
-                >
-                  {item.title}
-                </h3>
-                <p
-                  className={`text-[13px] leading-relaxed ${
-                    item.highlight ? "text-teal-50" : "text-slate-500"
-                  }`}
-                  {...editableProps}
-                >
-                  {item.text}
-                </p>
+                <div className="flex flex-col gap-1">
+                  <EditableText
+                    tagName="h3"
+                    className="text-[17px] font-semibold text-[#111827]"
+                    text={item.title}
+                    onChange={(val) =>
+                      updateContent(
+                        ["section3", "steps", idx.toString(), "title"],
+                        val
+                      )
+                    }
+                    editable={editable}
+                  />
+                  <EditableText
+                    tagName="p"
+                    className="text-[14px] text-[#6b7280] leading-relaxed"
+                    text={item.text}
+                    onChange={(val) =>
+                      updateContent(
+                        ["section3", "steps", idx.toString(), "text"],
+                        val
+                      )
+                    }
+                    editable={editable}
+                  />
+                </div>
               </div>
             ))}
-          </div>
-
-          <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
-          >
-            <span {...editableProps}>Etapas de Criação</span>
-            <span>03</span>
           </div>
         </div>
       </section>
 
-      <section className={pageClass}>
+      <section
+        className={`${pageClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
         <div className={pageInnerClass}>
-          <div className="grid grid-cols-1 md:grid-cols-[0.9fr,1.4fr] gap-10 items-center">
-            <div className="flex items-center justify-center">
-              <div className="w-[230px] h-[460px] rounded-[40px] bg-black p-2.5 shadow-[0_20px_40px_rgba(15,23,42,0.35)] relative">
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 w-[120px] h-6 rounded-[14px] bg-black" />
-                <div
-                  className="w-full h-full rounded-[30px] flex items-center justify-center text-center px-4"
-                  style={accentBgStyle}
-                >
-                  <span
-                    className="text-white text-[18px] leading-snug font-medium"
-                    {...editableProps}
-                  >
-                    Seu sistema
-                    <br />
-                    100% responsivo
-                  </span>
-                </div>
-              </div>
-            </div>
+          <SectionHeader
+            displayNum="04"
+            title={content.section6.title}
+            subtitle={content.section6.subtitle}
+            sectionKey="section6"
+          />
 
-            <div className="flex flex-col justify-center">
-              <div className="flex items-center gap-2 mb-3">
-                {logoUrl ? (
-                  <div className="w-7 h-7 rounded-xl border border-slate-300 overflow-hidden flex items-center justify-center bg-white">
-                    <img
-                      src={logoUrl}
-                      alt={safeCompany}
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                ) : (
-                  <div
-                    className="w-6 h-6 rounded-md border-2 border-slate-300 border-t-4 rotate-45"
-                    style={accentBorderStyle}
-                  />
-                )}
-                <span
-                  className="text-sm font-semibold text-slate-900"
-                  {...editableProps}
-                >
-                  {safeCompany}
-                </span>
-              </div>
-
-              <h2
-                className="text-[28px] font-medium mb-2"
-                style={accentStyle}
-                {...editableProps}
+          <div className="flex flex-col">
+            {content.section6.timeline.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-start justify-between gap-6 py-5 border-b border-[#e5e7eb]"
               >
-                Projeto 100% responsivo
-              </h2>
-
-              <ul className="relative pl-6 mt-4">
-                <span
-                  className="absolute left-[5px] top-0 bottom-0 w-[3px] rounded-full"
-                  style={{
-                    background:
-                      "linear-gradient(to bottom, #0f766e, #14b8a6, #a7f3d0)",
-                  }}
+                <div className="flex flex-col gap-1 flex-1">
+                  <EditableText
+                    tagName="h3"
+                    className="text-[16px] font-semibold text-[#111827]"
+                    text={item.title}
+                    onChange={(val) =>
+                      updateContent(
+                        ["section6", "timeline", idx.toString(), "title"],
+                        val
+                      )
+                    }
+                    editable={editable}
+                  />
+                  <EditableText
+                    tagName="p"
+                    className="text-[13px] text-[#6b7280] leading-relaxed"
+                    text={item.text}
+                    onChange={(val) =>
+                      updateContent(
+                        ["section6", "timeline", idx.toString(), "text"],
+                        val
+                      )
+                    }
+                    editable={editable}
+                  />
+                </div>
+                <EditableText
+                  tagName="div"
+                  className="text-[15px] font-bold shrink-0"
+                  style={accentStyle}
+                  text={item.day}
+                  onChange={(val) =>
+                    updateContent(
+                      ["section6", "timeline", idx.toString(), "day"],
+                      val
+                    )
+                  }
+                  editable={editable}
                 />
-                {[
-                  {
-                    title: "Escala",
-                    text: "Layout pensado para diferentes tamanhos de tela, garantindo leitura confortável e navegação fluida.",
-                  },
-                  {
-                    title: "UI Design",
-                    text: "Interfaces criadas em ferramenta profissional, permitindo validação visual antes da implementação.",
-                  },
-                  {
-                    title: "Velocidade",
-                    text: "Foco em performance, boas práticas e otimizações que tornam o uso diário mais agradável.",
-                  },
-                ].map((item, idx) => (
-                  <li key={idx} className="mb-4 relative pl-4">
-                    <h4
-                      className="text-[15px] font-semibold mb-1"
-                      {...editableProps}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section
+        className={`${pageAltClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
+        <div className={pageInnerClass}>
+          <SectionHeader
+            displayNum="05"
+            title={content.section2.title}
+            subtitle={content.section2.subtitle}
+            sectionKey="section2"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-2 items-start">
+            <div className="flex flex-col gap-5">
+              <h3 className="text-[12px] uppercase font-semibold tracking-widest text-[#6b7280]">
+                Nossos valores
+              </h3>
+              <ul className="flex flex-col gap-5">
+                {content.section2.values.map((val, idx) => (
+                  <li key={idx} className="flex items-start gap-3">
+                    <span
+                      className="text-[12px] font-black mt-0.5 shrink-0 w-5 text-right leading-relaxed"
+                      style={accentStyle}
                     >
-                      {item.title}
-                    </h4>
-                    <p
-                      className="text-[13px] text-slate-500"
-                      {...editableProps}
-                    >
-                      {item.text}
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    <p className="text-[14px] text-[#111827] leading-relaxed">
+                      <EditableText
+                        tagName="span"
+                        className="font-semibold"
+                        text={val.title}
+                        onChange={(v) =>
+                          updateContent(
+                            ["section2", "values", idx.toString(), "title"],
+                            v
+                          )
+                        }
+                        editable={editable}
+                      />{" "}
+                      <EditableText
+                        tagName="span"
+                        className="text-[#6b7280]"
+                        text={val.text}
+                        onChange={(v) =>
+                          updateContent(
+                            ["section2", "values", idx.toString(), "text"],
+                            v
+                          )
+                        }
+                        editable={editable}
+                      />
                     </p>
                   </li>
                 ))}
               </ul>
             </div>
-          </div>
 
-          <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
-          >
-            <span {...editableProps}>Responsividade</span>
-            <span>04</span>
-          </div>
-        </div>
-      </section>
-
-      <section className={pageClass}>
-        <div className={pageInnerClass}>
-          <h2
-            className="text-[28px] font-medium"
-            style={accentStyle}
-            {...editableProps}
-          >
-            Descrição da Proposta
-          </h2>
-          <p
-            className="mt-4 text-[14px] leading-relaxed text-slate-700"
-            {...editableProps}
-          >
-            Esta proposta tem como objetivo organizar o projeto de {safeProject} de
-            forma clara, profissional e sustentável, conectando o posicionamento de{" "}
-            {safeClient} a uma experiência digital bem planejada.
-          </p>
-          <p
-            className="mt-4 text-[14px] leading-relaxed text-slate-700"
-            {...editableProps}
-          >
-            A partir do alinhamento inicial, estruturamos o escopo, organizamos as
-            telas ou seções, definimos o estilo visual e garantimos um fluxo de
-            navegação intuitivo. Durante o processo, você acompanha a evolução por
-            meio de pontos de validação e feedback.
-          </p>
-
-          <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
-          >
-            <span {...editableProps}>Descrição da Proposta</span>
-            <span>05</span>
+            <div className="flex flex-col gap-4">
+              <EditableText
+                tagName="h3"
+                className="text-[12px] uppercase font-semibold tracking-widest text-[#6b7280]"
+                text={content.section2.aboutTitle}
+                onChange={(val) =>
+                  updateContent(["section2", "aboutTitle"], val)
+                }
+                editable={editable}
+              />
+              <EditableText
+                tagName="p"
+                className="text-[15px] text-[#111827] leading-[1.8]"
+                text={content.section2.aboutText1}
+                onChange={(val) =>
+                  updateContent(["section2", "aboutText1"], val)
+                }
+                editable={editable}
+              />
+              <EditableText
+                tagName="p"
+                className="text-[15px] text-[#6b7280] leading-[1.8]"
+                text={content.section2.aboutText2}
+                onChange={(val) =>
+                  updateContent(["section2", "aboutText2"], val)
+                }
+                editable={editable}
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      <section className={pageClass}>
+      <section
+        className={`${pageClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
         <div className={pageInnerClass}>
-          <div className="flex flex-col items-center text-center gap-3">
-            <h2
-              className="text-[28px] font-medium"
-              style={accentStyle}
-              {...editableProps}
-            >
-              Prazos e Entregas
-            </h2>
-          </div>
+          <SectionHeader
+            displayNum="06"
+            title={content.section7.title}
+            subtitle={content.section7.subtitle}
+            sectionKey="section7"
+          />
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
-            {[
-              {
-                title: "Planejamento e design completo do projeto",
-                text: "Desenvolvimento da identidade visual aplicada, definição das principais telas ou seções e protótipos navegáveis.",
-                day: "Dia 15",
-              },
-              {
-                title: "Desenvolvimento e implementação",
-                text: "Implementação do projeto com tecnologias adequadas, garantindo performance e fidelidade ao layout aprovado.",
-                day: "Dia 30",
-              },
-              {
-                title: "Integrações e validações",
-                text: "Integração com serviços necessários, formulários, APIs e validação das funcionalidades principais.",
-                day: "Dia 45",
-              },
-              {
-                title: "Testes finais, publicação e backups",
-                text: "Rodada final de testes, ajustes pontuais, publicação em produção e configuração de backups básicos.",
-                day: "Dia 60",
-              },
-            ].map((item, idx) => (
+          {technologies.length > 0 ? (
+            <div className="flex flex-wrap gap-3 mt-2">
+              {technologies.map((tech) => (
+                <div
+                  key={tech}
+                  className="flex items-center gap-2 border border-[#e5e7eb] rounded-full px-4 py-2 bg-white"
+                >
+                  <span
+                    className="text-[13px] font-black"
+                    style={accentStyle}
+                  >
+                    {tech[0]}
+                  </span>
+                  <span className="text-[14px] text-[#111827] font-medium">
+                    {tech}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[14px] text-[#6b7280] mt-4 italic">
+              Nenhuma tecnologia informada. Você pode editar esta seção para
+              listar as principais ferramentas do projeto.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section
+        className={`${pageAltClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
+        <div className={pageInnerClass}>
+          <SectionHeader
+            displayNum="07"
+            title={content.section4.title}
+            subtitle={content.section4.subtitle}
+            sectionKey="section4"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
+            {content.section4.features.map((item, idx) => (
               <div
                 key={idx}
-                className="rounded-2xl border border-slate-200 px-4 py-5 flex flex-col h-full bg-white"
+                className="bg-white border border-[#e5e7eb] rounded-xl p-6 flex flex-col gap-3"
               >
-                <div className="flex-1">
-                  <h3
-                    className="text-[15px] font-semibold mb-2"
-                    {...editableProps}
-                  >
-                    {item.title}
-                  </h3>
-                  <p
-                    className="text-[13px] text-slate-500"
-                    {...editableProps}
-                  >
-                    {item.text}
-                  </p>
-                </div>
-                <div className="mt-4">
-                  <div
-                    className="h-[3px] rounded-full mb-3"
-                    style={{
-                      background:
-                        "linear-gradient(90deg,#0f766e,#14b8a6,#a7f3d0)",
-                    }}
-                  />
-                  <div
-                    className="text-[16px] font-semibold text-slate-800"
-                    {...editableProps}
-                  >
-                    {item.day}
-                  </div>
-                </div>
+                <span
+                  className="text-[28px] font-black leading-none"
+                  style={accentStyle}
+                >
+                  {String(idx + 1).padStart(2, "0")}
+                </span>
+                <EditableText
+                  tagName="h3"
+                  className="text-[16px] font-semibold text-[#111827]"
+                  text={item.title}
+                  onChange={(val) =>
+                    updateContent(
+                      ["section4", "features", idx.toString(), "title"],
+                      val
+                    )
+                  }
+                  editable={editable}
+                />
+                <EditableText
+                  tagName="p"
+                  className="text-[13px] text-[#6b7280] leading-relaxed"
+                  text={item.text}
+                  onChange={(val) =>
+                    updateContent(
+                      ["section4", "features", idx.toString(), "text"],
+                      val
+                    )
+                  }
+                  editable={editable}
+                />
               </div>
             ))}
           </div>
-
-          <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
-          >
-            <span {...editableProps}>Prazos e Entregas</span>
-            <span>06</span>
-          </div>
         </div>
       </section>
 
-      <section className={pageClass}>
+      <section
+        className={`${pageClass} pdf-section`}
+        style={{ pageBreakBefore: "always" }}
+      >
         <div className={pageInnerClass}>
-          <h2
-            className="text-[28px] font-medium"
-            style={accentStyle}
-            {...editableProps}
-          >
-            Tecnologias e ferramentas usadas no projeto
-          </h2>
+          <SectionHeader
+            displayNum="08"
+            title="O que cobrimos"
+            subtitle={content.section1.subtitle}
+            sectionKey="section1"
+          />
 
-          <ul className="mt-2 mb-3 list-none p-0">
-            <li className="inline-flex items-center gap-2 text-[14px] text-slate-700">
-              <span
-                className="w-2.5 h-2.5 rounded-[3px] rotate-45"
-                style={accentBgStyle}
-              />
-              <span {...editableProps}>Framer</span>
-            </li>
-          </ul>
-
-          <p
-            className="text-[13px] leading-relaxed text-slate-500"
-            {...editableProps}
-          >
-            Algumas tecnologias específicas podem ser definidas ao longo do projeto,
-            de acordo com as necessidades identificadas em conjunto. O foco é sempre
-            garantir um equilíbrio entre performance, segurança, escalabilidade e
-            facilidade de manutenção.
-          </p>
-
-          <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
-          >
-            <span {...editableProps}>Tecnologias</span>
-            <span>07</span>
-          </div>
-        </div>
-      </section>
-
-      <section className={pageClass}>
-        <div className={pageInnerClass}>
-          <div className="flex items-center justify-between gap-4 mb-4">
-            <h2
-              className="text-[28px] font-medium"
-              style={accentStyle}
-              {...editableProps}
-            >
-              Investimento
-            </h2>
-            <div className="flex items-center gap-3 text-[12px] text-slate-500">
-              <span {...editableProps}>Contrato</span>
-              <span {...editableProps}>Nota fiscal</span>
-            </div>
-          </div>
-
-          <p
-            className="text-[13px] leading-relaxed text-slate-600 mb-5"
-            {...editableProps}
-          >
-            A seguir estão algumas formas de investimento sugeridas. Os valores podem
-            ser ajustados conforme o escopo final do projeto. Os campos de valor
-            podem ser preenchidos automaticamente a partir do painel do FlowDesk.
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div
-              className="relative rounded-2xl border px-5 py-6 flex flex-col gap-2 text-white"
-              style={accentBgStyle}
-            >
-              <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] font-semibold bg-white text-slate-800">
-                1ª
-              </div>
-              <h3
-                className="mt-6 text-[16px] font-semibold"
-                {...editableProps}
+          <div className="flex flex-col mt-2">
+            {content.section1.items.map((item, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-6 py-5 border-b border-[#e5e7eb]"
               >
-                À vista
-              </h3>
-              <p
-                className="text-[13px] text-teal-50"
-                {...editableProps}
-              >
-                Pagamento à vista com condição especial para fechamento rápido.
-              </p>
-              <p
-                className="text-[13px] line-through text-teal-100"
-                {...editableProps}
-              >
-                {formatCurrencyBRL(value)}
-              </p>
-              <p
-                className="text-[18px] font-semibold"
-                {...editableProps}
-              >
-                {formatCurrencyBRL(valueDiscount)}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div className="relative rounded-2xl border border-slate-200 px-5 py-6 bg-white flex flex-col gap-2">
-                <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] font-semibold bg-white text-slate-800 border border-slate-200">
-                  2ª
+                <span
+                  className="text-[15px] font-black shrink-0 w-8"
+                  style={accentStyle}
+                >
+                  {item.num}
+                </span>
+                <div className="flex flex-col gap-1 flex-1">
+                  <EditableText
+                    tagName="h3"
+                    className="text-[15px] font-semibold text-[#111827]"
+                    text={item.title}
+                    onChange={(val) =>
+                      updateContent(
+                        ["section1", "items", idx.toString(), "title"],
+                        val
+                      )
+                    }
+                    editable={editable}
+                  />
+                  <EditableText
+                    tagName="p"
+                    className="text-[13px] text-[#6b7280] leading-relaxed"
+                    text={item.text}
+                    onChange={(val) =>
+                      updateContent(
+                        ["section1", "items", idx.toString(), "text"],
+                        val
+                      )
+                    }
+                    editable={editable}
+                  />
                 </div>
-                <h3
-                  className="mt-6 text-[16px] font-semibold"
-                  {...editableProps}
-                >
-                  50% / 50%
-                </h3>
-                <p
-                  className="text-[13px] text-slate-500"
-                  {...editableProps}
-                >
-                  Pagamento dividido em duas parcelas iguais: uma no início do
-                  projeto e outra na entrega final.
-                </p>
-                <p
-                  className="text-[16px] font-semibold text-slate-900"
-                  {...editableProps}
-                >
-                  Total: {formatCurrencyBRL(value)}
-                </p>
               </div>
-
-              <div className="relative rounded-2xl border border-slate-200 px-5 py-6 bg-white flex flex-col gap-2">
-                <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] font-semibold bg-white text-slate-800 border border-slate-200">
-                  3ª
-                </div>
-                <h3
-                  className="mt-6 text-[16px] font-semibold"
-                  {...editableProps}
-                >
-                  12x no cartão
-                </h3>
-                <p
-                  className="text-[13px] text-slate-500"
-                  {...editableProps}
-                >
-                  Pagamento parcelado em até 12x no cartão de crédito, ideal para
-                  diluir o investimento no tempo.
-                </p>
-                <p
-                  className="text-[16px] font-semibold text-slate-900"
-                  {...editableProps}
-                >
-                  {formatCurrencyBRL(value12x)} / mês (estimado)
-                </p>
-              </div>
-            </div>
-
-            <div className="relative rounded-2xl border border-slate-200 px-5 py-6 bg-white flex flex-col gap-2">
-              <div className="absolute top-4 left-4 px-3 py-1 rounded-full text-[11px] font-semibold bg-white text-slate-800 border border-slate-200">
-                4ª
-              </div>
-              <h3
-                className="mt-6 text-[16px] font-semibold"
-                {...editableProps}
-              >
-                Parcelado no PIX
-              </h3>
-              <p
-                className="text-[13px] text-slate-500"
-                {...editableProps}
-              >
-                Pagamento dividido em parcelas por PIX, com datas e condições
-                acordadas em conjunto.
-              </p>
-              <p
-                className="text-[16px] font-semibold text-slate-900"
-                {...editableProps}
-              >
-                {formatCurrencyBRL(value)} em parcelas a combinar
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-8 text-[12px] text-slate-600">
-            <div className="flex flex-col gap-2">
-              <div className="h-px bg-slate-300" />
-              <div className="font-medium" {...editableProps}>
-                {safeCompany}
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="h-px bg-slate-300" />
-              <div className="font-medium" {...editableProps}>
-                {safeClient}
-              </div>
-            </div>
-          </div>
-
-          <div
-            className="mt-12 h-10 rounded-full flex items-center justify-between px-8 text-[12px] text-white"
-            style={footerStyle}
-          >
-            <span {...editableProps}>Investimento</span>
-            <span>08</span>
+            ))}
           </div>
         </div>
       </section>
