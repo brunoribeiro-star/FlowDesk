@@ -13,6 +13,7 @@ export interface Task {
   created_at: string;
   updated_at: string | null;
   concluida: boolean | null;
+  completed_at: string | null;
 }
 
 export interface NovaTask {

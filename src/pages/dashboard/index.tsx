@@ -213,12 +213,17 @@ export default function DashboardHome() {
   );
 
   const pagamentosPendentesTotal = useMemo(() => {
+    const isDoneStatus = (status: string) => {
+      const s = String(status || "").toLowerCase();
+      return s === "concluído" || s === "concluido" || s === "finalizado" || s === "arquivado";
+    };
+
     const projectsWithPayments = new Set(pagamentos.map(p => p.projeto_id).filter(id => id));
 
     const pendentes = pagamentos.filter((p) => {
       if (p.projeto_id) {
         const proj = projetos.find(proj => proj.id === p.projeto_id);
-        if (proj && proj.status === "Concluído") return false;
+        if (proj && isDoneStatus(proj.status)) return false;
       }
       if (!p.status) return true;
       const s = String(p.status).toLowerCase();
@@ -229,11 +234,11 @@ export default function DashboardHome() {
 
     projetos.forEach((p) => {
       if (projectsWithPayments.has(p.id)) return;
-      
+
       const orcamento = Number(p.orcamento) || 0;
       if (orcamento <= 0) return;
 
-      if (p.forma_pagamento === "pix_2x" && p.status !== "Concluído") {
+      if (p.forma_pagamento === "pix_2x" && !isDoneStatus(p.status)) {
         total += orcamento / 2;
       }
     });
@@ -252,9 +257,7 @@ export default function DashboardHome() {
       const proj = ms.projetos as any;
       if (!proj) return;
       if (ms.payment_status === "paid") return;
-      const s = String(proj.status || "").toLowerCase();
-      const isPaid = s === "concluído" || s === "concluido";
-      if (isPaid) return;
+      if (isDoneStatus(proj.status)) return;
       const orcamento = Number(proj.orcamento ?? 0);
       if (ms.split_type === "percentage") {
         collabFallbackPending += orcamento * (Number(ms.split_value) / 100);

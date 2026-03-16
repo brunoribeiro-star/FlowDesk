@@ -10,6 +10,7 @@ export interface Projeto {
     valor?: number;
     prazo_entrega?: string;
     created_at: string;
+    completed_at?: string | null;
 }
 
 export async function getProjetos(): Promise<Projeto[]> {
