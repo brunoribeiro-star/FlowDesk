@@ -118,7 +118,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!e.project_id) return;
     projectTimeMap[e.project_id] = (projectTimeMap[e.project_id] ?? 0) + Number(e.duration_seconds ?? 0);
   });
-  const execucoesProjeto = Object.values(projectTimeMap).map((s) => s / 3600); // em horas
+  const execucoesProjeto = Object.values(projectTimeMap).map((s) => s / 3600);
 
   const tempoExecucaoMedioProjetoHoras =
     execucoesProjeto.length > 0

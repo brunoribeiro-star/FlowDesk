@@ -68,7 +68,7 @@ export function formatCurrency(value: number | null | undefined): string {
 }
 
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-export const MAX_IMAGE_SIZE_BYTES = 1 * 1024 * 1024; // fallback 1 MB
+export const MAX_IMAGE_SIZE_BYTES = 1 * 1024 * 1024;
 
 export function validateImageFile(file: File, spec?: { label: string; maxKB: number }): string | null {
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {

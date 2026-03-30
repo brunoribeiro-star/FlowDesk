@@ -33,6 +33,7 @@ export default function DashboardHome() {
   const [collabMemberSplits, setCollabMemberSplits] = useState<any[]>([]);
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
   const [ownedMemberSplits, setOwnedMemberSplits] = useState<any[]>([]);
+  const [ownedCollabPaySplitsPending, setOwnedCollabPaySplitsPending] = useState<any[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -130,6 +131,13 @@ export default function DashboardHome() {
           .in("project_id", ownedProjectIds)
           .neq("member_user_id", authUser!.id)
           .then(({ data }) => setOwnedMemberSplits(data || []));
+
+        supabase
+          .from("collaborator_payment_splits")
+          .select("amount, project_id")
+          .in("project_id", ownedProjectIds)
+          .eq("status", "pendente")
+          .then(({ data }) => setOwnedCollabPaySplitsPending(data || []));
       }
     }
 
@@ -237,9 +245,13 @@ export default function DashboardHome() {
 
       const orcamento = Number(p.orcamento) || 0;
       if (orcamento <= 0) return;
+      if (isDoneStatus(p.status)) return;
 
-      if (p.forma_pagamento === "pix_2x" && !isDoneStatus(p.status)) {
+      const fp = p.forma_pagamento;
+      if (fp === "pix_2x" || fp === "50/50") {
         total += orcamento / 2;
+      } else if (fp === "pix" || fp === "cartao") {
+        total += orcamento;
       }
     });
 
@@ -266,8 +278,14 @@ export default function DashboardHome() {
       }
     });
 
-    return total + collabPending + collabFallbackPending;
-  }, [pagamentos, projetos, collabPaySplits, collabMemberSplits]);
+    // Subtrai repasses pendentes a colaboradores nos projetos do owner
+    const ownedCollabPending = ownedCollabPaySplitsPending.reduce(
+      (acc: number, s: any) => acc + Number(s.amount ?? 0),
+      0
+    );
+
+    return total + collabPending + collabFallbackPending - ownedCollabPending;
+  }, [pagamentos, projetos, collabPaySplits, collabMemberSplits, ownedCollabPaySplitsPending]);
 
   const tarefasVencendo = useMemo(() => {
     const now = new Date();
