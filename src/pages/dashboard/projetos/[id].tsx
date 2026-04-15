@@ -1499,26 +1499,9 @@ export default function ProjetoDetalhesPage() {
                     </form>
 
                     <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {projeto.link_arquivos && (
-                        <div className="mb-3 flex items-center gap-2 bg-primary-900/60 border border-primary-600/40 rounded-2xl px-4 py-3">
-                          <Link2 size={15} className="text-primary-400 shrink-0" />
-                          <div className="flex flex-col min-w-0">
-                            <a
-                              href={projeto.link_arquivos.startsWith("http") ? projeto.link_arquivos : `https://${projeto.link_arquivos}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[15px] text-primary-300 hover:underline truncate"
-                            >
-                              {projeto.link_arquivos}
-                            </a>
-                            <span className="text-[11px] text-gray-500">Link do projeto (cadastro)</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {links.length === 0 && !projeto.link_arquivos ? (
+                      {links.length === 0 ? (
                         <div className="text-gray-400">Nenhum link adicionado.</div>
-                      ) : links.length === 0 ? null : (
+                      ) : (
                         <ul className="flex flex-col gap-2">
                           {links.map((l) => (
                             <li key={l.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">

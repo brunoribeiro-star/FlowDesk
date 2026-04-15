@@ -500,7 +500,6 @@ export default function NovoProjetoPage() {
             prazo_entrega: form.prazo_entrega || null,
             status: form.status,
             progresso: 0,
-            link_arquivos: JSON.stringify(projetoLinks.filter(l => l.titulo.trim() && l.url.trim())),
             notas_internas: form.notas_internas || null,
             forma_pagamento: form.forma_pagamento,
             user_id: user.id,
@@ -582,6 +581,18 @@ export default function NovoProjetoPage() {
             }))
           );
         }
+      }
+
+      const validLinks = projetoLinks.filter(l => l.url.trim());
+      if (validLinks.length > 0) {
+        await supabase.from("links_projeto").insert(
+          validLinks.map(l => ({
+            user_id: user.id,
+            projeto_id: data.id,
+            titulo: l.titulo.trim() || null,
+            url: l.url.trim(),
+          }))
+        );
       }
 
       showPopup("✨ Projeto criado com sucesso!", "success");
