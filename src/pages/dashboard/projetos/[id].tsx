@@ -17,7 +17,7 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer } from "lucide-react";
+import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe } from "lucide-react";
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -107,7 +107,22 @@ type BriefingEnvio = {
   template?: { id: string; titulo: string } | null;
 };
 
-type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing";
+type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing" | "entregaveis";
+
+type Entregavel = {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  url: string | null;
+  arquivo_url: string | null;
+  arquivo_tipo: string | null;
+  status: "rascunho" | "aguardando_aprovacao" | "aprovado" | "para_alteracao";
+  feedback_cliente: string | null;
+  feedback_imagem_url: string | null;
+  feedback_pins: Array<{ xPct: number; yPct: number; text: string }> | null;
+  reviewed_at: string | null;
+  created_at: string;
+};
 
 function safeParseJSON(value: any) {
   if (!value) return null;
@@ -268,6 +283,19 @@ export default function ProjetoDetalhesPage() {
   const [markingMemberId, setMarkingMemberId] = useState<string | null>(null);
   const [requestingPayment, setRequestingPayment] = useState(false);
   const [ownerCollabSplits, setOwnerCollabSplits] = useState<any[]>([]);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalMsg, setPortalMsg] = useState<string | null>(null);
+  const [portalUrl, setPortalUrl] = useState<string | null>(null);
+
+  const [entregaveis, setEntregaveis] = useState<Entregavel[]>([]);
+  const [newEntregavel, setNewEntregavel] = useState({ titulo: "", descricao: "", url: "" });
+  const [entregavelAnexoTipo, setEntregavelAnexoTipo] = useState<"nenhum" | "link" | "arquivo">("nenhum");
+  const [entregavelArquivo, setEntregavelArquivo] = useState<File | null>(null);
+  const [addingEntregavel, setAddingEntregavel] = useState(false);
+  const [sendingEntregavelId, setSendingEntregavelId] = useState<string | null>(null);
+  const [deletingEntregavelId, setDeletingEntregavelId] = useState<string | null>(null);
+  const [feedbackViewerId, setFeedbackViewerId] = useState<string | null>(null);
+  const [uploadingCorrectedId, setUploadingCorrectedId] = useState<string | null>(null);
 
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [newTaskForm, setNewTaskForm] = useState({ titulo: "", due_date: "", assigned_to: "", subtasks: [] as string[] });
@@ -324,6 +352,7 @@ export default function ProjetoDetalhesPage() {
           { data: mySplitData },
           { data: myCollabSplitsData },
           { data: ownerCollabSplitsData },
+          { data: entregaveisData },
         ] = await Promise.all([
           supabase
             .from("projetos")
@@ -336,12 +365,13 @@ export default function ProjetoDetalhesPage() {
           supabase.from("briefings").select("*").eq("projeto_id", id).maybeSingle(),
           supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, created_at, template:template_id(id, titulo)").eq("user_id", authUser.id).order("created_at", { ascending: false }),
           supabase.from("clientes").select("id, nome, empresa").eq("user_id", authUser.id).order("nome", { ascending: true }),
-          supabase.from("project_members").select("user_id, role, email, nome, avatar_url").eq("project_id", id),
+          supabase.from("project_members").select("user_id, role, email, nome, avatar_url").eq("project_id", id).neq("role", "cliente"),
           supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status").eq("project_id", id),
           supabase.from("project_invites").select("id, invited_email, status, split_type, split_value").eq("project_id", id).eq("status", "pending"),
           supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id).maybeSingle(),
           supabase.from("collaborator_payment_splits").select("id, pagamento_id, amount, status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id),
           supabase.from("collaborator_payment_splits").select("id, pagamento_id, member_user_id, amount, status, paid_at").eq("project_id", id),
+          supabase.from("entregaveis").select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, status, feedback_cliente, feedback_imagem_url, feedback_pins, reviewed_at, created_at").eq("project_id", id).order("created_at", { ascending: false }),
         ]);
 
         if (projetoErr) throw projetoErr;
@@ -367,6 +397,7 @@ export default function ProjetoDetalhesPage() {
         setMySplit((mySplitData as any) || null);
         setMyCollabSplits((myCollabSplitsData || []) as any[]);
         setOwnerCollabSplits((ownerCollabSplitsData || []) as any[]);
+        setEntregaveis((entregaveisData || []) as Entregavel[]);
 
         setError(null);
 
@@ -972,6 +1003,34 @@ export default function ProjetoDetalhesPage() {
     }
   }, [projeto, inviteEmail, inviteSplitType, inviteSplitValue, inviteAlreadyPaid]);
 
+  const handleSendPortalAccess = useCallback(async () => {
+    if (!projeto) return;
+    setPortalLoading(true);
+    setPortalMsg(null);
+    setPortalUrl(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch("/api/client-invites/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ project_id: projeto.id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Erro desconhecido");
+      if (json.email_sent) {
+        setPortalMsg("✓ Link de acesso enviado por e-mail.");
+      } else {
+        setPortalMsg(`E-mail não enviado${json.email_error ? `: ${json.email_error}` : ""}. Copie o link abaixo:`);
+        setPortalUrl(json.portalUrl);
+      }
+    } catch (err: any) {
+      setPortalMsg(err.message || "Erro ao enviar acesso.");
+    } finally {
+      setPortalLoading(false);
+    }
+  }, [projeto]);
+
   const handleSaveSplit = useCallback(async (memberUserId: string) => {
     if (!projeto || !editSplitValue) return;
     setSavingSplit(true);
@@ -1078,6 +1137,114 @@ export default function ProjetoDetalhesPage() {
     }
   }, [projeto]);
 
+
+  const handleAddEntregavel = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projeto || !newEntregavel.titulo.trim()) return;
+
+    const ALLOWED = ["image/png", "image/jpeg", "application/pdf"];
+    if (entregavelAnexoTipo === "arquivo" && entregavelArquivo) {
+      if (!ALLOWED.includes(entregavelArquivo.type)) {
+        setNotify({ open: true, msg: "Apenas PNG, JPEG e PDF são permitidos." });
+        return;
+      }
+      if (entregavelArquivo.size > 10 * 1024 * 1024) {
+        setNotify({ open: true, msg: "Arquivo muito grande. Limite: 10MB." });
+        return;
+      }
+    }
+
+    setAddingEntregavel(true);
+    try {
+      let arquivoUrl: string | null = null;
+      let arquivoTipo: string | null = null;
+
+      if (entregavelAnexoTipo === "arquivo" && entregavelArquivo) {
+        const ext = entregavelArquivo.name.split(".").pop();
+        const path = `${user.id}/${projeto.id}/entregaveis/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage.from("projetos").upload(path, entregavelArquivo);
+        if (upErr) throw upErr;
+        const { data: pub } = supabase.storage.from("projetos").getPublicUrl(path);
+        arquivoUrl = pub.publicUrl;
+        arquivoTipo = entregavelArquivo.type;
+      }
+
+      const { data, error } = await supabase
+        .from("entregaveis")
+        .insert([{
+          project_id: projeto.id,
+          user_id: user.id,
+          titulo: newEntregavel.titulo.trim(),
+          descricao: newEntregavel.descricao.trim() || null,
+          url: entregavelAnexoTipo === "link" ? newEntregavel.url.trim() || null : null,
+          arquivo_url: arquivoUrl,
+          arquivo_tipo: arquivoTipo,
+          status: "rascunho",
+        }])
+        .select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, status, feedback_cliente, reviewed_at, created_at")
+        .single();
+      if (error) throw error;
+      setEntregaveis(prev => [data as Entregavel, ...prev]);
+      setNewEntregavel({ titulo: "", descricao: "", url: "" });
+      setEntregavelAnexoTipo("nenhum");
+      setEntregavelArquivo(null);
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao criar entregável: " + err.message });
+    } finally {
+      setAddingEntregavel(false);
+    }
+  }, [projeto, newEntregavel, entregavelAnexoTipo, entregavelArquivo, user]);
+
+  const handleSendEntregavel = useCallback(async (entregavelId: string) => {
+    setSendingEntregavelId(entregavelId);
+    try {
+      const { error } = await supabase
+        .from("entregaveis")
+        .update({ status: "aguardando_aprovacao" })
+        .eq("id", entregavelId);
+      if (error) throw error;
+      setEntregaveis(prev => prev.map(e => e.id === entregavelId ? { ...e, status: "aguardando_aprovacao" as const } : e));
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao enviar entregável: " + err.message });
+    } finally {
+      setSendingEntregavelId(null);
+    }
+  }, []);
+
+  const handleUploadCorrectedFile = useCallback(async (entregavelId: string, file: File) => {
+    if (!projeto || !user) return;
+    setUploadingCorrectedId(entregavelId);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/${projeto.id}/entregaveis/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("projetos").upload(path, file);
+      if (upErr) throw upErr;
+      const { data: pub } = supabase.storage.from("projetos").getPublicUrl(path);
+      const { error } = await supabase
+        .from("entregaveis")
+        .update({ arquivo_url: pub.publicUrl, arquivo_tipo: file.type })
+        .eq("id", entregavelId);
+      if (error) throw error;
+      setEntregaveis(prev => prev.map(e => e.id === entregavelId ? { ...e, arquivo_url: pub.publicUrl, arquivo_tipo: file.type } : e));
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao enviar arquivo: " + err.message });
+    } finally {
+      setUploadingCorrectedId(null);
+    }
+  }, [projeto, user]);
+
+  const handleDeleteEntregavel = useCallback(async (entregavelId: string) => {
+    setDeletingEntregavelId(entregavelId);
+    try {
+      const { error } = await supabase.from("entregaveis").delete().eq("id", entregavelId);
+      if (error) throw error;
+      setEntregaveis(prev => prev.filter(e => e.id !== entregavelId));
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao remover entregável: " + err.message });
+    } finally {
+      setDeletingEntregavelId(null);
+    }
+  }, []);
 
   if (loading) {
     return <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center">Carregando…</div>;
@@ -1251,14 +1418,46 @@ export default function ProjetoDetalhesPage() {
 
                   <div className="flex flex-col items-start md:items-end gap-2">
                     {user && projeto.user_id === user.id && (
-                      <button
-                        type="button"
-                        onClick={openEditHeader}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
-                      >
-                        <Pencil size={14} />
-                        Editar projeto
-                      </button>
+                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <button
+                          type="button"
+                          onClick={openEditHeader}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
+                        >
+                          <Pencil size={14} />
+                          Editar projeto
+                        </button>
+                        {(projeto as any).clientes?.email && (
+                          <div className="flex flex-col items-end gap-1">
+                            <button
+                              type="button"
+                              disabled={portalLoading}
+                              onClick={handleSendPortalAccess}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors disabled:opacity-60"
+                            >
+                              <Globe size={14} />
+                              {portalLoading ? "Enviando..." : "Enviar portal ao cliente"}
+                            </button>
+                            {portalMsg && (
+                              <span className={`text-[12px] ${portalMsg.startsWith("✓") ? "text-third-400" : "text-yellow-400"}`}>
+                                {portalMsg}
+                              </span>
+                            )}
+                            {portalUrl && (
+                              <div className="flex items-center gap-1.5 bg-primary-900 border border-primary-700 rounded-lg px-2 py-1 max-w-[260px]">
+                                <span className="text-[11px] text-primary-300 truncate flex-1">{portalUrl}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => { navigator.clipboard.writeText(portalUrl); setNotify({ open: true, msg: "Link copiado!" }); }}
+                                  className="text-gray-500 hover:text-gray-300 transition-colors flex-shrink-0 text-[11px]"
+                                >
+                                  Copiar
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                     <div className="w-full md:w-[360px]">
                       <div className="w-full h-2.5 bg-primary-900/60 border border-primary-700 rounded-full overflow-hidden">
@@ -1369,6 +1568,7 @@ export default function ProjetoDetalhesPage() {
                   ["arquivos", "Arquivos"],
                   ["links", "Links"],
                   ["briefing", "Briefing"],
+                  ["entregaveis", "Entregáveis"],
                 ] as Array<[TabId, string]>).map(([key, label]) => (
                   <button
                     key={key}
@@ -1585,6 +1785,223 @@ export default function ProjetoDetalhesPage() {
                   </div>
                 )}
 
+                {activeTab === "entregaveis" && (
+                  <div className="flex flex-col h-full gap-4">
+                    <h3 className="text-[20px] text-primary-100 font-semibold">Entregáveis</h3>
+
+                    {projeto?.user_id === user?.id && (
+                      <form onSubmit={handleAddEntregavel} className="flex flex-col gap-2 bg-primary-900/60 border border-primary-700 rounded-2xl p-4">
+                        <h4 className="text-[14px] text-gray-300 font-medium">Novo entregável</h4>
+                        <input
+                          type="text"
+                          placeholder="Título *"
+                          required
+                          value={newEntregavel.titulo}
+                          onChange={e => setNewEntregavel(p => ({ ...p, titulo: e.target.value }))}
+                          className="w-full rounded-xl bg-primary-800 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400 text-[14px]"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Descrição (opcional)"
+                          value={newEntregavel.descricao}
+                          onChange={e => setNewEntregavel(p => ({ ...p, descricao: e.target.value }))}
+                          className="w-full rounded-xl bg-primary-800 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400 text-[14px]"
+                        />
+
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[13px] text-gray-400">Anexo</span>
+                          <div className="flex gap-3">
+                            {(["nenhum", "link", "arquivo"] as const).map((opt) => (
+                              <label key={opt} className="flex items-center gap-1.5 cursor-pointer text-[13px] text-gray-300">
+                                <input
+                                  type="radio"
+                                  name="anexoTipo"
+                                  value={opt}
+                                  checked={entregavelAnexoTipo === opt}
+                                  onChange={() => { setEntregavelAnexoTipo(opt); setEntregavelArquivo(null); }}
+                                  className="accent-primary-400"
+                                />
+                                {opt === "nenhum" ? "Nenhum" : opt === "link" ? "Link externo" : "Arquivo"}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {entregavelAnexoTipo === "link" && (
+                          <input
+                            type="url"
+                            placeholder="https://..."
+                            value={newEntregavel.url}
+                            onChange={e => setNewEntregavel(p => ({ ...p, url: e.target.value }))}
+                            className="w-full rounded-xl bg-primary-800 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400 text-[14px]"
+                          />
+                        )}
+
+                        {entregavelAnexoTipo === "arquivo" && (
+                          <div>
+                            <label className="flex flex-col items-center justify-center w-full rounded-xl border border-dashed border-primary-600 bg-primary-800 px-4 py-4 text-center cursor-pointer hover:bg-primary-700 transition">
+                              <span className="text-[13px] text-gray-400">
+                                {entregavelArquivo
+                                  ? <span className="text-primary-300">{entregavelArquivo.name}</span>
+                                  : <><span className="text-primary-300">Clique para selecionar</span> — PNG, JPEG ou PDF (máx. 10MB)</>
+                                }
+                              </span>
+                              <input
+                                type="file"
+                                accept=".png,.jpg,.jpeg,.pdf"
+                                className="hidden"
+                                onChange={e => setEntregavelArquivo(e.target.files?.[0] || null)}
+                              />
+                            </label>
+                          </div>
+                        )}
+
+                        <div className="flex justify-end">
+                          <button
+                            type="submit"
+                            disabled={addingEntregavel || (entregavelAnexoTipo === "arquivo" && !entregavelArquivo)}
+                            className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[14px] font-semibold transition-colors disabled:opacity-60"
+                          >
+                            {addingEntregavel ? "Criando..." : "Criar entregável"}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+                      {entregaveis.length === 0 ? (
+                        <div className="text-gray-400">Nenhum entregável criado ainda.</div>
+                      ) : (
+                        <ul className="flex flex-col gap-3">
+                          {entregaveis.map(ent => {
+                            const statusMap: Record<string, { label: string; cls: string }> = {
+                              rascunho: { label: "Rascunho", cls: "bg-primary-700 text-gray-200" },
+                              aguardando_aprovacao: { label: "Aguardando aprovação", cls: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40" },
+                              aprovado: { label: "Aprovado", cls: "bg-third-400/20 text-third-300 border border-third-400/40" },
+                              para_alteracao: { label: "Para alteração", cls: "bg-primary-700/60 text-primary-200 border border-primary-600" },
+                            };
+                            const badge = statusMap[ent.status] || { label: ent.status, cls: "bg-primary-700 text-gray-200" };
+                            const canSend = ent.status === "rascunho" || ent.status === "para_alteracao";
+                            const isOwner = projeto?.user_id === user?.id;
+                            const hasFeedbackImage = ent.status === "para_alteracao" && !!ent.feedback_imagem_url;
+                            return (
+                              <li key={ent.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-4 flex flex-col gap-2">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-[16px] text-primary-100 font-semibold truncate">{ent.titulo}</span>
+                                    {ent.descricao && <span className="text-[13px] text-gray-400 mt-0.5">{ent.descricao}</span>}
+                                    {ent.url && (
+                                      <a href={ent.url} target="_blank" rel="noreferrer" className="text-[13px] text-primary-300 hover:underline mt-1 truncate block">
+                                        {ent.url}
+                                      </a>
+                                    )}
+                                    {ent.arquivo_url && ent.arquivo_tipo === "application/pdf" && (
+                                      <a href={ent.arquivo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] text-primary-300 hover:underline mt-1">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                        Abrir PDF
+                                      </a>
+                                    )}
+                                  </div>
+                                  <span className={`shrink-0 px-3 py-1 rounded-full text-[12px] font-medium ${badge.cls}`}>
+                                    {badge.label}
+                                  </span>
+                                </div>
+
+                                {/* Entregável original — clicável para tela cheia quando há feedback de imagem */}
+                                {ent.arquivo_url && ent.arquivo_tipo?.startsWith("image/") && (
+                                  hasFeedbackImage ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setFeedbackViewerId(ent.id)}
+                                      className="w-full group relative rounded-xl overflow-hidden border border-primary-700 bg-primary-900/40"
+                                    >
+                                      <img src={ent.arquivo_url} alt={ent.titulo} className="w-full max-h-56 object-contain group-hover:opacity-75 transition-opacity" />
+                                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                        <span className="bg-black/60 text-white text-[12px] font-medium rounded-lg px-3 py-1.5">Ver feedback do cliente</span>
+                                      </div>
+                                    </button>
+                                  ) : (
+                                    <img
+                                      src={ent.arquivo_url}
+                                      alt={ent.titulo}
+                                      className="w-full max-h-56 object-contain rounded-xl border border-primary-700 bg-primary-900/40"
+                                    />
+                                  )
+                                )}
+
+                                {ent.status === "para_alteracao" && ent.feedback_cliente && (
+                                  <div className="bg-primary-700/60 border border-primary-600 rounded-xl px-3 py-2 text-[13px] text-gray-300">
+                                    <span className="font-semibold text-gray-200">Feedback do cliente: </span>{ent.feedback_cliente}
+                                  </div>
+                                )}
+
+                                {hasFeedbackImage && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setFeedbackViewerId(ent.id)}
+                                    className="w-full text-left rounded-xl overflow-hidden border border-primary-600 bg-primary-800/60 group"
+                                  >
+                                    <div className="px-3 py-1.5 flex items-center justify-between text-[12px] text-gray-400 group-hover:text-gray-200 transition-colors">
+                                      <span>Imagem anotada pelo cliente — clique para abrir</span>
+                                      <span className="text-primary-400">↗</span>
+                                    </div>
+                                    <img
+                                      src={ent.feedback_imagem_url!}
+                                      alt="Anotação do cliente"
+                                      className="w-full max-h-48 object-contain bg-primary-900/40"
+                                    />
+                                  </button>
+                                )}
+
+                                {/* Upload arquivo corrigido para "para_alteracao" */}
+                                {isOwner && ent.status === "para_alteracao" && ent.arquivo_url && (
+                                  <label className="flex items-center gap-2 cursor-pointer w-fit">
+                                    <input
+                                      type="file"
+                                      accept="image/*,application/pdf"
+                                      className="hidden"
+                                      disabled={uploadingCorrectedId === ent.id}
+                                      onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadCorrectedFile(ent.id, f); e.target.value = ""; }}
+                                    />
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-800 border border-primary-700 text-gray-300 hover:text-gray-100 text-[13px] transition-colors">
+                                      {uploadingCorrectedId === ent.id ? "Enviando..." : "Substituir arquivo corrigido"}
+                                    </span>
+                                  </label>
+                                )}
+
+                                {isOwner && (
+                                  <div className="flex items-center gap-2 justify-end mt-1">
+                                    {canSend && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendEntregavel(ent.id)}
+                                        disabled={sendingEntregavelId === ent.id}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[13px] transition-colors disabled:opacity-60"
+                                      >
+                                        {sendingEntregavelId === ent.id ? "Enviando..." : ent.status === "para_alteracao" ? "Reenviar para cliente" : "Enviar para cliente"}
+                                      </button>
+                                    )}
+                                    {ent.status === "rascunho" && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteEntregavel(ent.id)}
+                                        disabled={deletingEntregavelId === ent.id}
+                                        className="px-3 py-1.5 rounded-xl bg-primary-800 border border-primary-700 text-red-400 hover:text-red-300 font-medium text-[13px] transition-colors disabled:opacity-60"
+                                      >
+                                        {deletingEntregavelId === ent.id ? "..." : "Excluir"}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {activeTab === "briefing" && (
                   <div className="flex flex-col h-full gap-3">
                     <div className="flex items-center justify-between">
@@ -1773,6 +2190,117 @@ export default function ProjetoDetalhesPage() {
           onAccept={converterState.onAccept}
           onCancel={() => cancelConverter()}
         />
+      )}
+
+      {feedbackViewerId && (() => {
+        const ent = entregaveis.find(e => e.id === feedbackViewerId);
+        if (!ent) return null;
+        return (
+          <FeedbackImageViewer
+            entregavel={ent}
+            onClose={() => setFeedbackViewerId(null)}
+          />
+        );
+      })()}
+    </div>
+  );
+}
+
+// ─── Feedback image viewer (fullscreen, interactive pins) ────────────────────
+
+function FeedbackImageViewer({ entregavel: ent, onClose }: {
+  entregavel: Entregavel;
+  onClose: () => void;
+}) {
+  const [openPinId, setOpenPinId] = useState<number | null>(null);
+  const imgContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const pins = ent.feedback_pins ?? [];
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" onClick={onClose}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
+        <div>
+          <p className="text-[16px] font-semibold text-gray-100">{ent.titulo}</p>
+          <p className="text-[12px] text-gray-400 mt-0.5">Feedback do cliente</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="px-3 py-1.5 bg-primary-800 border border-primary-700 rounded-lg text-[13px] text-gray-300 hover:text-gray-100 transition-colors"
+        >
+          Fechar
+        </button>
+      </div>
+
+      {/* Image area */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
+        <div ref={imgContainerRef} className="relative inline-block" style={{ lineHeight: 0, maxWidth: "calc(100vw - 3rem)", maxHeight: "calc(100vh - 8rem)" }}>
+          <img
+            src={ent.feedback_imagem_url!}
+            alt="Feedback anotado"
+            className="block object-contain rounded-xl"
+            style={{ maxWidth: "100%", maxHeight: "calc(100vh - 8rem)" }}
+          />
+
+          {/* Interactive pins */}
+          {pins.map((pin, idx) => (
+            <div
+              key={idx}
+              style={{ position: "absolute", left: `${pin.xPct}%`, top: `${pin.yPct}%`, transform: "translate(-50%, -50%)", zIndex: 20 }}
+            >
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); setOpenPinId(openPinId === idx ? null : idx); }}
+                className="w-7 h-7 rounded-full bg-primary-500 border-2 border-primary-300 text-primary-900 text-[11px] font-bold flex items-center justify-center shadow-lg hover:scale-110 transition-transform select-none"
+              >
+                {idx + 1}
+              </button>
+              {openPinId === idx && (
+                <div
+                  className="absolute bg-primary-800 border border-primary-600 rounded-xl shadow-2xl p-3 z-40"
+                  style={{
+                    width: 240,
+                    ...(pin.xPct > 65 ? { right: "calc(100% + 10px)" } : { left: "calc(100% + 10px)" }),
+                    ...(pin.yPct > 70 ? { bottom: "50%", transform: "translateY(50%)" } : { top: "50%", transform: "translateY(-50%)" }),
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <p className="text-[11px] text-gray-400 font-medium uppercase tracking-wide mb-1.5">Ponto {idx + 1}</p>
+                  <p className="text-[13px] text-gray-200 leading-relaxed">{pin.text}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Comment list below (if any pins) */}
+      {pins.length > 0 && (
+        <div className="flex-shrink-0 px-6 pb-4 flex flex-wrap gap-2" onClick={e => e.stopPropagation()}>
+          {pins.map((pin, idx) => (
+            <button
+              key={idx}
+              onClick={() => setOpenPinId(openPinId === idx ? null : idx)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12px] transition-colors ${
+                openPinId === idx
+                  ? "bg-primary-500 border-primary-400 text-primary-900 font-semibold"
+                  : "bg-primary-800 border-primary-700 text-gray-300 hover:border-primary-500"
+              }`}
+            >
+              <span className="font-bold">{idx + 1}</span>
+              <span className="truncate max-w-[180px]">{pin.text}</span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
