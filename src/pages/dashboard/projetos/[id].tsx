@@ -1420,7 +1420,7 @@ export default function ProjetoDetalhesPage() {
                 </div>
               ) : (
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
                     <div className="w-[160px] h-[72px] rounded-[28px] overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
                       <Image src={coverSrc} alt="Capa do projeto" width={320} height={144} className="w-full h-full object-cover" />
                     </div>
@@ -1452,7 +1452,7 @@ export default function ProjetoDetalhesPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-start md:items-end gap-2">
+                  <div className="flex flex-col items-start md:items-end gap-2 flex-shrink-0">
                     {user && projeto.user_id === user.id && (
                       <div className="flex items-center gap-2 flex-wrap justify-end">
                         <button
