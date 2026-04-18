@@ -79,7 +79,7 @@ export default function DashboardHome() {
           .limit(20),
         supabase
           .from("pagamentos")
-          .select("id, valor, status, data_pagamento, data_vencimento, projeto_id, created_at")
+          .select("id, valor, status, data_pagamento, data_prevista, projeto_id, created_at")
           .eq("user_id", authUser!.id),
         supabase
           .from("tasks")
@@ -172,6 +172,13 @@ export default function DashboardHome() {
           .select("project_id, split_type, split_value, payment_status, projetos:project_id(orcamento, status, updated_at)")
           .eq("member_user_id", authUser.id)
           .then(({ data }) => { if (data) setCollabMemberSplits(data as any[]); });
+      })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "pagamentos", filter: `user_id=eq.${authUser.id}` }, () => {
+        supabase
+          .from("pagamentos")
+          .select("id, valor, status, data_pagamento, data_prevista, projeto_id, created_at")
+          .eq("user_id", authUser.id)
+          .then(({ data }) => { if (data) setPagamentos(data); });
       })
       .subscribe();
 

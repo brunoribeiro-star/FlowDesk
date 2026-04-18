@@ -755,7 +755,7 @@ export default function BriefingsPage() {
           onDragStart={(e) => {
             e.dataTransfer.setData("application/x-envio-id", envio.id);
           }}
-          className="bg-primary-800 border border-primary-700/50 rounded-xl p-4 shadow-sm hover:border-primary-500 transition-colors cursor-move group relative"
+          className="bg-primary-800 border border-primary-700 rounded-xl p-4 shadow-sm hover:border-primary-500 transition-colors cursor-move group relative"
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -835,7 +835,7 @@ export default function BriefingsPage() {
              </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-primary-700/50">
+          <div className="flex items-center justify-between pt-3 border-t border-primary-700">
              <div className="flex flex-col text-[11px] text-gray-400">
                 <span>Enviado: {enviadoEm}</span>
                 {prazoResStr && <span>Prazo: {prazoResStr}</span>}
@@ -852,14 +852,14 @@ export default function BriefingsPage() {
           {colunas.map((col) => (
             <div
               key={col.id}
-              className="flex-1 flex flex-col min-w-[280px] bg-primary-800/20 rounded-xl border border-primary-800/50 h-full backdrop-blur-sm"
+              className="flex-1 flex flex-col min-w-[280px] bg-primary-800/20 rounded-xl border border-primary-800 h-full backdrop-blur-sm"
               onDragOver={(e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = "move";
               }}
               onDrop={(e) => handleDrop(e, col.id)}
             >
-              <div className="p-3 flex items-center justify-between border-b border-primary-800/50">
+              <div className="p-3 flex items-center justify-between border-b border-primary-800">
                 <div className="flex items-center gap-2">
                    <div className={`w-2 h-2 rounded-full ${col.color}`} />
                    <span className="text-[13px] font-medium text-gray-200">{col.title}</span>
@@ -1342,7 +1342,7 @@ export default function BriefingsPage() {
                               )}
                             </div>
 
-                            <div className="mt-auto pt-4 border-t border-primary-700/50 flex items-center justify-between text-xs text-slate-500">
+                            <div className="mt-auto pt-4 border-t border-primary-700 flex items-center justify-between text-xs text-slate-500">
                               <div className="flex items-center gap-1.5" title="Quantidade de campos">
                                 <FileText className="w-3.5 h-3.5" />
                                 <span>{t.campos_count ?? 0} campos</span>
@@ -1485,7 +1485,7 @@ export default function BriefingsPage() {
                 ) : viewMode === "board" ? (
                   renderBoardView()
                 ) : (
-                  <div className="divide-y divide-primary-800/80">
+                  <div className="divide-y divide-primary-800">
                     {enviosFiltrados.map((envio) => {
                       const status = statusEnvioVisual(envio);
                       const tipoEnvio = classificarEnvio(
@@ -1609,7 +1609,7 @@ export default function BriefingsPage() {
                                           setOpenMenuEnvioId(null);
                                           abrirModalVisualizar(envio.template_id);
                                         }}
-                                        className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2 border-b border-primary-700/50"
+                                        className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2 border-b border-primary-700"
                                       >
                                         <Eye
                                           size={14}
@@ -1642,7 +1642,7 @@ export default function BriefingsPage() {
                                       setOpenMenuEnvioId(null);
                                       excluirEnvio(envio.id);
                                     }}
-                                    className="w-full text-left px-4 py-3 text-[13px] text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 border-t border-primary-700/50"
+                                    className="w-full text-left px-4 py-3 text-[13px] text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 border-t border-primary-700"
                                   >
                                     <Trash2 size={14} />
                                     Excluir envio

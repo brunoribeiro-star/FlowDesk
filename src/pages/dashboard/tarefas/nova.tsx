@@ -462,7 +462,7 @@ export default function NovaTarefaPage() {
                 <div className="border border-primary-700 rounded-xl overflow-hidden bg-primary-800/20 focus-within:border-primary-500 transition-colors">
                   <MenuBar editor={editor} />
                   <EditorContent editor={editor} />
-                  <div className="px-4 py-2 border-t border-primary-700/50 text-xs text-gray-500">
+                  <div className="px-4 py-2 border-t border-primary-700 text-xs text-gray-500">
                     Escreva aqui...
                   </div>
                 </div>

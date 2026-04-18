@@ -237,7 +237,7 @@ export default function ProjetoCronometroConfigPage() {
 
                     {mode.id === "pomodoro" && isSelected && (
                       <div
-                        className="flex flex-wrap items-end gap-4 mt-2 pt-3 border-t border-primary-700/60"
+                        className="flex flex-wrap items-end gap-4 mt-2 pt-3 border-t border-primary-700"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <NumericInput label="Foco (min)" value={pomodoroWork} onChange={setPomodoroWork} min={1} max={120} />

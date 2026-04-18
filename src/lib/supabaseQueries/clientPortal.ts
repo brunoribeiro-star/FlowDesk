@@ -61,7 +61,7 @@ export async function getPortalBriefingCampos(templateId: string) {
 export async function getPortalEntregaveis(projectId: string) {
   const { data, error } = await supabase
     .from("entregaveis")
-    .select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, status, feedback_cliente, feedback_imagem_url, reviewed_at, created_at")
+    .select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, arquivos, status, feedback_cliente, feedback_imagem_url, feedback_pins, feedback_imagens, reviewed_at, created_at")
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
   return { data: data ?? [], error };
@@ -81,7 +81,8 @@ export async function updateEntregavelStatus(
   status: "aprovado" | "para_alteracao",
   feedback: string,
   feedbackImagemUrl?: string | null,
-  feedbackPins?: Array<{ xPct: number; yPct: number; text: string }> | null
+  feedbackPins?: Array<{ xPct: number; yPct: number; text: string }> | null,
+  feedbackImagens?: Array<{ url: string; pins: Array<{ xPct: number; yPct: number; text: string }> }> | null
 ) {
   const { error } = await supabase
     .from("entregaveis")
@@ -90,6 +91,7 @@ export async function updateEntregavelStatus(
       feedback_cliente: feedback || null,
       feedback_imagem_url: feedbackImagemUrl ?? null,
       feedback_pins: feedbackPins ?? null,
+      feedback_imagens: feedbackImagens ?? null,
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -133,7 +135,7 @@ export async function getClientAllEntregaveis(projectIds: string[]) {
   if (!projectIds.length) return { data: [], error: null };
   const { data, error } = await supabase
     .from("entregaveis")
-    .select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, status, feedback_cliente, feedback_imagem_url, reviewed_at, created_at, project_id, projetos:project_id(titulo)")
+    .select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, arquivos, status, feedback_cliente, feedback_imagem_url, reviewed_at, created_at, project_id, projetos:project_id(titulo)")
     .in("project_id", projectIds)
     .order("created_at", { ascending: false });
   return { data: data ?? [], error };
@@ -159,6 +161,17 @@ export async function getClientAllPagamentos(projectIds: string[]) {
   return { data: data ?? [], error };
 }
 
+export async function getClientActivities(projectIds: string[]) {
+  if (!projectIds.length) return { data: [], error: null };
+  const { data, error } = await supabase
+    .from("atividades")
+    .select("id, tipo, descricao, created_at, projeto_id, projetos:projeto_id(titulo)")
+    .in("projeto_id", projectIds)
+    .order("created_at", { ascending: false })
+    .limit(40);
+  return { data: data ?? [], error };
+}
+
 export async function getClientDashboardStats(projectIds: string[]) {
   if (!projectIds.length) {
     return { entregaveis: [], briefings: [], pagamentos: [], tasks: [] };
@@ -172,7 +185,7 @@ export async function getClientDashboardStats(projectIds: string[]) {
     supabase.from("entregaveis").select("project_id, status").in("project_id", projectIds),
     supabase.from("briefings_envios").select("projeto_id, status, respondido_em").in("projeto_id", projectIds),
     supabase.from("pagamentos").select("projeto_id, status").in("projeto_id", projectIds),
-    supabase.from("tasks").select("projeto_id, status, concluida").in("projeto_id", projectIds),
+    supabase.from("tasks").select("projeto_id, status, concluida, subtasks(id, concluida)").in("projeto_id", projectIds),
   ]);
   return {
     entregaveis: entregaveis ?? [],

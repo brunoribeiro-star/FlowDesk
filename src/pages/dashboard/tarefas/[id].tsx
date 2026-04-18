@@ -255,7 +255,7 @@ export default function DetalhesTarefaPage() {
                 <span>{projeto?.titulo || "Sem projeto"}</span>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-primary-800/50">
+            <div className="space-y-4 pt-4 border-t border-primary-800">
                  <h2 className="text-lg font-semibold text-gray-100">Descrição da Tarefa</h2>
                  <div className="bg-primary-800/20 border border-primary-700 rounded-xl p-6 min-h-[100px]">
                     <EditorContent editor={editorDescricao} />
@@ -263,7 +263,7 @@ export default function DetalhesTarefaPage() {
             </div>
 
             {subtasks.length > 0 && (
-                 <div className="space-y-4 pt-4 border-t border-primary-800/50">
+                 <div className="space-y-4 pt-4 border-t border-primary-800">
                     <h2 className="text-lg font-semibold text-gray-100">Subtarefas</h2>
                     <div className="bg-primary-800/20 border border-primary-700 rounded-xl p-2 flex flex-col gap-1">
                         {subtasks.map((st) => (

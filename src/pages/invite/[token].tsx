@@ -107,7 +107,7 @@ export default function InvitePage() {
 
         {state === "accepted" && (
           <div className="flex flex-col items-center gap-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-third-400/20 border border-third-400/40 flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-third-400/20 border border-third-400 flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-third-300"><polyline points="20 6 9 17 4 12"/></svg>
             </div>
             <h1 className="text-[20px] font-semibold text-gray-100">Convite aceito!</h1>

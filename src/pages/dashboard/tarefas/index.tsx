@@ -825,7 +825,7 @@ export default function TarefasPage() {
                             }}
                           >
                             <div className="flex items-start gap-3">
-                              <div className={`mt-1 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.status === 'concluida' ? 'border-emerald-500' : 'border-gray-500/30'}`}>
+                              <div className={`mt-1 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.status === 'concluida' ? 'border-emerald-500' : 'border-gray-500'}`}>
                                 {t.status === 'concluida' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
                               </div>
 
@@ -841,7 +841,7 @@ export default function TarefasPage() {
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between text-[10px] text-gray-400 border-t border-gray-600/10 pt-2">
+                                <div className="flex items-center justify-between text-[10px] text-gray-400 border-t border-gray-600 pt-2">
                                     {subtasks.length > 0 ? (
                                     <div className="flex items-center gap-1">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -102,7 +102,7 @@ function statusLabel(s: string) {
 }
 
 function statusPillClasses(s: string) {
-  if (s === "arquivado") return "bg-gray-500/10 border border-gray-400/30 text-gray-300";
+  if (s === "arquivado") return "bg-gray-500/10 border border-gray-400 text-gray-300";
   if (s === "para fazer") return "bg-sky-500/10 border border-sky-400/30 text-sky-300";
   if (s === "fazendo") return "bg-amber-500/10 border border-amber-400/30 text-amber-300";
   if (s === "pgto pendente") return "bg-orange-500/10 border border-orange-400/30 text-orange-300";

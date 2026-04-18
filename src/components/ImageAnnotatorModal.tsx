@@ -261,16 +261,68 @@ interface Pin {
   editing: boolean;
 }
 
-interface Props {
+type AnnotResult = {
   imageUrl: string;
-  onClose: () => void;
-  onConfirm: (text: string, blob: Blob | null, pins: Array<{ xPct: number; yPct: number; text: string }>) => void;
+  blob: Blob | null;
+  pins: Array<{ xPct: number; yPct: number; text: string }>;
+};
+
+interface SavedImageState {
+  annotationDataURL: string | null;
+  hasDrawn: boolean;
+  pins: Pin[];
 }
 
-export default function ImageAnnotatorModal({ imageUrl, onClose, onConfirm }: Props) {
+function generateBlobForImageUrl(sourceUrl: string, annotationDataURL: string | null): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const nw = img.naturalWidth;
+      const nh = img.naturalHeight;
+      const canvas = document.createElement("canvas");
+      canvas.width = nw;
+      canvas.height = nh;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, 0, 0, nw, nh);
+      if (annotationDataURL) {
+        const annot = new window.Image();
+        annot.onload = () => { ctx.drawImage(annot, 0, 0, nw, nh); canvas.toBlob(b => resolve(b), "image/png"); };
+        annot.onerror = () => canvas.toBlob(b => resolve(b), "image/png");
+        annot.src = annotationDataURL;
+      } else {
+        canvas.toBlob(b => resolve(b), "image/png");
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = sourceUrl;
+  });
+}
+
+interface Props {
+  imageUrl: string;
+  imageUrls?: string[];
+  onClose: () => void;
+  onConfirm: (
+    text: string,
+    blob: Blob | null,
+    pins: Array<{ xPct: number; yPct: number; text: string }>,
+    allResults?: AnnotResult[]
+  ) => void;
+}
+
+export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onConfirm }: Props) {
+  const allUrls = imageUrls ?? [imageUrl];
+  const [activeIdx, setActiveIdx] = useState(() => {
+    const i = allUrls.indexOf(imageUrl);
+    return i >= 0 ? i : 0;
+  });
+  const activeUrl = allUrls[activeIdx] ?? imageUrl;
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const imgContainerRef = useRef<HTMLDivElement>(null);
+  const perImageStateRef = useRef<Map<number, SavedImageState>>(new Map());
   const isDrawingRef = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
   const colorContainerRef = useRef<HTMLDivElement>(null);
@@ -286,6 +338,23 @@ export default function ImageAnnotatorModal({ imageUrl, onClose, onConfirm }: Pr
   const [draggingPinId, setDraggingPinId] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const hasDrawnRef = useRef(false);
+
+  function navigateTo(newIdx: number) {
+    const canvas = canvasRef.current;
+    if (canvas && canvas.width > 0) {
+      perImageStateRef.current.set(activeIdx, {
+        annotationDataURL: hasDrawnRef.current ? canvas.toDataURL("image/png") : null,
+        hasDrawn: hasDrawnRef.current,
+        pins: [...pins],
+      });
+      canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    setPins([]);
+    setHistory([]);
+    setCanvasReady(false);
+    hasDrawnRef.current = false;
+    setActiveIdx(newIdx);
+  }
 
   useEffect(() => {
     if (!colorPickerOpen) return;
@@ -342,8 +411,24 @@ export default function ImageAnnotatorModal({ imageUrl, onClose, onConfirm }: Pr
     if (!img || !canvas) return;
     canvas.width = img.clientWidth;
     canvas.height = img.clientHeight;
+
+    const saved = perImageStateRef.current.get(activeIdx);
+    if (saved) {
+      setPins(saved.pins);
+      if (saved.hasDrawn && saved.annotationDataURL) {
+        const annotImg = new window.Image();
+        annotImg.onload = () => {
+          const ctx = canvas.getContext("2d");
+          if (ctx) ctx.drawImage(annotImg, 0, 0, canvas.width, canvas.height);
+          hasDrawnRef.current = true;
+          setCanvasReady(true);
+        };
+        annotImg.src = saved.annotationDataURL;
+        return;
+      }
+    }
     setCanvasReady(true);
-  }, []);
+  }, [activeIdx]);
 
   const saveToHistory = useCallback(() => {
     const canvas = canvasRef.current;
@@ -427,99 +512,42 @@ export default function ImageAnnotatorModal({ imageUrl, onClose, onConfirm }: Pr
     hasDrawnRef.current = false;
   }, [saveToHistory]);
 
-  const generateAnnotatedBlob = useCallback((): Promise<Blob | null> => {
-    return new Promise((resolve) => {
-      const img = imgRef.current;
-      const annotCanvas = canvasRef.current;
-      if (!img || !annotCanvas || !img.naturalWidth) { resolve(null); return; }
-
-      const nw = img.naturalWidth;
-      const nh = img.naturalHeight;
-      const pinsWithText = pins.filter(p => p.text.trim());
-      const pinR = Math.max(16, nw * 0.018);
-      const fontSize = pinR * 1.1;
-      const lineH = Math.round(pinR * 2.8);
-      const padX = Math.round(pinR * 2);
-      const padY = Math.round(pinR * 1.6);
-      const legendH = pinsWithText.length > 0 ? padY * 2 + pinsWithText.length * lineH : 0;
-
-      const exportCanvas = document.createElement("canvas");
-      exportCanvas.width = nw;
-      exportCanvas.height = nh + legendH;
-      const ctx = exportCanvas.getContext("2d")!;
-
-      ctx.drawImage(img, 0, 0, nw, nh);
-
-      ctx.drawImage(annotCanvas, 0, 0, nw, nh);
-
-      pins.forEach((pin, idx) => {
-        const x = (pin.xPct / 100) * nw;
-        const y = (pin.yPct / 100) * nh;
-        ctx.beginPath();
-        ctx.arc(x, y, pinR, 0, Math.PI * 2);
-        ctx.fillStyle = pin.text.trim() ? "#1EB6E8" : "#facc15";
-        ctx.fill();
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = Math.max(2, pinR * 0.18);
-        ctx.stroke();
-        ctx.fillStyle = pin.text.trim() ? "#06191F" : "#000000";
-        ctx.font = `bold ${fontSize}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(String(idx + 1), x, y);
-      });
-
-      if (pinsWithText.length > 0) {
-        ctx.fillStyle = "#08222A";
-        ctx.fillRect(0, nh, nw, legendH);
-        // top divider
-        ctx.strokeStyle = "#1EB6E8";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(0, nh);
-        ctx.lineTo(nw, nh);
-        ctx.stroke();
-
-        const lfs = Math.max(14, lineH * 0.44);
-        pinsWithText.forEach((pin, i) => {
-          const originalIdx = pins.indexOf(pin);
-          const cx = padX + pinR;
-          const cy = nh + padY + i * lineH + lineH / 2;
-          // circle
-          ctx.beginPath();
-          ctx.arc(cx, cy, pinR * 0.75, 0, Math.PI * 2);
-          ctx.fillStyle = "#1EB6E8";
-          ctx.fill();
-          ctx.fillStyle = "#06191F";
-          ctx.font = `bold ${lfs * 0.85}px sans-serif`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(String(originalIdx + 1), cx, cy);
-          // comment text
-          ctx.font = `${lfs}px sans-serif`;
-          ctx.fillStyle = "#BCCBCD";
-          ctx.textAlign = "left";
-          ctx.fillText(pin.text.trim(), cx + pinR + padX * 0.6, cy);
-        });
-      }
-
-      exportCanvas.toBlob(b => resolve(b), "image/png");
-    });
-  }, [pins]);
 
   const handleConfirm = useCallback(async () => {
     setConfirming(true);
     try {
-      const hasAnnotations = hasDrawnRef.current || pins.length > 0;
-      const blob = hasAnnotations ? await generateAnnotatedBlob() : null;
-      const pinsData = pins
-        .filter(p => p.text.trim())
-        .map(p => ({ xPct: p.xPct, yPct: p.yPct, text: p.text.trim() }));
-      onConfirm("", blob, pinsData);
+      const canvas = canvasRef.current;
+      if (canvas && canvas.width > 0) {
+        perImageStateRef.current.set(activeIdx, {
+          annotationDataURL: hasDrawnRef.current ? canvas.toDataURL("image/png") : null,
+          hasDrawn: hasDrawnRef.current,
+          pins: [...pins],
+        });
+      }
+
+      const allResults: AnnotResult[] = [];
+      for (let i = 0; i < allUrls.length; i++) {
+        const state = perImageStateRef.current.get(i);
+        if (!state) continue;
+        const filteredPins = state.pins
+          .filter(p => p.text.trim())
+          .map(p => ({ xPct: p.xPct, yPct: p.yPct, text: p.text.trim() }));
+        if (!state.hasDrawn && filteredPins.length === 0) continue;
+        const blob = await generateBlobForImageUrl(allUrls[i], state.annotationDataURL);
+        allResults.push({ imageUrl: allUrls[i], blob, pins: filteredPins });
+      }
+
+      const first = allResults[0];
+      onConfirm(
+        "",
+        first?.blob ?? null,
+        first?.pins ?? [],
+        allResults.length > 1 ? allResults : undefined,
+      );
     } finally {
       setConfirming(false);
     }
-  }, [pins, generateAnnotatedBlob, onConfirm]);
+  }, [pins, activeIdx, allUrls, onConfirm]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -560,19 +588,29 @@ export default function ImageAnnotatorModal({ imageUrl, onClose, onConfirm }: Pr
           disabled={confirming}
           className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-lg transition-colors disabled:opacity-60"
         >
-          <Check size={13} /> {confirming ? "Processando…" : "Usar anotações"}
+          <Check size={13} /> {confirming ? "Salvando…" : "Salvar"}
         </button>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center" style={{ paddingBottom: "5.5rem" }}>
-        <div ref={imgContainerRef} className="relative inline-block" style={{ lineHeight: 0 }}>
+      <div className="absolute inset-0 flex items-center justify-center gap-3" style={{ paddingBottom: "5.5rem" }}>
+        {allUrls.length > 1 && (
+          <button
+            type="button"
+            onClick={() => navigateTo((activeIdx - 1 + allUrls.length) % allUrls.length)}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-800/80 hover:bg-primary-700 border border-primary-600 text-gray-200 flex items-center justify-center backdrop-blur-sm transition-colors z-30 self-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        )}
+        <div className="flex flex-col items-center gap-2" style={{ lineHeight: 0 }}>
+          <div ref={imgContainerRef} className="relative inline-block" style={{ lineHeight: 0 }}>
           <img
             ref={imgRef}
-            src={imageUrl}
+            src={activeUrl}
             alt="Entregável"
             crossOrigin="anonymous"
             className="block object-contain"
-            style={{ maxWidth: "calc(100vw - 2rem)", maxHeight: "calc(100vh - 9rem)" }}
+            style={{ maxWidth: "calc(100vw - 10rem)", maxHeight: "calc(100vh - 9rem)" }}
             onLoad={setupCanvas}
             draggable={false}
           />
@@ -606,7 +644,20 @@ export default function ImageAnnotatorModal({ imageUrl, onClose, onConfirm }: Pr
               onRemove={() => setPins(prev => prev.filter(p => p.id !== pin.id))}
             />
           ))}
+          </div>
+          {allUrls.length > 1 && (
+            <span className="text-[12px] text-gray-500 mt-1 select-none">{activeIdx + 1} / {allUrls.length}</span>
+          )}
         </div>
+        {allUrls.length > 1 && (
+          <button
+            type="button"
+            onClick={() => navigateTo((activeIdx + 1) % allUrls.length)}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-800/80 hover:bg-primary-700 border border-primary-600 text-gray-200 flex items-center justify-center backdrop-blur-sm transition-colors z-30 self-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        )}
       </div>
 
       <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-primary-900 border border-primary-700 rounded-2xl px-3 py-2 shadow-2xl">

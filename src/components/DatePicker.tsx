@@ -216,7 +216,7 @@ export default function DatePicker({
             )}
           </div>
 
-          <div className="px-4 pb-3 pt-1 border-t border-primary-700/60 flex justify-between items-center">
+          <div className="px-4 pb-3 pt-1 border-t border-primary-700 flex justify-between items-center">
             <button
               type="button"
               onClick={() => {

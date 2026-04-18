@@ -466,7 +466,7 @@ export default function ConfiguracoesPage() {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  <label className="inline-flex items-center gap-2 bg-primary-700 border border-primary-500/80 rounded-full px-4 py-2 cursor-pointer hover:bg-primary-600 text-[14px]">
+                  <label className="inline-flex items-center gap-2 bg-primary-700 border border-primary-500 rounded-full px-4 py-2 cursor-pointer hover:bg-primary-600 text-[14px]">
                     <span className="text-primary-50 font-medium">
                       Trocar foto
                     </span>

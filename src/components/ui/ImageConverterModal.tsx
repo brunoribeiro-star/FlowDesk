@@ -286,7 +286,7 @@ export default function ImageConverterModal({ file, spec, onAccept, onCancel }: 
             Saída: WebP · máx. {spec.maxKB} KB
           </span>
           {status && (
-            <span className="bg-primary-800 border border-primary-500/50 rounded-full px-3 py-1 text-primary-300">
+            <span className="bg-primary-800 border border-primary-500 rounded-full px-3 py-1 text-primary-300">
               {status}
             </span>
           )}

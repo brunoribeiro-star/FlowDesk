@@ -83,24 +83,27 @@ export default function PortalBriefingsPage() {
       <ClientSidebar defaultOpen={false} />
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-6 w-full overflow-hidden">
-        <header className="w-full flex items-center gap-8 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-[60px] h-[60px] rounded-full overflow-hidden border border-primary-600 flex-shrink-0">
-              <Image src={avatarSrc} alt="Avatar" width={60} height={60} className="object-cover" />
-            </div>
-            <div className="flex flex-col gap-1">
+        <header className="w-full flex items-center justify-between gap-4 flex-shrink-0">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push("/portal/dashboard")}
+              className="inline-flex items-center gap-2 bg-primary-800 border border-primary-700 text-gray-100 rounded-xl px-4 py-2 text-[15px] hover:bg-primary-700 transition-colors"
+            >
+              ← Voltar
+            </button>
+            <div className="flex flex-col gap-0.5">
               <div className="text-[22px] text-gray-200 font-medium">Briefings</div>
               <div className="text-[14px] text-gray-300">Formulários enviados para você responder.</div>
             </div>
           </div>
-          <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 flex items-center justify-end gap-3 min-w-0">
+          <div className="flex items-center gap-3">
             <span className="text-[14px] text-gray-400">{user?.email}</span>
             <ClientHeaderProfile user={user} />
           </div>
         </header>
 
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-          <div className="w-full max-w-[860px] mx-auto flex flex-col gap-6 pb-6">
+          <div className="w-full flex flex-col gap-6 pb-6">
 
             {briefings.length === 0 ? (
               <div className="bg-primary-800 border border-primary-700 rounded-lg p-10 text-center text-gray-400 text-[14px]">

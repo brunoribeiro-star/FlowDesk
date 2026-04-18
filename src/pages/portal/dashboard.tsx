@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { getClientProjects, getClientDashboardStats } from "@/lib/supabaseQueries/clientPortal";
+import { getClientProjects, getClientDashboardStats, getClientActivities } from "@/lib/supabaseQueries/clientPortal";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
-import { Package, ClipboardList, Wallet, FolderKanban, Clock, AlertCircle, ChevronRight } from "lucide-react";
+import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 type DashboardProject = {
   id: string;
@@ -19,23 +20,34 @@ type DashboardProject = {
   pendingPayments: number;
   tasksDone: number;
   tasksTotal: number;
+  subsDone: number;
+  subsTotal: number;
 };
 
-type PendingItem = {
-  type: "entregavel" | "briefing" | "pagamento";
-  label: string;
-  sublabel: string;
-  projectId: string;
-  tab: string;
+type Activity = {
+  id: string;
+  tipo: string;
+  descricao: string | null;
+  created_at: string;
+  projeto_id: string;
+  projetos: { titulo: string } | null;
+};
+
+type RawStats = {
+  entregaveis: any[];
+  briefings: any[];
+  pagamentos: any[];
+  tasks: any[];
 };
 
 export default function PortalDashboardPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [_sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [projects, setProjects] = useState<DashboardProject[]>([]);
-  const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [rawStats, setRawStats] = useState<RawStats>({ entregaveis: [], briefings: [], pagamentos: [], tasks: [] });
 
   useEffect(() => {
     (async () => {
@@ -47,7 +59,10 @@ export default function PortalDashboardPage() {
       if (!memberRows.length) { setLoading(false); return; }
 
       const projectIds = memberRows.map((r: any) => r.project_id);
-      const stats = await getClientDashboardStats(projectIds);
+      const [stats, { data: actData }] = await Promise.all([
+        getClientDashboardStats(projectIds),
+        getClientActivities(projectIds),
+      ]);
 
       const built: DashboardProject[] = memberRows.map((row: any) => {
         const proj = row.projetos as any;
@@ -58,21 +73,14 @@ export default function PortalDashboardPage() {
         const pendingPayments = stats.pagamentos.filter((p: any) => p.projeto_id === pid && p.status === "pendente").length;
         const projectTasks = stats.tasks.filter((t: any) => t.projeto_id === pid);
         const tasksDone = projectTasks.filter((t: any) => t.status === "concluida" || t.concluida).length;
-        return { id: pid, titulo: proj.titulo, status: proj.status, progresso: proj.progresso, prazo_entrega: proj.prazo_entrega, cover_url: proj.cover_url, pendingApprovals, pendingBriefings, pendingPayments, tasksDone, tasksTotal: projectTasks.length };
+        const allSubs = projectTasks.flatMap((t: any) => t.subtasks || []);
+        const subsDone = allSubs.filter((s: any) => s.concluida).length;
+        return { id: pid, titulo: proj.titulo, status: proj.status, progresso: proj.progresso, prazo_entrega: proj.prazo_entrega, cover_url: proj.cover_url, pendingApprovals, pendingBriefings, pendingPayments, tasksDone, tasksTotal: projectTasks.length, subsDone, subsTotal: allSubs.length };
       }).filter(Boolean) as DashboardProject[];
 
       setProjects(built);
-
-      const items: PendingItem[] = [];
-      built.forEach((p) => {
-        if (p.pendingApprovals > 0)
-          items.push({ type: "entregavel", label: "Entregável aguardando aprovação", sublabel: p.titulo, projectId: p.id, tab: "entregaveis" });
-        if (p.pendingBriefings > 0)
-          items.push({ type: "briefing", label: "Briefing para responder", sublabel: p.titulo, projectId: p.id, tab: "briefings" });
-        if (p.pendingPayments > 0)
-          items.push({ type: "pagamento", label: "Pagamento pendente", sublabel: p.titulo, projectId: p.id, tab: "pagamentos" });
-      });
-      setPendingItems(items);
+      setRawStats(stats);
+      setActivities((actData ?? []) as unknown as Activity[]);
       setLoading(false);
     })();
   }, [router]);
@@ -87,10 +95,45 @@ export default function PortalDashboardPage() {
   const firstProject = projects[0];
 
   const METRICS = [
-    { icon: Package, label: "Para aprovar", value: totalApprovals === 0 ? "Nenhum" : `${totalApprovals} entregável${totalApprovals > 1 ? "is" : ""}`, onClick: () => firstProject && router.push(`/portal/projeto/${firstProject.id}`) },
-    { icon: ClipboardList, label: "Briefings pendentes", value: totalBriefings === 0 ? "Nenhum" : `${totalBriefings} briefing${totalBriefings > 1 ? "s" : ""}`, onClick: () => firstProject && router.push(`/portal/projeto/${firstProject.id}`) },
-    { icon: Wallet, label: "Pagamentos pendentes", value: totalPayments === 0 ? "Nenhum" : `${totalPayments} pagamento${totalPayments > 1 ? "s" : ""}`, onClick: () => firstProject && router.push(`/portal/projeto/${firstProject.id}`) },
+    { icon: Package, label: "Para aprovar", value: totalApprovals === 0 ? "Nenhum" : `${totalApprovals} entregável${totalApprovals > 1 ? "is" : ""}`, onClick: () => router.push("/portal/aprovacoes") },
+    { icon: ClipboardList, label: "Briefings pendentes", value: totalBriefings === 0 ? "Nenhum" : `${totalBriefings} briefing${totalBriefings > 1 ? "s" : ""}`, onClick: () => router.push("/portal/briefings") },
+    { icon: Wallet, label: "Pagamentos pendentes", value: totalPayments === 0 ? "Nenhum" : `${totalPayments} pagamento${totalPayments > 1 ? "s" : ""}`, onClick: () => router.push("/portal/pagamentos") },
   ];
+
+  const aggTarefas = {
+    done: projects.reduce((s, p) => s + p.tasksDone, 0),
+    total: projects.reduce((s, p) => s + p.tasksTotal, 0),
+  };
+  const aggSubs = {
+    done: projects.reduce((s, p) => s + p.subsDone, 0),
+    total: projects.reduce((s, p) => s + p.subsTotal, 0),
+  };
+  const aggEntregaveis = {
+    done: rawStats.entregaveis.filter((e: any) => e.status === "aprovado").length,
+    total: rawStats.entregaveis.length,
+  };
+  const aggBriefings = {
+    done: rawStats.briefings.filter((b: any) => b.status === "respondido" || b.respondido_em).length,
+    total: rawStats.briefings.length,
+  };
+  const aggPagamentos = {
+    done: rawStats.pagamentos.filter((p: any) => p.status === "pago").length,
+    total: rawStats.pagamentos.length,
+  };
+
+  function toPct(done: number, total: number) {
+    return total > 0 ? Math.round((done / total) * 100) : 0;
+  }
+
+  const chartData = [
+    { name: "Tarefas", pct: toPct(aggTarefas.done, aggTarefas.total), done: aggTarefas.done, total: aggTarefas.total },
+    { name: "Subtarefas", pct: toPct(aggSubs.done, aggSubs.total), done: aggSubs.done, total: aggSubs.total },
+    { name: "Entregáveis", pct: toPct(aggEntregaveis.done, aggEntregaveis.total), done: aggEntregaveis.done, total: aggEntregaveis.total },
+    { name: "Briefings", pct: toPct(aggBriefings.done, aggBriefings.total), done: aggBriefings.done, total: aggBriefings.total },
+    { name: "Pagamentos", pct: toPct(aggPagamentos.done, aggPagamentos.total), done: aggPagamentos.done, total: aggPagamentos.total },
+  ];
+
+  const hasAnyData = projects.length > 0;
 
   if (loading) {
     return (
@@ -106,6 +149,10 @@ export default function PortalDashboardPage() {
           </div>
           <div className="grid grid-cols-3 gap-4">
             {[1,2,3].map(i => <div key={i} className="h-24 rounded-lg bg-primary-800 animate-pulse" />)}
+          </div>
+          <div className="flex-1 grid grid-cols-[1.2fr,0.8fr] gap-4">
+            <div className="rounded-lg bg-primary-800 animate-pulse" />
+            <div className="rounded-lg bg-primary-800 animate-pulse" />
           </div>
         </div>
       </div>
@@ -128,8 +175,7 @@ export default function PortalDashboardPage() {
               <div className="text-[14px] text-gray-300">Aqui está o resumo dos seus projetos.</div>
             </div>
           </div>
-
-          <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 flex items-center justify-end gap-3 min-w-0">
+          <div className="flex-1 flex items-center justify-end gap-3 min-w-0">
             <span className="text-[14px] text-gray-400">{user?.email}</span>
             <ClientHeaderProfile user={user} />
           </div>
@@ -154,109 +200,131 @@ export default function PortalDashboardPage() {
 
           <div className="flex-1 grid grid-cols-[1.2fr,0.8fr] gap-4 min-h-0">
 
-            <div className="flex flex-col gap-4 min-h-0">
-
-              <div className="flex-1 flex flex-col rounded-lg bg-primary-800 border border-primary-700 overflow-hidden min-h-0">
-                <div className="px-5 py-4 border-b border-primary-700 flex items-center justify-between flex-shrink-0">
-                  <div className="flex flex-col gap-1">
-                    <div className="text-[14px] text-gray-300">Meus projetos</div>
-                    <div className="text-[28px] text-gray-200 font-bold">
-                      {projects.length === 0 ? "Nenhum projeto" : `${projects.length} projeto${projects.length > 1 ? "s" : ""}`}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full bg-primary-500" />
-                    <span className="text-[12px] text-gray-300">Em andamento</span>
-                  </div>
+            <div className="flex flex-col rounded-lg bg-primary-800 border border-primary-700 overflow-hidden min-h-0">
+              <div className="px-5 py-4 border-b border-primary-700 flex-shrink-0 flex items-center justify-between">
+                <div>
+                  <div className="text-[15px] font-semibold text-gray-200">Saúde dos projetos</div>
+                  <div className="text-[12px] text-gray-500 mt-0.5">% de conclusão por categoria</div>
                 </div>
-
-                <div className="flex-1 px-5 py-4 overflow-y-auto custom-scrollbar min-h-0">
-                  {projects.length === 0 ? (
-                    <div className="text-gray-400 text-[14px] mt-8 text-center">Nenhum projeto disponível</div>
-                  ) : (
-                    <div className="flex flex-col gap-4">
-                      {projects.map((p) => {
-                        const progress = p.tasksTotal > 0 ? Math.round((p.tasksDone / p.tasksTotal) * 100) : (p.progresso ?? 0);
-                        const isUrgent = p.prazo_entrega ? new Date(p.prazo_entrega) < new Date(Date.now() + 7 * 86400000) : false;
-                        return (
-                          <div key={p.id} className="flex flex-col gap-2">
-                            {p.cover_url && (
-                              <img src={p.cover_url} alt="" className="w-full h-20 object-cover rounded-lg opacity-75" />
-                            )}
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex flex-col min-w-0">
-                                <span className="text-[15px] font-semibold text-gray-200 truncate">{p.titulo}</span>
-                                {p.prazo_entrega && (
-                                  <span className={`flex items-center gap-1 text-[12px] mt-0.5 ${isUrgent ? "text-yellow-400" : "text-gray-500"}`}>
-                                    {isUrgent ? <AlertCircle size={11} /> : <Clock size={11} />}
-                                    Entrega: {formatDate(p.prazo_entrega)}
-                                  </span>
-                                )}
-                              </div>
-                              <StatusBadge status={p.status} />
-                            </div>
-                            <div>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[12px] text-gray-400">Progresso</span>
-                                <span className="text-[12px] text-gray-300 font-medium">{progress}%</span>
-                              </div>
-                              <div className="h-1.5 bg-primary-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-primary-500 rounded-full transition-all duration-700 ease-out" style={{ width: `${progress}%` }} />
-                              </div>
-                              {p.tasksTotal > 0 && (
-                                <p className="text-[11px] text-gray-600 mt-1">{p.tasksDone}/{p.tasksTotal} tarefas concluídas</p>
-                              )}
-                            </div>
-                            <div className="border-t border-primary-700 pt-2" />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
+                {firstProject && (
+                  <button
+                    onClick={() => router.push(projects.length === 1 ? `/portal/projeto/${firstProject.id}` : `/portal/projeto/${firstProject.id}`)}
+                    className="text-[12px] text-primary-300 hover:text-primary-200 border border-primary-600 hover:border-primary-500 rounded-lg px-3 py-1.5 transition-colors flex-shrink-0"
+                  >
+                    Ver projeto →
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => firstProject && router.push(`/portal/projeto/${firstProject.id}`)}
-                  className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-3 text-[18px] font-semibold transition-colors"
-                >
-                  Acessar projeto
-                </button>
-                <button
-                  onClick={() => firstProject && router.push(`/portal/projeto/${firstProject.id}`)}
-                  className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 text-[18px] hover:bg-primary-700 transition-colors"
-                >
-                  Ver pendências
-                </button>
+              <div className="flex-1 p-4 min-h-0">
+                {!hasAnyData ? (
+                  <div className="h-full flex items-center justify-center">
+                    <p className="text-gray-500 text-[13px]">Nenhum projeto disponível</p>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={chartData}
+                      layout="vertical"
+                      margin={{ top: 0, right: 52, left: 0, bottom: 0 }}
+                      barCategoryGap="30%"
+                    >
+                      <XAxis
+                        type="number"
+                        domain={[0, 100]}
+                        tick={{ fill: "var(--gray-400, #9ca3af)", fontSize: 11 }}
+                        axisLine={{ stroke: "var(--primary-700, #334155)" }}
+                        tickLine={false}
+                        tickFormatter={(v) => `${v}%`}
+                        tickCount={5}
+                      />
+                      <YAxis
+                        type="category"
+                        dataKey="name"
+                        tick={(props: any) => (
+                          <text
+                            x={props.x - 82}
+                            y={props.y}
+                            dy={4}
+                            textAnchor="start"
+                            fill="var(--gray-300, #cbd5e1)"
+                            fontSize={12}
+                          >
+                            {props.payload.value}
+                          </text>
+                        )}
+                        axisLine={false}
+                        tickLine={false}
+                        width={90}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--primary-800, #1e293b)",
+                          border: "1px solid var(--primary-600, #475569)",
+                          borderRadius: 10,
+                          color: "#e2e8f0",
+                          fontSize: 12,
+                          padding: "8px 12px",
+                        }}
+                        cursor={{ fill: "rgba(100,116,139,0.06)" }}
+                        formatter={(value: any, _name: any, props: any) => [
+                          `${value}% (${props.payload.done}/${props.payload.total})`,
+                          "Concluído",
+                        ]}
+                      />
+                      <Bar
+                        dataKey="pct"
+                        fill="var(--primary-500, #6366f1)"
+                        radius={[0, 4, 4, 0]}
+                        background={{ fill: "var(--primary-900, #0f172a)", radius: 4 } as any}
+                        label={{ position: "right", formatter: (v: any) => `${v}%`, fill: "var(--gray-400, #94a3b8)", fontSize: 11 }}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
-            <div className="h-full rounded-lg bg-primary-800 border border-primary-700 p-5 flex flex-col gap-4 min-h-0">
-              <div className="text-[18px] text-gray-200 font-medium">Pendências</div>
+            <div className="h-full rounded-lg bg-primary-800 border border-primary-700 flex flex-col min-h-0 overflow-hidden">
+              <div className="px-5 py-4 border-b border-primary-700 flex-shrink-0">
+                <div className="text-[15px] font-semibold text-gray-200">Atividades recentes</div>
+                <div className="text-[12px] text-gray-500 mt-0.5">Últimas ações nos seus projetos</div>
+              </div>
 
               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                {pendingItems.length > 0 ? (
-                  pendingItems.map((item, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => router.push(`/portal/projeto/${item.projectId}`)}
-                      className="flex items-start gap-3 py-3 border-b border-primary-700 last:border-b-0 w-full text-left hover:bg-primary-700/30 transition-colors px-1 rounded"
-                    >
-                      <div className="w-7 h-7 rounded-full bg-primary-700 border border-primary-600 flex items-center justify-center text-gray-200 text-[18px] flex-shrink-0">
-                        •
-                      </div>
-                      <div className="flex-1 flex flex-col gap-1 min-w-0">
-                        <div className="text-[14px] text-gray-300 font-medium">{item.label}</div>
-                        <div className="text-[13px] text-gray-400 truncate">{item.sublabel}</div>
-                      </div>
-                      <ChevronRight size={14} className="text-gray-600 flex-shrink-0 mt-1" />
-                    </button>
-                  ))
+                {activities.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-center px-4">
+                    <Clock size={24} className="text-gray-600" />
+                    <p className="text-gray-500 text-[13px]">Nenhuma atividade registrada ainda</p>
+                  </div>
                 ) : (
-                  <div className="text-gray-400 text-[14px] mt-8 text-center">
-                    Nenhuma pendência no momento
+                  <div className="flex flex-col">
+                    {activities.map((act, i) => {
+                      const { icon: Icon, color } = getActivityMeta(act.tipo);
+                      const timeAgo = formatTimeAgo(act.created_at);
+                      return (
+                        <div
+                          key={act.id}
+                          className={`flex items-start gap-3 px-5 py-3.5 ${i < activities.length - 1 ? "border-b border-primary-700" : ""}`}
+                        >
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${color}`}>
+                            <Icon size={13} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[13px] text-gray-200 leading-snug">
+                              {act.descricao || formatActivityLabel(act.tipo)}
+                            </p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              {act.projetos && (
+                                <span className="text-[11px] text-primary-400 truncate max-w-[120px]">{(act.projetos as any).titulo}</span>
+                              )}
+                              {act.projetos && <span className="text-gray-700 text-[11px]">·</span>}
+                              <span className="text-[11px] text-gray-600 flex-shrink-0">{timeAgo}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -267,27 +335,51 @@ export default function PortalDashboardPage() {
       </div>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: var(--primary-800); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--primary-500); border-radius: 9999px; border: 2px solid var(--primary-800); }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--primary-400); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--primary-700); border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--primary-600); }
       `}</style>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    "em_andamento": "text-primary-400 bg-primary-400/10 border-primary-400/20",
-    "Em andamento": "text-primary-400 bg-primary-400/10 border-primary-400/20",
-    "concluído": "text-third-400 bg-third-400/10 border-third-400/20",
-    "Concluído": "text-third-400 bg-third-400/10 border-third-400/20",
-    "finalizado": "text-third-400 bg-third-400/10 border-third-400/20",
-  };
-  const cls = map[status] ?? "text-gray-400 bg-gray-400/10 border-gray-400/20";
-  return <span className={`text-[11px] px-2 py-0.5 rounded-full border flex-shrink-0 ${cls}`}>{status}</span>;
+function getActivityMeta(tipo: string): { icon: any; color: string } {
+  const t = tipo?.toLowerCase() ?? "";
+  if (t.includes("task") || t.includes("tarefa") || t.includes("conclu")) return { icon: CheckCircle2, color: "bg-third-400/15 text-third-400" };
+  if (t.includes("arquivo") || t.includes("file") || t.includes("upload")) return { icon: Upload, color: "bg-primary-600 text-primary-200" };
+  if (t.includes("pagamento") || t.includes("payment") || t.includes("cobran")) return { icon: CreditCard, color: "bg-yellow-500/15 text-yellow-400" };
+  if (t.includes("briefing")) return { icon: FileText, color: "bg-primary-600 text-primary-200" };
+  if (t.includes("entregavel") || t.includes("entregável") || t.includes("deliver")) return { icon: Send, color: "bg-primary-500/20 text-primary-300" };
+  if (t.includes("link")) return { icon: FileText, color: "bg-primary-600 text-primary-200" };
+  return { icon: Clock, color: "bg-primary-700 text-gray-400" };
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+function formatActivityLabel(tipo: string): string {
+  const map: Record<string, string> = {
+    task_completed: "Tarefa concluída",
+    tarefa_concluida: "Tarefa concluída",
+    arquivo_enviado: "Arquivo enviado",
+    file_uploaded: "Arquivo enviado",
+    pagamento_enviado: "Cobrança enviada",
+    payment_sent: "Cobrança enviada",
+    briefing_enviado: "Briefing enviado",
+    entregavel_enviado: "Entregável enviado",
+    entregavel_aprovado: "Entregável aprovado",
+    link_adicionado: "Link adicionado",
+  };
+  return map[tipo] ?? tipo?.replace(/_/g, " ") ?? "Atividade registrada";
 }
+
+function formatTimeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "agora";
+  if (mins < 60) return `há ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `há ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `há ${days} dia${days > 1 ? "s" : ""}`;
+  return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+

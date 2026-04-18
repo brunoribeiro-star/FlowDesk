@@ -109,6 +109,8 @@ type BriefingEnvio = {
 
 type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing" | "entregaveis";
 
+type EntregavelArquivo = { url: string; tipo: string; nome: string };
+
 type Entregavel = {
   id: string;
   titulo: string;
@@ -116,10 +118,12 @@ type Entregavel = {
   url: string | null;
   arquivo_url: string | null;
   arquivo_tipo: string | null;
+  arquivos: EntregavelArquivo[] | null;
   status: "rascunho" | "aguardando_aprovacao" | "aprovado" | "para_alteracao";
   feedback_cliente: string | null;
   feedback_imagem_url: string | null;
   feedback_pins: Array<{ xPct: number; yPct: number; text: string }> | null;
+  feedback_imagens: Array<{ url: string; pins: Array<{ xPct: number; yPct: number; text: string }> }> | null;
   reviewed_at: string | null;
   created_at: string;
 };
@@ -159,9 +163,9 @@ function statusLabel(status: ProjetoStatus) {
 }
 
 function statusPillClass(status: ProjetoStatus) {
-  if (status === "Concluído") return "bg-third-400/15 text-third-300 border-third-400/40";
-  if (status === "Arquivado") return "bg-gray-500/15 text-gray-200 border-gray-400/30";
-  return "bg-primary-500/15 text-primary-200 border-primary-500/35";
+  if (status === "Concluído") return "bg-third-400/15 text-third-300 border-third-400";
+  if (status === "Arquivado") return "bg-gray-500/15 text-gray-200 border-gray-600";
+  return "bg-primary-500/15 text-primary-200 border-primary-500";
 }
 
 function Modal({
@@ -290,12 +294,14 @@ export default function ProjetoDetalhesPage() {
   const [entregaveis, setEntregaveis] = useState<Entregavel[]>([]);
   const [newEntregavel, setNewEntregavel] = useState({ titulo: "", descricao: "", url: "" });
   const [entregavelAnexoTipo, setEntregavelAnexoTipo] = useState<"nenhum" | "link" | "arquivo">("nenhum");
-  const [entregavelArquivo, setEntregavelArquivo] = useState<File | null>(null);
+  const [entregavelArquivos, setEntregavelArquivos] = useState<File[]>([]);
   const [addingEntregavel, setAddingEntregavel] = useState(false);
   const [sendingEntregavelId, setSendingEntregavelId] = useState<string | null>(null);
   const [deletingEntregavelId, setDeletingEntregavelId] = useState<string | null>(null);
   const [feedbackViewerId, setFeedbackViewerId] = useState<string | null>(null);
   const [uploadingCorrectedId, setUploadingCorrectedId] = useState<string | null>(null);
+  const [showEntregavelForm, setShowEntregavelForm] = useState(false);
+  const [entregavelFilter, setEntregavelFilter] = useState<"todos" | "aguardando_aprovacao" | "para_alteracao" | "aprovado">("todos");
 
   const [newTaskOpen, setNewTaskOpen] = useState(false);
   const [newTaskForm, setNewTaskForm] = useState({ titulo: "", due_date: "", assigned_to: "", subtasks: [] as string[] });
@@ -371,7 +377,7 @@ export default function ProjetoDetalhesPage() {
           supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id).maybeSingle(),
           supabase.from("collaborator_payment_splits").select("id, pagamento_id, amount, status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id),
           supabase.from("collaborator_payment_splits").select("id, pagamento_id, member_user_id, amount, status, paid_at").eq("project_id", id),
-          supabase.from("entregaveis").select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, status, feedback_cliente, feedback_imagem_url, feedback_pins, reviewed_at, created_at").eq("project_id", id).order("created_at", { ascending: false }),
+          supabase.from("entregaveis").select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, arquivos, status, feedback_cliente, feedback_imagem_url, feedback_pins, feedback_imagens, reviewed_at, created_at").eq("project_id", id).order("created_at", { ascending: false }),
         ]);
 
         if (projetoErr) throw projetoErr;
@@ -636,6 +642,14 @@ export default function ProjetoDetalhesPage() {
       if (insErr) throw insErr;
 
       setFiles((prev) => [data as ArquivoProjeto, ...prev]);
+      try {
+        await supabase.from("atividades").insert([{
+          user_id: authUser.id,
+          projeto_id: projeto.id,
+          tipo: "arquivo_enviado",
+          descricao: `Arquivo "${file.name}" foi enviado.`,
+        }]);
+      } catch {}
       setNotify({ open: true, msg: "Arquivo enviado com sucesso." });
     } catch (err: any) {
       setNotify({ open: true, msg: "Erro ao enviar arquivo: " + (err.message || "Erro desconhecido") });
@@ -772,6 +786,14 @@ export default function ProjetoDetalhesPage() {
             [task.id]: (prev[task.id] || []).map((s) => ({ ...s, concluida: true })),
           }));
         }
+        try {
+          await supabase.from("atividades").insert([{
+            user_id: user?.id,
+            projeto_id: projeto?.id,
+            tipo: "tarefa_concluida",
+            descricao: `Tarefa "${task.titulo}" foi concluída.`,
+          }]);
+        } catch {}
       }
     } catch (err: any) {
       setNotify({ open: true, msg: "Erro ao atualizar tarefa: " + (err.message || "Erro desconhecido") });
@@ -838,10 +860,21 @@ export default function ProjetoDetalhesPage() {
         const updated = current.map((s) => (s.id === sub.id ? { ...s, concluida: nova } : s));
         return { ...prev, [sub.task_id]: updated };
       });
+
+      if (nova) {
+        try {
+          await supabase.from("atividades").insert([{
+            user_id: user?.id,
+            projeto_id: projeto?.id,
+            tipo: "tarefa_concluida",
+            descricao: `Subtarefa "${sub.titulo}" foi concluída.`,
+          }]);
+        } catch {}
+      }
     } catch (err: any) {
       setNotify({ open: true, msg: "Erro ao atualizar subtask: " + (err.message || "Erro desconhecido") });
     }
-  }, []);
+  }, [user, projeto]);
 
   function toggleTaskExpanded(taskId: string) {
     setExpandedTasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
@@ -1143,14 +1176,10 @@ export default function ProjetoDetalhesPage() {
     if (!projeto || !newEntregavel.titulo.trim()) return;
 
     const ALLOWED = ["image/png", "image/jpeg", "application/pdf"];
-    if (entregavelAnexoTipo === "arquivo" && entregavelArquivo) {
-      if (!ALLOWED.includes(entregavelArquivo.type)) {
-        setNotify({ open: true, msg: "Apenas PNG, JPEG e PDF são permitidos." });
-        return;
-      }
-      if (entregavelArquivo.size > 10 * 1024 * 1024) {
-        setNotify({ open: true, msg: "Arquivo muito grande. Limite: 10MB." });
-        return;
+    if (entregavelAnexoTipo === "arquivo" && entregavelArquivos.length > 0) {
+      for (const f of entregavelArquivos) {
+        if (!ALLOWED.includes(f.type)) { setNotify({ open: true, msg: `Tipo não permitido: ${f.name}. Apenas PNG, JPEG e PDF.` }); return; }
+        if (f.size > 10 * 1024 * 1024) { setNotify({ open: true, msg: `Arquivo muito grande: ${f.name}. Limite: 10MB.` }); return; }
       }
     }
 
@@ -1158,15 +1187,21 @@ export default function ProjetoDetalhesPage() {
     try {
       let arquivoUrl: string | null = null;
       let arquivoTipo: string | null = null;
+      let arquivosData: EntregavelArquivo[] = [];
 
-      if (entregavelAnexoTipo === "arquivo" && entregavelArquivo) {
-        const ext = entregavelArquivo.name.split(".").pop();
-        const path = `${user.id}/${projeto.id}/entregaveis/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("projetos").upload(path, entregavelArquivo);
-        if (upErr) throw upErr;
-        const { data: pub } = supabase.storage.from("projetos").getPublicUrl(path);
-        arquivoUrl = pub.publicUrl;
-        arquivoTipo = entregavelArquivo.type;
+      if (entregavelAnexoTipo === "arquivo" && entregavelArquivos.length > 0) {
+        const uploads = await Promise.all(entregavelArquivos.map(async (f) => {
+          const ext = f.name.split(".").pop();
+          const path = `${user.id}/${projeto.id}/entregaveis/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: upErr } = await supabase.storage.from("projetos").upload(path, f);
+          if (upErr) throw upErr;
+          const { data: pub } = supabase.storage.from("projetos").getPublicUrl(path);
+          return { url: pub.publicUrl, tipo: f.type, nome: f.name };
+        }));
+        arquivosData = uploads;
+        // manter compatibilidade com campo legado (primeiro arquivo)
+        arquivoUrl = uploads[0].url;
+        arquivoTipo = uploads[0].tipo;
       }
 
       const { data, error } = await supabase
@@ -1179,21 +1214,22 @@ export default function ProjetoDetalhesPage() {
           url: entregavelAnexoTipo === "link" ? newEntregavel.url.trim() || null : null,
           arquivo_url: arquivoUrl,
           arquivo_tipo: arquivoTipo,
+          arquivos: arquivosData.length > 0 ? arquivosData : null,
           status: "rascunho",
         }])
-        .select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, status, feedback_cliente, reviewed_at, created_at")
+        .select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, arquivos, status, feedback_cliente, feedback_imagem_url, feedback_pins, feedback_imagens, reviewed_at, created_at")
         .single();
       if (error) throw error;
       setEntregaveis(prev => [data as Entregavel, ...prev]);
       setNewEntregavel({ titulo: "", descricao: "", url: "" });
       setEntregavelAnexoTipo("nenhum");
-      setEntregavelArquivo(null);
+      setEntregavelArquivos([]);
     } catch (err: any) {
       setNotify({ open: true, msg: "Erro ao criar entregável: " + err.message });
     } finally {
       setAddingEntregavel(false);
     }
-  }, [projeto, newEntregavel, entregavelAnexoTipo, entregavelArquivo, user]);
+  }, [projeto, newEntregavel, entregavelAnexoTipo, entregavelArquivos, user]);
 
   const handleSendEntregavel = useCallback(async (entregavelId: string) => {
     setSendingEntregavelId(entregavelId);
@@ -1785,214 +1821,246 @@ export default function ProjetoDetalhesPage() {
                   </div>
                 )}
 
-                {activeTab === "entregaveis" && (
-                  <div className="flex flex-col h-full gap-4">
-                    <h3 className="text-[20px] text-primary-100 font-semibold">Entregáveis</h3>
+                {activeTab === "entregaveis" && (() => {
+                  const isOwner = projeto?.user_id === user?.id;
+                  const counts = {
+                    todos: entregaveis.length,
+                    aguardando_aprovacao: entregaveis.filter(e => e.status === "aguardando_aprovacao").length,
+                    para_alteracao: entregaveis.filter(e => e.status === "para_alteracao").length,
+                    aprovado: entregaveis.filter(e => e.status === "aprovado").length,
+                  };
+                  const filtered = entregavelFilter === "todos" ? entregaveis : entregaveis.filter(e => e.status === entregavelFilter);
+                  return (
+                  <div className="flex flex-col h-full gap-3">
+                    {/* Header */}
+                    <div className="flex items-center justify-between flex-shrink-0">
+                      <h3 className="text-[20px] text-primary-100 font-semibold">Entregáveis</h3>
+                      {isOwner && (
+                        <button
+                          type="button"
+                          onClick={() => setShowEntregavelForm(v => !v)}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors border ${showEntregavelForm ? "bg-primary-700 border-primary-600 text-gray-200" : "bg-primary-500 hover:bg-primary-400 border-primary-500 text-primary-900"}`}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          {showEntregavelForm ? "Cancelar" : "Novo entregável"}
+                        </button>
+                      )}
+                    </div>
 
-                    {projeto?.user_id === user?.id && (
-                      <form onSubmit={handleAddEntregavel} className="flex flex-col gap-2 bg-primary-900/60 border border-primary-700 rounded-2xl p-4">
-                        <h4 className="text-[14px] text-gray-300 font-medium">Novo entregável</h4>
+                    {/* Form colapsível */}
+                    {isOwner && showEntregavelForm && (
+                      <form onSubmit={async (e) => { await handleAddEntregavel(e); setShowEntregavelForm(false); setEntregavelArquivos([]); }} className="flex flex-col gap-2.5 bg-primary-800/80 border border-primary-700 rounded-2xl p-4 flex-shrink-0">
                         <input
                           type="text"
                           placeholder="Título *"
                           required
                           value={newEntregavel.titulo}
                           onChange={e => setNewEntregavel(p => ({ ...p, titulo: e.target.value }))}
-                          className="w-full rounded-xl bg-primary-800 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400 text-[14px]"
+                          className="w-full rounded-xl bg-primary-900 border border-primary-700 px-4 py-2.5 text-gray-100 placeholder-gray-500 text-[14px] focus:outline-none focus:border-primary-500 transition-colors"
                         />
                         <input
                           type="text"
                           placeholder="Descrição (opcional)"
                           value={newEntregavel.descricao}
                           onChange={e => setNewEntregavel(p => ({ ...p, descricao: e.target.value }))}
-                          className="w-full rounded-xl bg-primary-800 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400 text-[14px]"
+                          className="w-full rounded-xl bg-primary-900 border border-primary-700 px-4 py-2.5 text-gray-100 placeholder-gray-500 text-[14px] focus:outline-none focus:border-primary-500 transition-colors"
                         />
-
-                        <div className="flex flex-col gap-1.5">
-                          <span className="text-[13px] text-gray-400">Anexo</span>
+                        <div className="flex items-center gap-4">
+                          <span className="text-[13px] text-gray-500 shrink-0">Anexo</span>
                           <div className="flex gap-3">
                             {(["nenhum", "link", "arquivo"] as const).map((opt) => (
                               <label key={opt} className="flex items-center gap-1.5 cursor-pointer text-[13px] text-gray-300">
-                                <input
-                                  type="radio"
-                                  name="anexoTipo"
-                                  value={opt}
-                                  checked={entregavelAnexoTipo === opt}
-                                  onChange={() => { setEntregavelAnexoTipo(opt); setEntregavelArquivo(null); }}
-                                  className="accent-primary-400"
-                                />
+                                <input type="radio" name="anexoTipo" value={opt} checked={entregavelAnexoTipo === opt} onChange={() => { setEntregavelAnexoTipo(opt); setEntregavelArquivos([]); }} className="accent-primary-400" />
                                 {opt === "nenhum" ? "Nenhum" : opt === "link" ? "Link externo" : "Arquivo"}
                               </label>
                             ))}
                           </div>
                         </div>
-
                         {entregavelAnexoTipo === "link" && (
-                          <input
-                            type="url"
-                            placeholder="https://..."
-                            value={newEntregavel.url}
-                            onChange={e => setNewEntregavel(p => ({ ...p, url: e.target.value }))}
-                            className="w-full rounded-xl bg-primary-800 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400 text-[14px]"
-                          />
+                          <input type="url" placeholder="https://..." value={newEntregavel.url} onChange={e => setNewEntregavel(p => ({ ...p, url: e.target.value }))} className="w-full rounded-xl bg-primary-900 border border-primary-700 px-4 py-2.5 text-gray-100 placeholder-gray-500 text-[14px] focus:outline-none focus:border-primary-500 transition-colors" />
                         )}
-
                         {entregavelAnexoTipo === "arquivo" && (
-                          <div>
-                            <label className="flex flex-col items-center justify-center w-full rounded-xl border border-dashed border-primary-600 bg-primary-800 px-4 py-4 text-center cursor-pointer hover:bg-primary-700 transition">
+                          <div className="flex flex-col gap-2">
+                            <label className="flex flex-col items-center justify-center w-full rounded-xl border border-dashed border-primary-600 bg-primary-900 px-4 py-3 text-center cursor-pointer hover:border-primary-500 transition">
                               <span className="text-[13px] text-gray-400">
-                                {entregavelArquivo
-                                  ? <span className="text-primary-300">{entregavelArquivo.name}</span>
-                                  : <><span className="text-primary-300">Clique para selecionar</span> — PNG, JPEG ou PDF (máx. 10MB)</>
-                                }
+                                {entregavelArquivos.length > 0
+                                  ? <span className="text-primary-300">{entregavelArquivos.length} arquivo{entregavelArquivos.length > 1 ? "s" : ""} selecionado{entregavelArquivos.length > 1 ? "s" : ""}</span>
+                                  : <><span className="text-primary-300">Clique para selecionar</span> — PNG, JPEG ou PDF · múltiplos permitidos</>}
                               </span>
-                              <input
-                                type="file"
-                                accept=".png,.jpg,.jpeg,.pdf"
-                                className="hidden"
-                                onChange={e => setEntregavelArquivo(e.target.files?.[0] || null)}
-                              />
+                              <input type="file" accept=".png,.jpg,.jpeg,.pdf" multiple className="hidden" onChange={e => setEntregavelArquivos(Array.from(e.target.files || []))} />
                             </label>
+                            {entregavelArquivos.length > 0 && (
+                              <ul className="flex flex-col gap-1">
+                                {entregavelArquivos.map((f, i) => (
+                                  <li key={i} className="flex items-center justify-between text-[12px] text-gray-400 bg-primary-800 rounded-lg px-3 py-1.5">
+                                    <span className="truncate text-primary-300">{f.name}</span>
+                                    <button type="button" onClick={() => setEntregavelArquivos(prev => prev.filter((_, j) => j !== i))} className="ml-2 text-gray-600 hover:text-gray-300 shrink-0">✕</button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                           </div>
                         )}
-
                         <div className="flex justify-end">
-                          <button
-                            type="submit"
-                            disabled={addingEntregavel || (entregavelAnexoTipo === "arquivo" && !entregavelArquivo)}
-                            className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[14px] font-semibold transition-colors disabled:opacity-60"
-                          >
+                          <button type="submit" disabled={addingEntregavel || (entregavelAnexoTipo === "arquivo" && entregavelArquivos.length === 0)} className="bg-primary-500 hover:bg-primary-400 text-primary-900 rounded-xl px-4 py-2 text-[13px] font-semibold transition-colors disabled:opacity-60">
                             {addingEntregavel ? "Criando..." : "Criar entregável"}
                           </button>
                         </div>
                       </form>
                     )}
 
-                    <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {entregaveis.length === 0 ? (
-                        <div className="text-gray-400">Nenhum entregável criado ainda.</div>
+                    {/* Filtros */}
+                    {entregaveis.length > 0 && (
+                      <div className="flex gap-1.5 flex-shrink-0 overflow-x-auto pb-0.5">
+                        {([
+                          ["todos", "Todos"],
+                          ["aguardando_aprovacao", "Aguardando"],
+                          ["para_alteracao", "Para alterar"],
+                          ["aprovado", "Aprovados"],
+                        ] as const).map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setEntregavelFilter(key)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors border ${
+                              entregavelFilter === key
+                                ? key === "aguardando_aprovacao" ? "bg-yellow-500/20 border-yellow-500 text-yellow-300"
+                                  : key === "aprovado" ? "bg-third-400/15 border-third-400 text-third-300"
+                                  : key === "para_alteracao" ? "bg-primary-600/40 border-primary-500 text-primary-200"
+                                  : "bg-primary-500/20 border-primary-500 text-primary-300"
+                                : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200 hover:border-primary-600"
+                            }`}
+                          >
+                            {label}
+                            {counts[key] > 0 && (
+                              <span className={`text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none ${entregavelFilter === key ? "bg-primary-700 text-primary-200" : "bg-primary-700 text-gray-400"}`}>
+                                {counts[key]}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Lista */}
+                    <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
+                      {filtered.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+                          <span className="text-gray-500 text-[13px]">{entregaveis.length === 0 ? "Nenhum entregável criado ainda." : "Nenhum entregável neste filtro."}</span>
+                        </div>
                       ) : (
-                        <ul className="flex flex-col gap-3">
-                          {entregaveis.map(ent => {
+                        <ul className="flex flex-col gap-2.5">
+                          {filtered.map(ent => {
                             const statusMap: Record<string, { label: string; cls: string }> = {
-                              rascunho: { label: "Rascunho", cls: "bg-primary-700 text-gray-200" },
-                              aguardando_aprovacao: { label: "Aguardando aprovação", cls: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40" },
-                              aprovado: { label: "Aprovado", cls: "bg-third-400/20 text-third-300 border border-third-400/40" },
-                              para_alteracao: { label: "Para alteração", cls: "bg-primary-700/60 text-primary-200 border border-primary-600" },
+                              rascunho: { label: "Rascunho", cls: "bg-primary-700 text-gray-400 border border-primary-600" },
+                              aguardando_aprovacao: { label: "Aguardando", cls: "bg-yellow-500/15 text-yellow-300 border border-yellow-500" },
+                              aprovado: { label: "Aprovado", cls: "bg-third-400/15 text-third-300 border border-third-400" },
+                              para_alteracao: { label: "Para alterar", cls: "bg-primary-600/40 text-primary-200 border border-primary-500" },
                             };
                             const badge = statusMap[ent.status] || { label: ent.status, cls: "bg-primary-700 text-gray-200" };
                             const canSend = ent.status === "rascunho" || ent.status === "para_alteracao";
-                            const isOwner = projeto?.user_id === user?.id;
-                            const hasFeedbackImage = ent.status === "para_alteracao" && !!ent.feedback_imagem_url;
+                            const feedbackImgs = ent.feedback_imagens && ent.feedback_imagens.length > 0 ? ent.feedback_imagens : null;
+                            const hasFeedbackImage = ent.status === "para_alteracao" && (!!ent.feedback_imagem_url || !!feedbackImgs);
+                            const feedbackThumbUrl = feedbackImgs ? feedbackImgs[0].url : ent.feedback_imagem_url;
+                            const files = getEntregavelFiles(ent);
                             return (
-                              <li key={ent.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-4 flex flex-col gap-2">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="flex flex-col min-w-0 flex-1">
-                                    <span className="text-[16px] text-primary-100 font-semibold truncate">{ent.titulo}</span>
-                                    {ent.descricao && <span className="text-[13px] text-gray-400 mt-0.5">{ent.descricao}</span>}
-                                    {ent.url && (
-                                      <a href={ent.url} target="_blank" rel="noreferrer" className="text-[13px] text-primary-300 hover:underline mt-1 truncate block">
-                                        {ent.url}
-                                      </a>
-                                    )}
-                                    {ent.arquivo_url && ent.arquivo_tipo === "application/pdf" && (
-                                      <a href={ent.arquivo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[13px] text-primary-300 hover:underline mt-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                        Abrir PDF
-                                      </a>
-                                    )}
-                                  </div>
-                                  <span className={`shrink-0 px-3 py-1 rounded-full text-[12px] font-medium ${badge.cls}`}>
-                                    {badge.label}
-                                  </span>
-                                </div>
-
-                                {/* Entregável original — clicável para tela cheia quando há feedback de imagem */}
-                                {ent.arquivo_url && ent.arquivo_tipo?.startsWith("image/") && (
-                                  hasFeedbackImage ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => setFeedbackViewerId(ent.id)}
-                                      className="w-full group relative rounded-xl overflow-hidden border border-primary-700 bg-primary-900/40"
-                                    >
-                                      <img src={ent.arquivo_url} alt={ent.titulo} className="w-full max-h-56 object-contain group-hover:opacity-75 transition-opacity" />
-                                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                                        <span className="bg-black/60 text-white text-[12px] font-medium rounded-lg px-3 py-1.5">Ver feedback do cliente</span>
-                                      </div>
-                                    </button>
-                                  ) : (
-                                    <img
-                                      src={ent.arquivo_url}
-                                      alt={ent.titulo}
-                                      className="w-full max-h-56 object-contain rounded-xl border border-primary-700 bg-primary-900/40"
-                                    />
-                                  )
-                                )}
-
-                                {ent.status === "para_alteracao" && ent.feedback_cliente && (
-                                  <div className="bg-primary-700/60 border border-primary-600 rounded-xl px-3 py-2 text-[13px] text-gray-300">
-                                    <span className="font-semibold text-gray-200">Feedback do cliente: </span>{ent.feedback_cliente}
-                                  </div>
-                                )}
-
+                              <li key={ent.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden">
+                                {/* Imagem anotada pelo cliente — clicável para abrir viewer */}
                                 {hasFeedbackImage && (
-                                  <button
-                                    type="button"
-                                    onClick={() => setFeedbackViewerId(ent.id)}
-                                    className="w-full text-left rounded-xl overflow-hidden border border-primary-600 bg-primary-800/60 group"
-                                  >
-                                    <div className="px-3 py-1.5 flex items-center justify-between text-[12px] text-gray-400 group-hover:text-gray-200 transition-colors">
-                                      <span>Imagem anotada pelo cliente — clique para abrir</span>
-                                      <span className="text-primary-400">↗</span>
-                                    </div>
-                                    <img
-                                      src={ent.feedback_imagem_url!}
-                                      alt="Anotação do cliente"
-                                      className="w-full max-h-48 object-contain bg-primary-900/40"
-                                    />
+                                  <button type="button" onClick={() => setFeedbackViewerId(ent.id)} className="relative w-full block overflow-hidden group">
+                                    <img src={feedbackThumbUrl!} alt="Anotação" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                    <span className="absolute bottom-2 left-3 flex items-center gap-1.5 text-[11px] text-white bg-black/50 rounded-md px-2 py-1">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                      Feedback do cliente{feedbackImgs && feedbackImgs.length > 1 ? ` (${feedbackImgs.length} imagens)` : ""} — clique para ver
+                                    </span>
                                   </button>
                                 )}
-
-                                {/* Upload arquivo corrigido para "para_alteracao" */}
-                                {isOwner && ent.status === "para_alteracao" && ent.arquivo_url && (
-                                  <label className="flex items-center gap-2 cursor-pointer w-fit">
-                                    <input
-                                      type="file"
-                                      accept="image/*,application/pdf"
-                                      className="hidden"
-                                      disabled={uploadingCorrectedId === ent.id}
-                                      onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadCorrectedFile(ent.id, f); e.target.value = ""; }}
-                                    />
-                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-800 border border-primary-700 text-gray-300 hover:text-gray-100 text-[13px] transition-colors">
-                                      {uploadingCorrectedId === ent.id ? "Enviando..." : "Substituir arquivo corrigido"}
-                                    </span>
-                                  </label>
+                                {/* Carrossel de arquivos — só quando sem feedback anotado */}
+                                {!hasFeedbackImage && files.length > 0 && (
+                                  <EntregavelCarousel files={files} />
                                 )}
 
-                                {isOwner && (
-                                  <div className="flex items-center gap-2 justify-end mt-1">
-                                    {canSend && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSendEntregavel(ent.id)}
-                                        disabled={sendingEntregavelId === ent.id}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[13px] transition-colors disabled:opacity-60"
-                                      >
-                                        {sendingEntregavelId === ent.id ? "Enviando..." : ent.status === "para_alteracao" ? "Reenviar para cliente" : "Enviar para cliente"}
-                                      </button>
-                                    )}
-                                    {ent.status === "rascunho" && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteEntregavel(ent.id)}
-                                        disabled={deletingEntregavelId === ent.id}
-                                        className="px-3 py-1.5 rounded-xl bg-primary-800 border border-primary-700 text-red-400 hover:text-red-300 font-medium text-[13px] transition-colors disabled:opacity-60"
-                                      >
-                                        {deletingEntregavelId === ent.id ? "..." : "Excluir"}
-                                      </button>
-                                    )}
+                                <div className="px-4 py-3 flex flex-col gap-2">
+                                  {/* Título + badge */}
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex flex-col min-w-0 flex-1">
+                                      <span className="text-[14px] text-primary-100 font-semibold leading-snug truncate">{ent.titulo}</span>
+                                      {ent.descricao && <span className="text-[12px] text-gray-500 mt-0.5 truncate">{ent.descricao}</span>}
+                                    </div>
+                                    <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${badge.cls}`}>{badge.label}</span>
                                   </div>
-                                )}
+
+                                  {/* Link / PDF */}
+                                  {ent.url && <a href={ent.url} target="_blank" rel="noreferrer" className="text-[12px] text-primary-400 hover:text-primary-300 hover:underline truncate transition-colors">{ent.url}</a>}
+                                  {ent.arquivo_url && ent.arquivo_tipo === "application/pdf" && (
+                                    <a href={ent.arquivo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] text-primary-400 hover:text-primary-300 w-fit transition-colors">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                                      Abrir PDF
+                                    </a>
+                                  )}
+
+                                  {/* Feedback do cliente */}
+                                  {ent.status === "para_alteracao" && ent.feedback_cliente && (
+                                    <div className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[12px] text-gray-300">
+                                      <span className="text-gray-400 font-medium">Feedback: </span>{ent.feedback_cliente}
+                                    </div>
+                                  )}
+
+                                  {/* Download (aprovado) */}
+                                  {ent.status === "aprovado" && files.length > 0 && (
+                                    <div className="flex items-center gap-2 pt-1 border-t border-primary-700">
+                                      {files.length === 1 ? (
+                                        <button type="button" onClick={() => downloadFile(files[0].url, files[0].nome)}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[12px] transition-colors"
+                                        >
+                                          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                          Baixar arquivo
+                                        </button>
+                                      ) : (
+                                        <>
+                                          <button type="button" onClick={() => downloadFile(files[0].url, files[0].nome)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-800 border border-primary-700 text-gray-300 hover:bg-primary-700 text-[12px] transition-colors"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                            Baixar atual
+                                          </button>
+                                          <button type="button" onClick={() => downloadAllAsZip(files, ent.titulo)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[12px] transition-colors"
+                                          >
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                            Baixar todos ({files.length})
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Ações */}
+                                  {isOwner && (
+                                    <div className="flex items-center gap-2 pt-1">
+                                      {ent.status === "para_alteracao" && ent.arquivo_url && (
+                                        <label className="cursor-pointer">
+                                          <input type="file" accept="image/*,application/pdf" className="hidden" disabled={uploadingCorrectedId === ent.id} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadCorrectedFile(ent.id, f); e.target.value = ""; }} />
+                                          <span className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary-800 border border-primary-700 text-gray-400 hover:text-gray-200 text-[12px] transition-colors cursor-pointer">
+                                            {uploadingCorrectedId === ent.id ? "Enviando..." : "Substituir arquivo"}
+                                          </span>
+                                        </label>
+                                      )}
+                                      <div className="flex-1" />
+                                      {ent.status === "rascunho" && (
+                                        <button type="button" onClick={() => handleDeleteEntregavel(ent.id)} disabled={deletingEntregavelId === ent.id} className="px-3 py-1.5 rounded-xl text-gray-500 hover:text-red-400 text-[12px] transition-colors disabled:opacity-60">
+                                          {deletingEntregavelId === ent.id ? "..." : "Excluir"}
+                                        </button>
+                                      )}
+                                      {canSend && (
+                                        <button type="button" onClick={() => handleSendEntregavel(ent.id)} disabled={sendingEntregavelId === ent.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[12px] transition-colors disabled:opacity-60">
+                                          {sendingEntregavelId === ent.id ? "Enviando..." : ent.status === "para_alteracao" ? "Reenviar" : "Enviar ao cliente"}
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               </li>
                             );
                           })}
@@ -2000,7 +2068,8 @@ export default function ProjetoDetalhesPage() {
                       )}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
 
                 {activeTab === "briefing" && (
                   <div className="flex flex-col h-full gap-3">
@@ -2206,24 +2275,146 @@ export default function ProjetoDetalhesPage() {
   );
 }
 
-// ─── Feedback image viewer (fullscreen, interactive pins) ────────────────────
+// ─── Helpers de arquivo para entregáveis ─────────────────────────────────────
+
+function getEntregavelFiles(ent: { arquivo_url?: string | null; arquivo_tipo?: string | null; arquivos?: Array<{ url: string; tipo: string; nome: string }> | null; titulo?: string }): Array<{ url: string; tipo: string; nome: string }> {
+  if (ent.arquivos && ent.arquivos.length > 0) return ent.arquivos;
+  if (ent.arquivo_url) return [{ url: ent.arquivo_url, tipo: ent.arquivo_tipo || "", nome: ent.titulo || "arquivo" }];
+  return [];
+}
+
+async function downloadFile(url: string, nome: string) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nome;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  } catch {
+    window.open(url, "_blank");
+  }
+}
+
+async function downloadAllAsZip(files: Array<{ url: string; nome: string }>, zipName: string) {
+  const JSZip = (await import("jszip")).default;
+  const zip = new JSZip();
+  await Promise.all(files.map(async (f, i) => {
+    try {
+      const res = await fetch(f.url);
+      const blob = await res.blob();
+      const ext = f.nome.includes(".") ? "" : ".png";
+      zip.file(`${String(i + 1).padStart(2, "0")}-${f.nome}${ext}`, blob);
+    } catch {}
+  }));
+  const content = await zip.generateAsync({ type: "blob" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(content);
+  a.download = `${zipName}.zip`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ─── Carrossel de arquivos do entregável ─────────────────────────────────────
+
+function EntregavelCarousel({ files, onClickImage }: {
+  files: Array<{ url: string; tipo: string; nome: string }>;
+  onClickImage?: () => void;
+}) {
+  const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const total = files.length;
+
+  function goTo(newIdx: number) {
+    setVisible(false);
+    setTimeout(() => { setIdx(newIdx); setVisible(true); }, 120);
+  }
+
+  const current = files[idx];
+  if (!current) return null;
+  const isImage = current.tipo.startsWith("image/");
+
+  return (
+    <div className="relative w-full overflow-hidden bg-primary-900 group">
+      <div className={`transition-opacity duration-150 ${visible ? "opacity-100" : "opacity-0"}`}>
+        {isImage ? (
+          <div className="relative cursor-pointer" onClick={onClickImage}>
+            <img src={current.url} alt={current.nome} className="w-full aspect-video object-cover" />
+            {onClickImage && (
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            )}
+          </div>
+        ) : (
+          <a href={current.url} target="_blank" rel="noreferrer" className="flex items-center justify-center aspect-video bg-primary-800 hover:bg-primary-700 transition-colors">
+            <div className="flex flex-col items-center gap-2 text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span className="text-[12px] truncate max-w-[80%]">{current.nome}</span>
+            </div>
+          </a>
+        )}
+      </div>
+
+      {total > 1 && (
+        <>
+          <button type="button" onClick={() => goTo((idx - 1 + total) % total)}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary-900/90 hover:bg-primary-800 border border-primary-600 text-gray-100 flex items-center justify-center transition-colors z-20 shadow-lg"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button type="button" onClick={() => goTo((idx + 1) % total)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-primary-900/90 hover:bg-primary-800 border border-primary-600 text-gray-100 flex items-center justify-center transition-colors z-20 shadow-lg"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+            {files.map((_, i) => (
+              <button key={i} type="button" onClick={() => goTo(i)} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === idx ? "bg-white" : "bg-white/40"}`} />
+            ))}
+          </div>
+          <span className="absolute top-2 right-2 text-[11px] text-white bg-black/50 rounded-md px-2 py-0.5 z-10">{idx + 1}/{total}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Feedback image viewer (fullscreen, interactive pins, multi-image nav) ───
 
 function FeedbackImageViewer({ entregavel: ent, onClose }: {
   entregavel: Entregavel;
   onClose: () => void;
 }) {
+  type FeedbackImg = { url: string; pins: Array<{ xPct: number; yPct: number; text: string }> };
+
+  const images: FeedbackImg[] = ent.feedback_imagens && ent.feedback_imagens.length > 0
+    ? ent.feedback_imagens
+    : ent.feedback_imagem_url
+    ? [{ url: ent.feedback_imagem_url, pins: ent.feedback_pins ?? [] }]
+    : [];
+
+  const [imgIdx, setImgIdx] = useState(0);
   const [openPinId, setOpenPinId] = useState<number | null>(null);
   const imgContainerRef = useRef<HTMLDivElement>(null);
+  const total = images.length;
+  const current = images[imgIdx];
+  const pins = current?.pins ?? [];
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
+      if (total > 1) {
+        if (e.key === "ArrowLeft") setImgIdx(i => (i - 1 + total) % total);
+        if (e.key === "ArrowRight") setImgIdx(i => (i + 1) % total);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, total]);
 
-  const pins = ent.feedback_pins ?? [];
+  useEffect(() => { setOpenPinId(null); }, [imgIdx]);
+
+  if (!current) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" onClick={onClose}>
@@ -2231,21 +2422,29 @@ function FeedbackImageViewer({ entregavel: ent, onClose }: {
       <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
         <div>
           <p className="text-[16px] font-semibold text-gray-100">{ent.titulo}</p>
-          <p className="text-[12px] text-gray-400 mt-0.5">Feedback do cliente</p>
+          <p className="text-[12px] text-gray-400 mt-0.5">
+            Feedback do cliente{total > 1 ? ` — imagem ${imgIdx + 1} de ${total}` : ""}
+          </p>
         </div>
-        <button
-          onClick={onClose}
-          className="px-3 py-1.5 bg-primary-800 border border-primary-700 rounded-lg text-[13px] text-gray-300 hover:text-gray-100 transition-colors"
-        >
+        <button onClick={onClose} className="px-3 py-1.5 bg-primary-800 border border-primary-700 rounded-lg text-[13px] text-gray-300 hover:text-gray-100 transition-colors">
           Fechar
         </button>
       </div>
 
-      {/* Image area */}
-      <div className="flex-1 min-h-0 flex items-center justify-center p-4" onClick={e => e.stopPropagation()}>
-        <div ref={imgContainerRef} className="relative inline-block" style={{ lineHeight: 0, maxWidth: "calc(100vw - 3rem)", maxHeight: "calc(100vh - 8rem)" }}>
+      {/* Image area with lateral navigation */}
+      <div className="flex-1 min-h-0 flex items-center justify-center p-4 gap-4" onClick={e => e.stopPropagation()}>
+        {total > 1 && (
+          <button type="button"
+            onClick={() => setImgIdx(i => (i - 1 + total) % total)}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-800/90 hover:bg-primary-700 border border-primary-600 text-gray-200 flex items-center justify-center transition-colors shadow-lg"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        )}
+
+        <div ref={imgContainerRef} className="relative inline-block" style={{ lineHeight: 0, maxWidth: "calc(100vw - 8rem)", maxHeight: "calc(100vh - 8rem)" }}>
           <img
-            src={ent.feedback_imagem_url!}
+            src={current.url}
             alt="Feedback anotado"
             className="block object-contain rounded-xl"
             style={{ maxWidth: "100%", maxHeight: "calc(100vh - 8rem)" }}
@@ -2281,24 +2480,24 @@ function FeedbackImageViewer({ entregavel: ent, onClose }: {
             </div>
           ))}
         </div>
+
+        {total > 1 && (
+          <button type="button"
+            onClick={() => setImgIdx(i => (i + 1) % total)}
+            className="flex-shrink-0 w-10 h-10 rounded-full bg-primary-800/90 hover:bg-primary-700 border border-primary-600 text-gray-200 flex items-center justify-center transition-colors shadow-lg"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        )}
       </div>
 
-      {/* Comment list below (if any pins) */}
-      {pins.length > 0 && (
-        <div className="flex-shrink-0 px-6 pb-4 flex flex-wrap gap-2" onClick={e => e.stopPropagation()}>
-          {pins.map((pin, idx) => (
-            <button
-              key={idx}
-              onClick={() => setOpenPinId(openPinId === idx ? null : idx)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-[12px] transition-colors ${
-                openPinId === idx
-                  ? "bg-primary-500 border-primary-400 text-primary-900 font-semibold"
-                  : "bg-primary-800 border-primary-700 text-gray-300 hover:border-primary-500"
-              }`}
-            >
-              <span className="font-bold">{idx + 1}</span>
-              <span className="truncate max-w-[180px]">{pin.text}</span>
-            </button>
+      {/* Dots */}
+      {total > 1 && (
+        <div className="flex items-center justify-center gap-2 pb-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          {images.map((_, i) => (
+            <button key={i} type="button" onClick={() => setImgIdx(i)}
+              className={`rounded-full transition-all ${i === imgIdx ? "w-5 h-2 bg-primary-400" : "w-2 h-2 bg-primary-700 hover:bg-primary-500"}`}
+            />
           ))}
         </div>
       )}

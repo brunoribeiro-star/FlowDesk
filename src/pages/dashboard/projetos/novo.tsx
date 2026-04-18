@@ -962,42 +962,21 @@ export default function NovoProjetoPage() {
                 {(form.forma_pagamento === "pix" || form.forma_pagamento === "cartao") && (
                   <div className="flex items-center gap-6 mt-1">
                     <span className="text-[14px] text-gray-300 font-medium">Pago?</span>
-                    <div className="flex items-center gap-6">
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors border ${
-                          form.ja_pago === true
-                            ? "bg-primary-500 border-primary-500" 
-                            : "bg-primary-800 border-primary-700 group-hover:border-primary-600"
-                        }`}>
-                          {form.ja_pago === true && <Check size={14} strokeWidth={3} className="text-primary-900" />}
-                        </div>
-                        <span className="text-[14px] text-gray-200">Sim</span>
-                        <input
-                          type="radio"
-                          name="ja_pago"
-                          checked={form.ja_pago === true}
-                          onChange={() => setForm(prev => ({ ...prev, ja_pago: true }))}
-                          className="hidden"
-                        />
-                      </label>
-
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors border ${
-                          form.ja_pago === false
-                            ? "bg-primary-500 border-primary-500" 
-                            : "bg-primary-800 border-primary-700 group-hover:border-primary-600"
-                        }`}>
-                          {form.ja_pago === false && <Check size={14} strokeWidth={3} className="text-primary-900" />}
-                        </div>
-                        <span className="text-[14px] text-gray-200">Não</span>
-                        <input
-                          type="radio"
-                          name="ja_pago"
-                          checked={form.ja_pago === false}
-                          onChange={() => setForm(prev => ({ ...prev, ja_pago: false }))}
-                          className="hidden"
-                        />
-                      </label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, ja_pago: false }))}
+                        className={`px-4 py-2 rounded-xl border text-[13px] font-medium transition-colors ${!form.ja_pago ? "bg-primary-600 border-primary-500 text-white" : "bg-primary-900 border-primary-700 text-gray-400 hover:border-primary-600"}`}
+                      >
+                        Não
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, ja_pago: true }))}
+                        className={`px-4 py-2 rounded-xl border text-[13px] font-medium transition-colors ${form.ja_pago ? "bg-emerald-600 border-emerald-500 text-white" : "bg-primary-900 border-primary-700 text-gray-400 hover:border-primary-600"}`}
+                      >
+                        Sim
+                      </button>
                     </div>
                   </div>
                 )}
@@ -1040,7 +1019,7 @@ export default function NovoProjetoPage() {
                   </div>
                 </label>
 
-                <div className="flex flex-col gap-3 pt-2 border-t border-primary-700/60">
+                <div className="flex flex-col gap-3 pt-2 border-t border-primary-700">
                   <span className="text-[13px] text-gray-300">Colaborador <span className="text-gray-500">(opcional)</span></span>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label className="flex flex-col gap-1.5">

@@ -620,7 +620,7 @@ export default function NovoBriefingPage() {
                                     <Pencil size={14} /> Editar perfil
                                 </button>
                                 <button
-                                    className="w-full text-left px-3 py-2 text-[13px] text-rose-400 hover:text-rose-300 hover:bg-rose-900/10 rounded-lg transition-colors flex items-center gap-2 border-t border-primary-700/50 mt-1 pt-2"
+                                    className="w-full text-left px-3 py-2 text-[13px] text-rose-400 hover:text-rose-300 hover:bg-rose-900/10 rounded-lg transition-colors flex items-center gap-2 border-t border-primary-700 mt-1 pt-2"
                                     onClick={async () => {
                                         await supabase.auth.signOut();
                                         router.push("/login");
