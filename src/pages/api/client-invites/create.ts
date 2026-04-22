@@ -26,7 +26,7 @@ async function sendPortalEmail(
         subject: `${freelancerName} compartilhou o projeto "${projectName}" com você`,
         html: `
           <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0f0f10;color:#e5e7eb;border-radius:12px;">
-            <h2 style="color:#a78bfa;margin-bottom:8px;">Acesso ao portal do projeto</h2>
+            <h2 style="color:#1EB6E8;margin-bottom:8px;">Acesso ao portal do projeto</h2>
             <p style="margin-bottom:24px;color:#9ca3af;">
               <strong style="color:#e5e7eb;">${freelancerName}</strong> compartilhou o projeto
               <strong style="color:#e5e7eb;">"${projectName}"</strong> com você no FlowDesk.
@@ -35,13 +35,13 @@ async function sendPortalEmail(
               Clique no botão abaixo para acessar o portal e acompanhar o andamento do projeto.
             </p>
             <a href="${magicLink}"
-               style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;
+               style="display:inline-block;background:#1EB6E8;color:#06191F;text-decoration:none;
                       padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">
               Acessar portal
             </a>
             <p style="margin-top:24px;font-size:13px;color:#6b7280;">
               Ou copie o link:<br/>
-              <a href="${magicLink}" style="color:#a78bfa;word-break:break-all;">${magicLink}</a>
+              <a href="${magicLink}" style="color:#1EB6E8;word-break:break-all;">${magicLink}</a>
             </p>
             <p style="margin-top:32px;font-size:12px;color:#4b5563;">
               Este link expira em 24 horas. Se você não esperava este acesso, pode ignorar este e-mail.
@@ -101,8 +101,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const clienteEmail = cliente.email.trim().toLowerCase();
+  const freelancerName = (user.user_metadata as any)?.nome || user.email || "O freelancer";
+  const origin = req.headers.origin || `https://${req.headers.host}`;
 
-  const { data: existingMember } = await supabase
+  const { data: existingMember } = await supabaseAdmin
     .from("project_members")
     .select("id")
     .eq("project_id", project_id)
@@ -111,21 +113,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .maybeSingle();
 
   if (existingMember) {
-    return res.status(409).json({ error: "Este cliente já tem acesso ao portal deste projeto." });
+    const dashboardUrl = `${origin}/portal/dashboard`;
+    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: clienteEmail,
+      options: { redirectTo: dashboardUrl },
+    });
+
+    if (linkErr || !linkData?.properties?.action_link) {
+      return res.status(500).json({ error: "Erro ao gerar link de acesso: " + linkErr?.message });
+    }
+
+    const emailResult = await sendPortalEmail(
+      clienteEmail,
+      linkData.properties.action_link,
+      projeto.titulo,
+      freelancerName
+    );
+
+    return res.status(200).json({
+      portalUrl: dashboardUrl,
+      email_sent: emailResult.ok,
+      email_error: emailResult.error ?? null,
+      cliente_email: clienteEmail,
+      already_had_access: true,
+    });
   }
 
   const { data: existingInvite } = await supabaseAdmin
     .from("client_invites")
-    .select("id, token")
+    .select("id, token, status")
     .eq("project_id", project_id)
     .eq("cliente_id", cliente.id)
-    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   let token: string;
 
-  if (existingInvite) {
+  if (existingInvite?.status === "pending") {
     token = existingInvite.token;
+    const newExpiry = new Date();
+    newExpiry.setDate(newExpiry.getDate() + 7);
+    await supabaseAdmin
+      .from("client_invites")
+      .update({ expires_at: newExpiry.toISOString() })
+      .eq("id", existingInvite.id);
   } else {
     token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date();
@@ -145,7 +178,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
   }
 
-  const origin = req.headers.origin || `https://${req.headers.host}`;
   const portalUrl = `${origin}/portal/${token}`;
 
   const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
@@ -158,7 +190,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ error: "Erro ao gerar link de acesso: " + linkErr?.message });
   }
 
-  const freelancerName = (user.user_metadata as any)?.nome || user.email || "O freelancer";
   const emailResult = await sendPortalEmail(
     clienteEmail,
     linkData.properties.action_link,

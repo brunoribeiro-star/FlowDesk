@@ -12,7 +12,8 @@ export default function HomeRedirect() {
       } = await supabase.auth.getSession();
 
       if (session) {
-        router.replace("/dashboard");
+        const { data: userRow } = await supabase.from("users").select("role").eq("id", session.user.id).maybeSingle();
+        router.replace(userRow?.role === "cliente" ? "/portal/dashboard" : "/dashboard");
       } else {
         router.replace("/login");
       }

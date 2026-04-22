@@ -21,7 +21,7 @@ export default function PortalPagamentosPage() {
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.replace("/"); return; }
+      if (!session) { router.replace("/portal/login"); return; }
       setUser(session.user);
       const { data: memberRows } = await getClientProjects(session.user.id);
       const projectIds = memberRows.map((r: any) => r.project_id);

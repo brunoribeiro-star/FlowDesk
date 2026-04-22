@@ -23,13 +23,13 @@ export default function PortalBriefingsPage() {
   const [briefings, setBriefings] = useState<BriefingEnvio[]>([]);
   const [activeBriefing, setActiveBriefing] = useState<string | null>(null);
   const [briefingCampos, setBriefingCampos] = useState<Record<string, Campo[]>>({});
-  const [briefingRespostas, setBriefingRespostas] = useState<Record<string, string>>({});
+  const [briefingRespostas, setBriefingRespostas] = useState<Record<string, string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.replace("/"); return; }
+      if (!session) { router.replace("/portal/login"); return; }
       setUser(session.user);
       const { data: memberRows } = await getClientProjects(session.user.id);
       const projectIds = memberRows.map((r: any) => r.project_id);
@@ -51,7 +51,11 @@ export default function PortalBriefingsPage() {
   async function handleSubmit(envio: BriefingEnvio) {
     const templateId = envio.briefings_templates?.id ?? "";
     const campos = briefingCampos[templateId] ?? [];
-    const respostas = campos.map((c) => ({ pergunta: c.titulo_pergunta ?? "", resposta: briefingRespostas[c.id] ?? "" }));
+    const respostas = campos.map((c) => {
+      const val = briefingRespostas[c.id];
+      const resposta = Array.isArray(val) ? val.join(", ") : (val ?? "");
+      return { pergunta: c.titulo_pergunta ?? "", resposta };
+    });
     setSubmitting(true);
     const { error } = await submitBriefingResposta(envio.id, envio.projeto_id, respostas);
     setSubmitting(false);
@@ -208,33 +212,102 @@ function BriefingItem({ briefing: b, activeBriefing, briefingCampos, briefingRes
             <p className="text-[13px] text-gray-500 mt-3">Carregando perguntas...</p>
           ) : (
             <div className="flex flex-col gap-4 mt-4">
-              {campos.map((c: any) => (
-                <div key={c.id}>
-                  <label className="text-[13px] text-gray-300 font-medium block mb-1">
-                    {c.titulo_pergunta}{c.obrigatorio && <span className="text-red-400 ml-1">*</span>}
-                  </label>
-                  {c.descricao_pergunta && <p className="text-[12px] text-gray-500 mb-1">{c.descricao_pergunta}</p>}
-                  {c.tipo === "textarea" ? (
-                    <textarea rows={3} placeholder={c.placeholder ?? ""} value={briefingRespostas[c.id] ?? ""}
-                      onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
-                      className="w-full bg-primary-700 border border-primary-600 rounded-xl px-3 py-2 text-[13px] text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:border-primary-500"
-                    />
-                  ) : c.tipo === "select" && c.opcoes ? (
-                    <select value={briefingRespostas[c.id] ?? ""}
-                      onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
-                      className="w-full bg-primary-700 border border-primary-600 rounded-xl px-3 py-2 text-[13px] text-gray-200 focus:outline-none focus:border-primary-500"
-                    >
-                      <option value="">Selecione...</option>
-                      {c.opcoes.map((op: string) => <option key={op} value={op}>{op}</option>)}
-                    </select>
-                  ) : (
-                    <input type="text" placeholder={c.placeholder ?? ""} value={briefingRespostas[c.id] ?? ""}
-                      onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
-                      className="w-full bg-primary-700 border border-primary-600 rounded-xl px-3 py-2 text-[13px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-primary-500"
-                    />
-                  )}
-                </div>
-              ))}
+              {campos.map((c: any) => {
+                const val = briefingRespostas[c.id];
+                return (
+                  <div key={c.id}>
+                    <label className="text-[13px] text-gray-300 font-medium block mb-1">
+                      {c.titulo_pergunta}{c.obrigatorio && <span className="text-red-400 ml-1">*</span>}
+                    </label>
+                    {c.descricao_pergunta && <p className="text-[12px] text-gray-500 mb-1">{c.descricao_pergunta}</p>}
+
+                    {c.tipo === "long_text" && (
+                      <textarea
+                        rows={4}
+                        placeholder={c.placeholder ?? "Sua resposta..."}
+                        value={(val as string) ?? ""}
+                        onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
+                        className="w-full bg-primary-900 border border-primary-700 rounded-xl px-3 py-2.5 text-[13px] text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:border-primary-500 transition-colors"
+                      />
+                    )}
+
+                    {c.tipo === "short_text" && (
+                      <input
+                        type="text"
+                        placeholder={c.placeholder ?? "Sua resposta..."}
+                        value={(val as string) ?? ""}
+                        onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
+                        className="w-full bg-primary-900 border border-primary-700 rounded-xl px-3 py-2.5 text-[13px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
+                      />
+                    )}
+
+                    {c.tipo === "multiple_choice" && Array.isArray(c.opcoes) && (
+                      <div className="flex flex-col gap-2">
+                        {c.opcoes.map((opcao: string) => (
+                          <label key={opcao} className="flex items-center gap-3 cursor-pointer group">
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                              val === opcao ? "border-primary-500 bg-primary-500" : "border-primary-600 group-hover:border-primary-400"
+                            }`}>
+                              {val === opcao && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                            <input
+                              type="radio"
+                              name={`campo-${c.id}`}
+                              value={opcao}
+                              checked={val === opcao}
+                              onChange={() => setBriefingRespostas((p: any) => ({ ...p, [c.id]: opcao }))}
+                              className="sr-only"
+                            />
+                            <span className="text-[13px] text-gray-300 group-hover:text-gray-100 transition-colors">{opcao}</span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+
+                    {c.tipo === "checkboxes" && Array.isArray(c.opcoes) && (
+                      <div className="flex flex-col gap-2">
+                        {c.opcoes.map((opcao: string) => {
+                          const checked = Array.isArray(val) && val.includes(opcao);
+                          return (
+                            <label key={opcao} className="flex items-center gap-3 cursor-pointer group">
+                              <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                                checked ? "border-primary-500 bg-primary-500" : "border-primary-600 group-hover:border-primary-400"
+                              }`}>
+                                {checked && (
+                                  <svg width="9" height="7" viewBox="0 0 11 9" fill="none">
+                                    <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                )}
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(ev) => {
+                                  const prev = Array.isArray(val) ? val : [];
+                                  const next = ev.target.checked ? [...prev, opcao] : prev.filter((o) => o !== opcao);
+                                  setBriefingRespostas((p: any) => ({ ...p, [c.id]: next }));
+                                }}
+                                className="sr-only"
+                              />
+                              <span className="text-[13px] text-gray-300 group-hover:text-gray-100 transition-colors">{opcao}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+\
+                    {!["short_text", "long_text", "multiple_choice", "checkboxes"].includes(c.tipo) && (
+                      <input
+                        type="text"
+                        placeholder={c.placeholder ?? "Sua resposta..."}
+                        value={(val as string) ?? ""}
+                        onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
+                        className="w-full bg-primary-900 border border-primary-700 rounded-xl px-3 py-2.5 text-[13px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
+                      />
+                    )}
+                  </div>
+                );
+              })}
               <button disabled={submitting} onClick={() => handleSubmit(b)}
                 className="w-full bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-xl py-2.5 text-[14px] transition-colors disabled:opacity-50"
               >

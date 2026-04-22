@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { encode } from "punycode";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList } from "@/components/Skeleton";
@@ -36,6 +37,7 @@ type Cliente = {
   nome: string | null;
   empresa: string | null;
   foto_url?: string | null;
+  email?: string | null;
 };
 
 type Projeto = {
@@ -66,6 +68,8 @@ type BriefingEnvio = {
   prazo_resposta: string | null;
   created_at: string;
   responded_at: string | null;
+  token: string | null;
+  email_enviado: boolean;
   template?: {
     id: string;
     titulo: string;
@@ -98,6 +102,7 @@ type BriefingCampo = {
 };
 
 type FiltroEnvioStatus = "" | "pendente" | "respondido";
+type FiltroEmail = "" | "com_email" | "sem_email";
 type ActiveTab = "modelos" | "envios";
 type ViewMode = "list" | "board";
 
@@ -152,6 +157,7 @@ export default function BriefingsPage() {
 
   const [filtroEnvioStatus, setFiltroEnvioStatus] =
     useState<FiltroEnvioStatus>("");
+  const [filtroEmail, setFiltroEmail] = useState<FiltroEmail>("");
   const [activeTab, setActiveTab] = useState<ActiveTab>("modelos");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
 
@@ -178,15 +184,18 @@ export default function BriefingsPage() {
   const [selectionMode, setSelectionMode] = useState(false);
 
   const [sendModalOpen, setSendModalOpen] = useState(false);
+  const [sendMode, setSendMode] = useState<"projeto" | "email">("projeto");
   const [sendSelectedTemplateId, setSendSelectedTemplateId] =
     useState<string | null>(null);
-  const [sendSelectedProjetos, setSendSelectedProjetos] = useState<string[]>(
-    []
-  );
+  const [sendSelectedProjetos, setSendSelectedProjetos] = useState<string[]>([]);
+  const [sendEmailProjetoId, setSendEmailProjetoId] = useState<string | null>(null);
   const [sendPrazo, setSendPrazo] = useState("");
   const [sendSearchProjeto, setSendSearchProjeto] = useState("");
+  const [emailManual, setEmailManual] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [modalStep, setModalStep] = useState<"form" | "success">("form");
+  const [linksGerados, setLinksGerados] = useState<{ projetoTitulo: string; link: string | null; emailStatus: string | null; emailEnviado: boolean }[]>([]);
 
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
@@ -200,7 +209,15 @@ export default function BriefingsPage() {
   const [templatesToDelete, setTemplatesToDelete] = useState<string[]>([]);
   const [deletingTemplates, setDeletingTemplates] = useState(false);
 
+  const [confirmExcluirEnvioId, setConfirmExcluirEnvioId] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
   const { user: authUser } = useAuth();
+
+  function showToast(msg: string) {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  }
 
   useEffect(() => {
     async function carregar() {
@@ -238,6 +255,8 @@ export default function BriefingsPage() {
             prazo_resposta,
             created_at,
             responded_at,
+            token,
+            email_enviado,
             template:template_id (
               id,
               titulo
@@ -273,7 +292,8 @@ export default function BriefingsPage() {
               id,
               nome,
               empresa,
-              foto_url
+              foto_url,
+              email
             )
           `
           )
@@ -364,6 +384,8 @@ export default function BriefingsPage() {
           prazo_resposta: e.prazo_resposta ?? null,
           created_at: e.created_at as string,
           responded_at: e.responded_at ?? null,
+          token: e.token ?? null,
+          email_enviado: !!e.email_enviado,
           template: e.template
             ? {
                 id: String(e.template.id),
@@ -394,6 +416,7 @@ export default function BriefingsPage() {
               nome: c.nome ?? null,
               empresa: c.empresa ?? null,
               foto_url: c.foto_url ?? null,
+              email: c.email ?? null,
             };
           }
         } else if (p.clientes) {
@@ -402,6 +425,7 @@ export default function BriefingsPage() {
             nome: p.clientes.nome ?? null,
             empresa: p.clientes.empresa ?? null,
             foto_url: p.clientes.foto_url ?? null,
+            email: p.clientes.email ?? null,
           };
         }
 
@@ -466,11 +490,13 @@ export default function BriefingsPage() {
   const enviosFiltrados = useMemo(() => {
     return envios.filter((envio) => {
       const tipo = classificarEnvio(envio, respostasPorProjeto);
-      if (filtroEnvioStatus === "pendente") return tipo === "pendente";
-      if (filtroEnvioStatus === "respondido") return tipo === "respondido";
+      if (filtroEnvioStatus === "pendente" && tipo !== "pendente") return false;
+      if (filtroEnvioStatus === "respondido" && tipo !== "respondido") return false;
+      if (filtroEmail === "com_email" && !envio.email_enviado) return false;
+      if (filtroEmail === "sem_email" && envio.email_enviado) return false;
       return true;
     });
-  }, [envios, filtroEnvioStatus, respostasPorProjeto]);
+  }, [envios, filtroEnvioStatus, filtroEmail, respostasPorProjeto]);
 
   function statusEnvioVisual(envio: BriefingEnvio) {
     const tipo = classificarEnvio(envio, respostasPorProjeto);
@@ -501,38 +527,77 @@ export default function BriefingsPage() {
     return projetos.find((p) => p.id === envio.projeto_id) || null;
   }
 
-  async function excluirEnvio(id: string) {
-    if (!confirm("Excluir este envio de briefing?")) return;
+  async function excluirEnvioConfirmado(id: string) {
     await supabase.from("briefings_envios").delete().eq("id", id);
     setEnvios((prev) => prev.filter((e) => e.id !== id));
+    setConfirmExcluirEnvioId(null);
   }
 
-  async function reenviarEnvio(envio: BriefingEnvio) {
+  function excluirEnvio(id: string) {
+    setConfirmExcluirEnvioId(id);
+  }
+
+  async function enviarEmailBriefing(envio: BriefingEnvio) {
     const { data: auth } = await supabase.auth.getUser();
-    const u = auth?.user;
-    if (!u) {
-      alert("Usuário não autenticado.");
+    const session = await supabase.auth.getSession();
+    const token = session.data.session?.access_token;
+    if (!token) { showToast("Usuário não autenticado."); return; }
+
+    if (!envio.token) {
+      showToast("Este envio não possui link público. Exclua e recrie o briefing para gerar o link.");
       return;
     }
 
-    await supabase.from("atividades").insert([
-      {
-        user_id: u.id,
-        projeto_id: envio.projeto_id,
-        tipo: "Briefing",
-        descricao: `Briefing (${envio.template?.titulo || "sem título"}) reenviado para o cliente.`,
-      },
-    ]);
+    try {
+      const res = await fetch("/api/briefings/send-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ envio_id: envio.id }),
+      });
 
-    alert("Reenvio registrado. No futuro o cliente verá isso no painel.");
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        showToast(data.error || "Erro ao enviar e-mail.");
+        return;
+      }
+
+      setEnvios((prev) =>
+        prev.map((e) => (e.id === envio.id ? { ...e, email_enviado: true } : e))
+      );
+      showToast(`E-mail enviado para ${data.cliente_email}.`);
+    } catch {
+      showToast("Erro de conexão ao enviar e-mail.");
+    }
+  }
+
+  function copiarLinkBriefing(envio: BriefingEnvio) {
+    if (!envio.token) {
+      showToast("Este envio não possui link público. Exclua e recrie o briefing para gerar o link.");
+      return;
+    }
+    const link = `${window.location.origin}/briefing/${envio.token}`;
+    navigator.clipboard.writeText(link).then(() => showToast("Link copiado!"));
+  }
+
+  async function reenviarEnvio(envio: BriefingEnvio) {
+    await enviarEmailBriefing(envio);
   }
 
   function abrirModalEnvio(templateId?: string) {
     setSendSelectedTemplateId(templateId || null);
+    setSendMode("projeto");
     setSendSelectedProjetos([]);
+    setSendEmailProjetoId(null);
     setSendPrazo("");
     setSendSearchProjeto("");
+    setEmailManual("");
     setSendError(null);
+    setModalStep("form");
+    setLinksGerados([]);
     setSendModalOpen(true);
   }
 
@@ -558,20 +623,63 @@ export default function BriefingsPage() {
     });
   }, [projetos, sendSearchProjeto]);
 
-  async function handleEnviarBriefingModal() {
-    if (!user) {
-      setSendError("Usuário não autenticado.");
-      return;
+  function normalizarEnvioInserido(e: any): BriefingEnvio {
+    let projeto: BriefingEnvio["projeto"] | null = null;
+    if (e.projeto) {
+      let cliente: Cliente | null = null;
+      const raw = Array.isArray(e.projeto.clientes) ? e.projeto.clientes[0] : e.projeto.clientes;
+      if (raw) {
+        cliente = {
+          id: String(raw.id),
+          nome: raw.nome ?? null,
+          empresa: raw.empresa ?? null,
+          foto_url: raw.foto_url ?? null,
+          email: raw.email ?? null,
+        };
+      }
+      projeto = {
+        id: String(e.projeto.id),
+        titulo: e.projeto.titulo as string,
+        cliente_id: e.projeto.cliente_id ? String(e.projeto.cliente_id) : null,
+        clientes: cliente,
+      };
     }
+    return {
+      id: String(e.id),
+      user_id: String(e.user_id),
+      template_id: String(e.template_id),
+      projeto_id: e.projeto_id ? String(e.projeto_id) : null,
+      status: e.status ?? null,
+      prazo_resposta: e.prazo_resposta ?? null,
+      created_at: e.created_at as string,
+      responded_at: e.responded_at ?? null,
+      token: e.token ?? null,
+      email_enviado: !!e.email_enviado,
+      template: e.template ? { id: String(e.template.id), titulo: e.template.titulo as string } : null,
+      projeto,
+    };
+  }
+
+  const SELECT_ENVIO_INSERT = `
+    id, user_id, template_id, projeto_id, status, prazo_resposta,
+    created_at, responded_at, token, email_enviado,
+    template:template_id(id, titulo),
+    projeto:projeto_id(id, titulo, cliente_id,
+      clientes:cliente_id(id, nome, empresa, foto_url, email))
+  `;
+
+  async function handleEnviarBriefingModal() {
+    if (!user) { setSendError("Usuário não autenticado."); return; }
 
     const templateId = sendSelectedTemplateId;
-    if (!templateId) {
-      setSendError("Selecione um modelo de briefing.");
+    if (!templateId) { setSendError("Selecione um modelo de briefing."); return; }
+
+    if (sendMode === "projeto" && sendSelectedProjetos.length === 0) {
+      setSendError("Selecione pelo menos um projeto.");
       return;
     }
-
-    if (sendSelectedProjetos.length === 0) {
-      setSendError("Selecione pelo menos um projeto para enviar.");
+    if (sendMode === "email" && !emailManual.trim()) {
+      setSendError("Informe o e-mail do cliente.");
       return;
     }
 
@@ -579,107 +687,89 @@ export default function BriefingsPage() {
     setSending(true);
 
     try {
-      const rows = sendSelectedProjetos.map((pid) => ({
-        user_id: user.id,
-        template_id: templateId,
-        projeto_id: pid,
-        status: "pendente",
-        prazo_resposta: sendPrazo || null,
-      }));
+      const rows =
+        sendMode === "projeto"
+          ? sendSelectedProjetos.map((pid) => {
+              const p = projetos.find((proj) => proj.id === pid);
+              return {
+                user_id: user.id,
+                template_id: templateId,
+                projeto_id: pid,
+                cliente_id: p?.cliente_id || null,
+                status: "pendente",
+                prazo_resposta: sendPrazo || null,
+                token: crypto.randomUUID(),
+                email_enviado: false,
+              };
+            })
+          : [{
+              user_id: user.id,
+              template_id: templateId,
+              projeto_id: sendEmailProjetoId || null,
+              cliente_id: sendEmailProjetoId
+                ? (projetos.find((p) => p.id === sendEmailProjetoId)?.cliente_id || null)
+                : null,
+              status: "pendente",
+              prazo_resposta: sendPrazo || null,
+              token: crypto.randomUUID(),
+              email_enviado: false,
+            }];
 
       const { data: inserted, error: insertError } = await supabase
         .from("briefings_envios")
         .insert(rows)
-        .select(
-          `
-          id,
-          user_id,
-          template_id,
-          projeto_id,
-          status,
-          prazo_resposta,
-          created_at,
-          responded_at,
-          template:template_id (
-            id,
-            titulo
-          ),
-          projeto:projeto_id (
-            id,
-            titulo,
-            cliente_id,
-            clientes:cliente_id (
-              id,
-              nome,
-              empresa,
-              foto_url
-            )
-          )
-        `
-        );
+        .select(SELECT_ENVIO_INSERT);
 
       if (insertError) {
-        setSendError(insertError.message || "Erro ao enviar briefing.");
+        setSendError(insertError.message || "Erro ao criar briefing.");
         setSending(false);
         return;
       }
 
-      const normalizadosInseridos = (inserted || []).map((e: any) => {
-        let projeto: BriefingEnvio["projeto"] | null = null;
-        if (e.projeto) {
-          let cliente: Cliente | null = null;
-          if (Array.isArray(e.projeto.clientes)) {
-            const c = e.projeto.clientes[0];
-            if (c) {
-              cliente = {
-                id: String(c.id),
-                nome: c.nome ?? null,
-                empresa: c.empresa ?? null,
-                foto_url: c.foto_url ?? null,
-              };
-            }
-          } else if (e.projeto.clientes) {
-            cliente = {
-              id: String(e.projeto.clientes.id),
-              nome: e.projeto.clientes.nome ?? null,
-              empresa: e.projeto.clientes.empresa ?? null,
-              foto_url: e.projeto.clientes.foto_url ?? null,
-            };
+      const normalizados = (inserted || []).map(normalizarEnvioInserido);
+
+      const links: { projetoTitulo: string; link: string | null; emailStatus: string | null; emailEnviado: boolean }[] =
+        normalizados.map((e) => ({
+          projetoTitulo: e.projeto?.titulo || (sendMode === "email" ? "Briefing" : "Projeto"),
+          link: e.token ? `${window.location.origin}/briefing/${e.token}` : null,
+          emailStatus: null,
+          emailEnviado: false,
+        }));
+
+      // Enviar e-mails
+      const sessionData = await supabase.auth.getSession();
+      const accessToken = sessionData.data.session?.access_token;
+
+      for (let i = 0; i < normalizados.length; i++) {
+        const envio = normalizados[i];
+        const emailOverride = sendMode === "email" ? emailManual.trim() : undefined;
+
+        try {
+          const res = await fetch("/api/briefings/send-email", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ envio_id: envio.id, email_override: emailOverride }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            links[i].emailStatus = `E-mail enviado para ${data.cliente_email}`;
+            links[i].emailEnviado = true;
+            normalizados[i] = { ...normalizados[i], email_enviado: true };
+          } else {
+            links[i].emailStatus = data.error || "Erro ao enviar e-mail";
           }
-
-          projeto = {
-            id: String(e.projeto.id),
-            titulo: e.projeto.titulo as string,
-            cliente_id: e.projeto.cliente_id
-              ? String(e.projeto.cliente_id)
-              : null,
-            clientes: cliente,
-          };
+        } catch {
+          links[i].emailStatus = "Erro de conexão ao enviar e-mail";
         }
+      }
 
-        return {
-          id: String(e.id),
-          user_id: String(e.user_id),
-          template_id: String(e.template_id),
-          projeto_id: e.projeto_id ? String(e.projeto_id) : null,
-          status: e.status ?? null,
-          prazo_resposta: e.prazo_resposta ?? null,
-          created_at: e.created_at as string,
-          responded_at: e.responded_at ?? null,
-          template: e.template
-            ? {
-                id: String(e.template.id),
-                titulo: e.template.titulo as string,
-              }
-            : null,
-          projeto,
-        } as BriefingEnvio;
-      });
-
-      setEnvios((prev) => [...normalizadosInseridos, ...prev]);
+      setEnvios((prev) => [...normalizados, ...prev]);
+      setLinksGerados(links);
       setSending(false);
-      setSendModalOpen(false);
-      alert("Briefing enviado com sucesso.");
+      setModalStep("success");
     } catch (err: any) {
       setSendError(err.message || "Erro inesperado ao enviar briefing.");
       setSending(false);
@@ -694,7 +784,7 @@ export default function BriefingsPage() {
 
     if (error) {
       console.error("Erro ao atualizar status do envio:", error);
-      alert("Erro ao atualizar status. Tente novamente.");
+      showToast("Erro ao atualizar status. Tente novamente.");
       return;
     }
 
@@ -788,8 +878,8 @@ export default function BriefingsPage() {
                 <MoreVertical size={16} />
                 </button>
                     {openMenuEnvioId === envio.id && (
-                        <div className="absolute right-0 top-6 w-40 bg-gray-800 border border-gray-700 rounded shadow-xl z-20 flex flex-col py-1">
-                             {envio.status === 'respondido' || envio.responded_at ? (
+                        <div className="absolute right-0 top-6 w-44 bg-primary-800 border border-primary-700 rounded shadow-xl z-20 flex flex-col py-1">
+                             {(envio.status === 'respondido' || envio.responded_at) && (
                                 <button
                                 onClick={() => {
                                   setOpenMenuEnvioId(null);
@@ -797,27 +887,35 @@ export default function BriefingsPage() {
                                     `/dashboard/briefings/${envio.id}/respostas`
                                   )
                                 }}
-                                className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-gray-700 flex items-center gap-2"
+                                className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-primary-700 flex items-center gap-2"
                                 >
                                 <Eye size={13} /> Ver respostas
-                                </button>
-                             ) : (
-                                <button
-                                onClick={() => {
-                                    setOpenMenuEnvioId(null);
-                                    reenviarEnvio(envio);
-                                }}
-                                className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-gray-700 flex items-center gap-2"
-                                >
-                                <Send size={13} /> Reenviar
                                 </button>
                              )}
                             <button
                             onClick={() => {
                                 setOpenMenuEnvioId(null);
+                                enviarEmailBriefing(envio);
+                            }}
+                            className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-primary-700 flex items-center gap-2"
+                            >
+                            <Send size={13} /> {envio.email_enviado ? "Reenviar e-mail" : "Enviar e-mail"}
+                            </button>
+                            <button
+                            onClick={() => {
+                                setOpenMenuEnvioId(null);
+                                copiarLinkBriefing(envio);
+                            }}
+                            className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-primary-700 flex items-center gap-2"
+                            >
+                            <Copy size={13} /> Copiar link
+                            </button>
+                            <button
+                            onClick={() => {
+                                setOpenMenuEnvioId(null);
                                 excluirEnvio(envio.id);
                             }}
-                            className="px-4 py-2 text-left text-xs text-red-400 hover:bg-gray-700 flex items-center gap-2"
+                            className="px-4 py-2 text-left text-xs text-red-400 hover:bg-primary-700 flex items-center gap-2"
                             >
                             <Trash2 size={13} /> Excluir
                             </button>
@@ -945,7 +1043,7 @@ export default function BriefingsPage() {
       setTemplates(prev => [novoTemplate, ...prev]);
 
     } catch (err: any) {
-      alert("Erro ao duplicar modelo: " + err.message);
+      showToast("Erro ao duplicar modelo: " + err.message);
     }
   }
 
@@ -1060,7 +1158,7 @@ export default function BriefingsPage() {
         .in("id", templatesToDelete);
 
       if (error) {
-        alert(error.message || "Erro ao excluir modelos.");
+        showToast(error.message || "Erro ao excluir modelos.");
         setDeletingTemplates(false);
         return;
       }
@@ -1076,7 +1174,7 @@ export default function BriefingsPage() {
       setTemplatesToDelete([]);
       setSelectionMode(false);
     } catch (err: any) {
-      alert(err.message || "Erro inesperado ao excluir modelos.");
+      showToast(err.message || "Erro inesperado ao excluir modelos.");
       setDeletingTemplates(false);
     }
   }
@@ -1126,7 +1224,7 @@ export default function BriefingsPage() {
           </div>
         </header>
 
-        <div className="flex p-1 bg-primary-900 border border-gray-700 rounded-xl w-fit">
+        <div className="flex p-1 bg-primary-900 border border-primary-700 rounded-xl w-fit">
           <button
             type="button"
             onClick={() => setActiveTab("modelos")}
@@ -1172,7 +1270,7 @@ export default function BriefingsPage() {
                      className={`ml-2 p-1.5 rounded-md border transition-colors ${
                        selectionMode
                          ? "bg-primary-700 border-primary-500 text-primary-100"
-                         : "bg-primary-800 border-primary-700 text-gray-400 hover:border-gray-500"
+                         : "bg-primary-800 border-primary-700 text-gray-400 hover:border-primary-500"
                      }`}
                      title={selectionMode ? "Sair da seleção" : "Selecionar vários"}
                    >
@@ -1231,7 +1329,7 @@ export default function BriefingsPage() {
                                 className={`absolute top-3 left-3 z-30 w-6 h-6 rounded-md border flex items-center justify-center text-[11px] transition-colors ${
                                   selected
                                     ? "border-primary-300 bg-primary-500 text-primary-900"
-                                    : "border-white/30 bg-black/40 text-white/70 hover:bg-black/60"
+                                    : "border-primary-700 bg-primary-900/60 text-gray-400 hover:bg-primary-800/60"
                                 }`}
                               >
                                 {selected ? "✓" : ""}
@@ -1457,6 +1555,21 @@ export default function BriefingsPage() {
                       ▼
                     </span>
                   </div>
+
+                  <div className="relative">
+                    <select
+                      value={filtroEmail}
+                      onChange={(e) => setFiltroEmail(e.target.value as FiltroEmail)}
+                      className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 pr-10 text-[13px] text-gray-100 appearance-none"
+                    >
+                      <option value="">E-mail: Todos</option>
+                      <option value="com_email">E-mail enviado</option>
+                      <option value="sem_email">Sem e-mail</option>
+                    </select>
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">
+                      ▼
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1539,14 +1652,20 @@ export default function BriefingsPage() {
                             {envio.template?.titulo || "Briefing"}
                           </div>
 
-                          <div>
+                          <div className="flex flex-col gap-1.5">
                             <span
-                              className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-medium ${status.bg} ${status.text}`}
+                              className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-medium w-fit ${status.bg} ${status.text}`}
                             >
                               {status.label}
                             </span>
+                            {envio.email_enviado && (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-blue-400">
+                                <Send size={10} />
+                                E-mail enviado
+                              </span>
+                            )}
                             {totalRespostas ? (
-                              <span className="ml-2 text-[11px] text-gray-300">
+                              <span className="text-[11px] text-gray-300">
                                 ({totalRespostas} resposta
                                 {totalRespostas > 1 ? "s" : ""})
                               </span>
@@ -1621,12 +1740,19 @@ export default function BriefingsPage() {
 
                                   <button
                                     onClick={() => {
-                                      const msg = `Olá! Estou enviando o link do briefing "${templateTitulo}" para o projeto "${projetoTitulo}".\n\nAcesse e responda para darmos continuidade:\n(Link Indisponível)`;
-                                      navigator.clipboard.writeText(msg);
-                                      alert(
-                                        "Mensagem copiada para a área de transferência!"
-                                      );
                                       setOpenMenuEnvioId(null);
+                                      enviarEmailBriefing(envio);
+                                    }}
+                                    className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                  >
+                                    <Send size={14} className="text-gray-400" />
+                                    {envio.email_enviado ? "Reenviar e-mail" : "Enviar por e-mail"}
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setOpenMenuEnvioId(null);
+                                      copiarLinkBriefing(envio);
                                     }}
                                     className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
                                   >
@@ -1634,7 +1760,7 @@ export default function BriefingsPage() {
                                       size={14}
                                       className="text-gray-400"
                                     />
-                                    Copiar mensagem
+                                    Copiar link
                                   </button>
 
                                   <button
@@ -1690,196 +1816,320 @@ export default function BriefingsPage() {
         )}
 
         {sendModalOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
-            <div className="w-full max-w-xl bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex flex-col">
-                  <span className="text-[16px] font-semibold text-gray-100">
-                    Enviar briefing para cliente
-                  </span>
-                  <span className="text-[13px] text-gray-400">
-                    Escolha o modelo, selecione um ou mais projetos e defina um
-                    prazo opcional para resposta.
-                  </span>
-                </div>
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-xl bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
 
+              {/* Header */}
+              <div className="px-6 pt-5 pb-4 border-b border-primary-800 flex-shrink-0 flex items-start justify-between gap-4">
+                <div>
+                  <span className="text-[16px] font-semibold text-gray-100">
+                    {modalStep === "success" ? "Briefing criado!" : "Enviar briefing"}
+                  </span>
+                  {modalStep === "form" && (
+                    <p className="text-[13px] text-gray-400 mt-0.5">
+                      Escolha o modelo de briefing e como deseja enviar ao cliente.
+                    </p>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={fecharModalEnvio}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-800 text-gray-400 transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-800 text-gray-400 flex-shrink-0"
                 >
                   <X size={20} />
                 </button>
               </div>
 
-              {sendError && (
-                <div className="px-4 py-3 rounded-xl bg-rose-900/20 border border-rose-500/50 text-rose-200 text-[13px] flex items-center gap-2">
-                   <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                   {sendError}
-                </div>
-              )}
+              {/* Scrollable body */}
+              <div className="flex-1 overflow-y-auto briefings-scroll px-6 py-5 flex flex-col gap-5 min-h-0">
 
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[13px] text-gray-300 mb-1">
-                    Modelo de briefing
-                  </label>
+                {/* ── STEP: FORM ── */}
+                {modalStep === "form" && (
+                  <>
+                    {sendError && (
+                      <div className="px-4 py-3 rounded-xl bg-rose-900/20 border border-rose-500/50 text-rose-200 text-[13px] flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500 flex-shrink-0" />
+                        {sendError}
+                      </div>
+                    )}
 
-                  <div className="relative">
-                    <select
-                      value={sendSelectedTemplateId || ""}
-                      onChange={(e) =>
-                        setSendSelectedTemplateId(
-                          e.target.value ? e.target.value : null
-                        )
-                      }
-                      className="w-full bg-primary-800 border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-all appearance-none"
-                    >
-                      <option value="">Selecione um modelo</option>
-                      {templates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.titulo}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">
-                      ▼
-                    </span>
-                  </div>
-                </div>
+                    {/* Modelo */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[13px] text-gray-300">Modelo de briefing</label>
+                      <div className="relative">
+                        <select
+                          value={sendSelectedTemplateId || ""}
+                          onChange={(e) => setSendSelectedTemplateId(e.target.value || null)}
+                          className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 transition-all appearance-none"
+                        >
+                          <option value="">Selecione um modelo</option>
+                          {templates.map((t) => (
+                            <option key={t.id} value={t.id}>{t.titulo}</option>
+                          ))}
+                        </select>
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
+                      </div>
+                    </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] text-gray-300">
-                    Projetos que receberão o briefing
-                  </label>
+                    {/* Seletor de modo */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-[13px] text-gray-300">Como deseja enviar?</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setSendMode("projeto"); setSendSelectedProjetos([]); }}
+                          className={`flex flex-col gap-1 px-4 py-3 rounded-xl border text-left transition-all ${
+                            sendMode === "projeto"
+                              ? "bg-primary-700 border-primary-500 text-gray-100"
+                              : "bg-primary-800/50 border-primary-700 text-gray-400 hover:border-primary-600 hover:text-gray-200"
+                          }`}
+                        >
+                          <span className="text-[13px] font-medium">Vincular a projeto</span>
+                          <span className="text-[11px] opacity-70">
+                            Selecione um ou mais projetos. O e-mail é enviado ao cliente cadastrado.
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setSendMode("email"); setSendEmailProjetoId(null); }}
+                          className={`flex flex-col gap-1 px-4 py-3 rounded-xl border text-left transition-all ${
+                            sendMode === "email"
+                              ? "bg-primary-700 border-primary-500 text-gray-100"
+                              : "bg-primary-800/50 border-primary-700 text-gray-400 hover:border-primary-600 hover:text-gray-200"
+                          }`}
+                        >
+                          <span className="text-[13px] font-medium">Enviar por e-mail</span>
+                          <span className="text-[11px] opacity-70">
+                            Informe um e-mail. O link do briefing é enviado e você pode copiar.
+                          </span>
+                        </button>
+                      </div>
+                    </div>
 
-                  {sendSelectedProjetos.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mb-1">
-                      {sendSelectedProjetos.map((pid) => {
-                        const p = projetos.find((proj) => proj.id === pid);
-                        const cliente = p?.clientes;
-                        return (
-                          <div
-                            key={pid}
-                            className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary-800 border border-primary-600 text-[12px] text-gray-100"
-                          >
-                            <span className="truncate max-w-[160px]">
-                              {p?.titulo || "Projeto"}
-                              {cliente?.nome ? ` — ${cliente.nome}` : ""}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => toggleProjetoSelecionado(pid)}
-                              className="text-gray-400 hover:text-rose-300"
-                            >
-                              ✕
-                            </button>
+                    {/* ── MODO: PROJETO ── */}
+                    {sendMode === "projeto" && (
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[13px] text-gray-300">
+                          Projetos
+                          <span className="ml-1.5 text-[11px] text-gray-500">(apenas projetos com cliente cadastrado são selecionáveis)</span>
+                        </label>
+
+                        {sendSelectedProjetos.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {sendSelectedProjetos.map((pid) => {
+                              const p = projetos.find((proj) => proj.id === pid);
+                              return (
+                                <div key={pid} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-700 border border-primary-500 text-[12px] text-gray-100">
+                                  <span className="truncate max-w-[140px]">
+                                    {p?.titulo || "Projeto"}
+                                    {p?.clientes?.nome ? ` — ${p.clientes.nome}` : ""}
+                                  </span>
+                                  <button type="button" onClick={() => toggleProjetoSelecionado(pid)} className="text-gray-400 hover:text-rose-300 leading-none">✕</button>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        )}
 
-                  <div className="w-full bg-primary-900/70 border border-primary-700 rounded-xl p-3 flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={sendSearchProjeto}
-                        onChange={(e) => setSendSearchProjeto(e.target.value)}
-                        placeholder="Buscar por nome do projeto ou cliente..."
-                        className="flex-1 bg-transparent outline-none text-[14px] text-gray-100 placeholder-primary-400"
-                      />
-                    </div>
-
-                    <div className="max-h-52 overflow-y-auto flex flex-col gap-1">
-                      {projetosFiltradosModal.length === 0 ? (
-                        <div className="text-[12px] text-gray-500 py-4 text-center">
-                          Nenhum projeto encontrado com este filtro.
+                        <div className="bg-primary-900/60 border border-primary-700 rounded-xl overflow-hidden">
+                          <div className="px-3 py-2 border-b border-primary-800">
+                            <input
+                              type="text"
+                              value={sendSearchProjeto}
+                              onChange={(e) => setSendSearchProjeto(e.target.value)}
+                              placeholder="Buscar projeto ou cliente..."
+                              className="bg-transparent outline-none text-[13px] text-gray-100 placeholder-gray-600 w-full"
+                            />
+                          </div>
+                          <div className="max-h-48 overflow-y-auto briefings-scroll divide-y divide-primary-800">
+                            {projetosFiltradosModal.length === 0 ? (
+                              <div className="text-[12px] text-gray-500 py-6 text-center">Nenhum projeto encontrado.</div>
+                            ) : (
+                              projetosFiltradosModal.map((p) => {
+                                const temEmail = !!p.clientes?.email;
+                                const selected = sendSelectedProjetos.includes(p.id);
+                                return (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    disabled={!temEmail}
+                                    onClick={() => temEmail && toggleProjetoSelecionado(p.id)}
+                                    className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-left text-[13px] transition-colors ${
+                                      !temEmail
+                                        ? "opacity-35 cursor-not-allowed"
+                                        : selected
+                                        ? "bg-primary-700/60 text-gray-100"
+                                        : "text-gray-300 hover:bg-primary-800/60"
+                                    }`}
+                                  >
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="font-medium truncate">{p.titulo}</span>
+                                      <span className="text-[11px] text-gray-500 truncate">
+                                        {p.clientes?.nome || p.clientes?.empresa || "Sem cliente"}
+                                        {!temEmail && " · sem e-mail cadastrado"}
+                                      </span>
+                                    </div>
+                                    {temEmail && (
+                                      <div className={`w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 border transition-colors ${
+                                        selected ? "bg-primary-500 border-primary-600" : "border-primary-700"
+                                      }`}>
+                                        {selected && (
+                                          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                                            <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                          </svg>
+                                        )}
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
-                      ) : (
-                        projetosFiltradosModal.map((p) => {
-                          const cliente = p.clientes;
-                          const selected = sendSelectedProjetos.includes(p.id);
-                          return (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => toggleProjetoSelecionado(p.id)}
-                              className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-left text-[13px] ${
-                                selected
-                                  ? "bg-primary-700 border border-primary-500 text-primary-50"
-                                  : "bg-primary-900/40 border border-transparent text-gray-200 hover:bg-primary-800/70 hover:border-primary-700"
-                              }`}
+                      </div>
+                    )}
+
+                    {/* ── MODO: E-MAIL ── */}
+                    {sendMode === "email" && (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[13px] text-gray-300">E-mail do cliente</label>
+                          <input
+                            type="email"
+                            value={emailManual}
+                            onChange={(e) => setEmailManual(e.target.value)}
+                            placeholder="email@cliente.com"
+                            className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 text-[14px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30 transition-colors"
+                            autoFocus
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[13px] text-gray-300">
+                            Vincular a projeto <span className="text-gray-500">(opcional)</span>
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={sendEmailProjetoId || ""}
+                              onChange={(e) => setSendEmailProjetoId(e.target.value || null)}
+                              className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500 transition-all appearance-none"
                             >
-                              <div className="flex flex-col">
-                                <span className="font-medium">
-                                  {p.titulo}
-                                </span>
-                                <span className="text-[11px] text-gray-400">
-                                  {cliente?.nome ||
-                                    cliente?.empresa ||
-                                    "Cliente não definido"}
-                                </span>
-                              </div>
-                              <div className="text-[11px]">
-                                {selected ? "Selecionado" : "Selecionar"}
-                              </div>
-                            </button>
-                          );
-                        })
-                      )}
+                              <option value="">Nenhum projeto</option>
+                              {projetos.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.titulo}{p.clientes?.nome ? ` — ${p.clientes.nome}` : ""}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Prazo */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[13px] text-gray-300">Prazo para resposta <span className="text-gray-500">(opcional)</span></label>
+                      <DatePicker value={sendPrazo} onChange={(v) => setSendPrazo(v)} placeholder="dd/mm/aaaa" />
                     </div>
+                  </>
+                )}
+
+                {/* ── STEP: SUCCESS ── */}
+                {modalStep === "success" && (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                      <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                          <path d="M2 8L6.5 12.5L14 3.5" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                      <span className="text-[13px] text-emerald-300">
+                        {linksGerados.length === 1 ? "Briefing criado com sucesso!" : `${linksGerados.length} briefings criados!`}
+                      </span>
+                    </div>
+
+                    {linksGerados.map((item, i) => (
+                      <div key={i} className="flex flex-col gap-2.5 p-4 bg-primary-800/50 border border-primary-700 rounded-xl">
+                        {item.projetoTitulo !== "Briefing" && (
+                          <div className="text-[13px] font-medium text-gray-200">{item.projetoTitulo}</div>
+                        )}
+
+                        {item.link && (
+                          <>
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[11px] text-gray-500 uppercase tracking-wide">Link do briefing</span>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-primary-900 border border-primary-700 rounded-lg px-3 py-2 text-[12px] text-gray-400 truncate font-mono">
+                                  {item.link}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => navigator.clipboard.writeText(item.link!).then(() => showToast("Link copiado!"))}
+                                  className="flex-shrink-0 px-3 py-2 rounded-lg bg-primary-600 hover:bg-primary-500 text-[12px] text-gray-100 flex items-center gap-1.5 transition-colors"
+                                >
+                                  <Copy size={12} />
+                                  Copiar
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {item.emailStatus && (
+                          <div className={`text-[12px] flex items-center gap-1.5 ${item.emailEnviado ? "text-emerald-400" : "text-rose-400"}`}>
+                            <Send size={11} className="flex-shrink-0" />
+                            {item.emailStatus}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
-
-                  <span className="text-[11px] text-gray-500 mt-1">
-                    Você pode enviar para apenas um projeto ou selecionar vários
-                    de uma vez.
-                  </span>
-                </div>
-
-                <div className="flex flex-col gap-1 mt-2">
-                  <label className="text-[13px] text-gray-300">
-                    Prazo para resposta (opcional)
-                  </label>
-                  <DatePicker
-                    value={sendPrazo}
-                    onChange={(v) => setSendPrazo(v)}
-                    placeholder="dd/mm/aaaa"
-                  />
-                </div>
+                )}
               </div>
 
-              <div className="mt-4 flex items-center justify-between pt-3 border-t border-primary-800">
-                <div className="text-[12px] text-gray-500">
-                  {sendSelectedProjetos.length === 0
-                    ? "Nenhum projeto selecionado ainda."
-                    : sendSelectedProjetos.length === 1
-                    ? "1 projeto selecionado."
-                    : `${sendSelectedProjetos.length} projetos selecionados.`}
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={fecharModalEnvio}
-                    disabled={sending}
-                    className="px-4 py-2 rounded-lg text-[13px] text-gray-300 hover:bg-primary-800 disabled:opacity-60"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleEnviarBriefingModal}
-                    disabled={sending}
-                    className={`px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-all ${
-                      sending
-                        ? "bg-primary-700 text-primary-200 cursor-not-allowed"
-                        : "bg-primary-500 hover:bg-primary-400 text-white shadow-lg shadow-primary-500/20"
-                    }`}
-                  >
-                    {sending ? "Enviando..." : "Enviar briefing"}
-                  </button>
-                </div>
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-primary-800 flex items-center justify-between flex-shrink-0">
+                {modalStep === "form" ? (
+                  <>
+                    <div className="text-[12px] text-gray-500">
+                      {sendMode === "projeto"
+                        ? sendSelectedProjetos.length === 0
+                          ? "Nenhum projeto selecionado."
+                          : `${sendSelectedProjetos.length} projeto${sendSelectedProjetos.length > 1 ? "s" : ""} selecionado${sendSelectedProjetos.length > 1 ? "s" : ""}.`
+                        : emailManual.trim()
+                        ? `Destino: ${emailManual.trim()}`
+                        : "Informe o e-mail do cliente."}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={fecharModalEnvio} disabled={sending} className="px-4 py-2 rounded-lg text-[13px] text-gray-300 hover:bg-primary-800 disabled:opacity-60">
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleEnviarBriefingModal}
+                        disabled={sending}
+                        className={`px-5 py-2.5 rounded-xl text-[14px] font-semibold transition-all ${
+                          sending
+                            ? "bg-primary-700 text-primary-200 cursor-not-allowed"
+                            : "bg-primary-500 hover:bg-primary-400 text-white shadow-lg shadow-primary-500/20"
+                        }`}
+                      >
+                        {sending
+                          ? "Enviando..."
+                          : sendMode === "email"
+                          ? "Enviar e-mail"
+                          : "Enviar para projetos"}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-end w-full">
+                    <button type="button" onClick={fecharModalEnvio} className="px-5 py-2.5 rounded-xl text-[14px] font-semibold bg-primary-700 hover:bg-primary-600 text-gray-100 transition-colors">
+                      Fechar
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1963,7 +2213,7 @@ export default function BriefingsPage() {
                                 )}
                               </span>
                               
-                              <span className="shrink-0 text-[11px] uppercase tracking-wider font-semibold text-primary-400 bg-primary-950/50 px-2 py-1 rounded-md border border-gray-700">
+                              <span className="shrink-0 text-[11px] uppercase tracking-wider font-semibold text-primary-400 bg-primary-950/50 px-2 py-1 rounded-md border border-primary-700">
                                 {labelTipoCampo(campo.tipo)}
                               </span>
                            </div>
@@ -2075,6 +2325,24 @@ export default function BriefingsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {confirmExcluirEnvioId && (
+          <ConfirmModal
+            title="Excluir envio de briefing"
+            message="Tem certeza que deseja excluir este envio? Esta ação não pode ser desfeita."
+            confirmLabel="Excluir"
+            cancelLabel="Cancelar"
+            onConfirm={() => excluirEnvioConfirmado(confirmExcluirEnvioId)}
+            onCancel={() => setConfirmExcluirEnvioId(null)}
+            danger
+          />
+        )}
+
+        {toastMsg && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl bg-primary-800 border border-primary-600 text-gray-100 text-[14px] shadow-2xl animate-fade-in whitespace-nowrap">
+            {toastMsg}
           </div>
         )}
 

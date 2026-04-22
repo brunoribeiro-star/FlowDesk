@@ -38,8 +38,8 @@ export default function LoginPage() {
 
     if (error) {
       setError(traduzirErroSupabase(error.message));
-    } else {
-      router.push(redirectTo);
+    } else if (typeof router.query.redirect === "string") {
+      router.push(router.query.redirect);
     }
     setLoading(false);
   }

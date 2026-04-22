@@ -56,6 +56,7 @@ export default function DatePicker({
   id,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
@@ -131,7 +132,14 @@ export default function DatePicker({
         type="button"
         id={id}
         disabled={disabled}
-        onClick={() => !disabled && setOpen((v) => !v)}
+        onClick={() => {
+          if (disabled) return;
+          if (!open && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            setOpenUpward(window.innerHeight - rect.bottom < 320);
+          }
+          setOpen((v) => !v);
+        }}
         className={buttonClassName ?? `
           w-full flex items-center gap-3 px-4 py-2.5 rounded-xl
           bg-primary-900 border transition-colors text-left
@@ -160,7 +168,7 @@ export default function DatePicker({
 
       {open && (
         <div
-          className="absolute z-50 mt-2 left-0 min-w-[280px] rounded-2xl border border-primary-700 bg-primary-800 shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden"
+          className={`absolute z-50 left-0 min-w-[280px] rounded-2xl border border-primary-700 bg-primary-800 shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden ${openUpward ? "bottom-full mb-2" : "top-full mt-2"}`}
           style={{ fontFamily: "inherit" }}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-primary-700">

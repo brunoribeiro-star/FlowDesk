@@ -5,18 +5,24 @@ import "@/styles/globals.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 
-const PROTECTED_ROUTES = ["/dashboard", "/onboarding"];
+const PROTECTED_ROUTES = ["/dashboard", "/onboarding", "/portal"];
 
 function PageContent({ Component, pageProps, pathname }: { Component: any; pageProps: any; pathname: string }) {
   const { loading, user } = useAuth();
   const router = useRouter();
-  const isProtected = PROTECTED_ROUTES.some((path) => pathname.startsWith(path));
+  const isProtected = PROTECTED_ROUTES.some((path) => pathname.startsWith(path))
+    && pathname !== "/portal/login"
+    && pathname !== "/portal/[token]";
 
   useEffect(() => {
     if (!loading && isProtected && !user) {
-      router.replace("/login");
+      if (pathname.startsWith("/portal")) {
+        router.replace(`/portal/login`);
+      } else {
+        router.replace(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+      }
     }
-  }, [loading, user, isProtected, router]);
+  }, [loading, user, isProtected, router, pathname]);
 
   if (isProtected && loading) {
     return (

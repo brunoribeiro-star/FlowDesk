@@ -832,7 +832,6 @@ function PinMarker({ pin, index, isDragging, onPinMouseDown, onTextChange, onClo
             value={pin.text}
             onChange={e => onTextChange(e.target.value)}
             onKeyDown={e => {
-              // Enter (without Shift) saves and minimizes the popup
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 onCloseEdit();

@@ -36,13 +36,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }){
             setUser(sess?.user ?? null);
             
             if (_event === 'SIGNED_IN' && router.pathname === '/login') {
-                router.replace('/dashboard');
+                const hasRedirectParam = typeof router.query.redirect === 'string';
+                if (!hasRedirectParam && sess) {
+                    const { data: userRow } = await supabase.from("users").select("role").eq("id", sess.user.id).maybeSingle();
+                    router.replace(userRow?.role === 'cliente' ? '/portal/dashboard' : '/dashboard');
+                }
             }
             if (_event === 'SIGNED_IN' && router.pathname === '/signup') {
                 router.replace('/onboarding');
             }
             if (_event === 'SIGNED_OUT') {
-                if (router.pathname !== '/login') router.replace('/login');
+                if (router.pathname.startsWith('/portal')) {
+                    router.replace('/portal/login');
+                } else if (router.pathname !== '/login') {
+                    router.replace('/login');
+                }
             }
             if (_event === 'PASSWORD_RECOVERY') {
                 router.replace('/reset-password');

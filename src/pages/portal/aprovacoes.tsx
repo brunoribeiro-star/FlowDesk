@@ -33,7 +33,7 @@ export default function PortalAprovacoesPage() {
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.replace("/"); return; }
+      if (!session) { router.replace("/portal/login"); return; }
       setUser(session.user);
       const { data: memberRows } = await getClientProjects(session.user.id);
       const projectIds = memberRows.map((r: any) => r.project_id);
@@ -145,7 +145,6 @@ export default function PortalAprovacoesPage() {
           </div>
         </header>
 
-        {/* Filtros */}
         <div className="flex items-center gap-2 px-8 py-4 border-b border-primary-800 flex-shrink-0">
           {([
             ["aguardando", "Aguardando revisão", counts.aguardando],
@@ -169,7 +168,6 @@ export default function PortalAprovacoesPage() {
           ))}
         </div>
 
-        {/* Conteúdo */}
         <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-8 py-6">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
@@ -354,7 +352,6 @@ function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlo
             <EntregavelBadge status={e.status} />
           </div>
 
-          {/* Link */}
           {e.url && (
             <a href={e.url} target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-[12px] text-primary-400 hover:text-primary-300 transition-colors"

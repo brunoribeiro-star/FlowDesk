@@ -53,13 +53,7 @@ export default function PortalTokenPage() {
       if (cancelled) return;
 
       if (!session) {
-        setState("loading");
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, sess) => {
-          if (event === "SIGNED_IN" && sess && !cancelled) {
-            subscription.unsubscribe();
-            await acceptInvite(sess.access_token, token, cancelled, setState, setProjectId, setErrorMsg, router);
-          }
-        });
+        router.replace("/portal/login");
         return;
       }
 

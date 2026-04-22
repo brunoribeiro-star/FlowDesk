@@ -107,6 +107,12 @@ type BriefingEnvio = {
   template?: { id: string; titulo: string } | null;
 };
 
+type BriefingResposta = { id: string; pergunta: string; resposta: string | null };
+type BriefingEnvioComRespostas = BriefingEnvio & {
+  respondido_em: string | null;
+  briefings_respostas: BriefingResposta[];
+};
+
 type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing" | "entregaveis";
 
 type EntregavelArquivo = { url: string; tipo: string; nome: string };
@@ -247,6 +253,7 @@ export default function ProjetoDetalhesPage() {
   const { converterState, triggerConverter, cancelConverter } = useImageConverter();
 
   const [briefingEnvios, setBriefingEnvios] = useState<BriefingEnvio[]>([]);
+  const [projetoBriefingEnvios, setProjetoBriefingEnvios] = useState<BriefingEnvioComRespostas[]>([]);
   const [attachBriefingOpen, setAttachBriefingOpen] = useState(false);
   const [attachingBriefing, setAttachingBriefing] = useState(false);
 
@@ -359,6 +366,7 @@ export default function ProjetoDetalhesPage() {
           { data: myCollabSplitsData },
           { data: ownerCollabSplitsData },
           { data: entregaveisData },
+          { data: projetoEnvsData },
         ] = await Promise.all([
           supabase
             .from("projetos")
@@ -378,6 +386,7 @@ export default function ProjetoDetalhesPage() {
           supabase.from("collaborator_payment_splits").select("id, pagamento_id, amount, status, paid_at").eq("project_id", id).eq("member_user_id", authUser.id),
           supabase.from("collaborator_payment_splits").select("id, pagamento_id, member_user_id, amount, status, paid_at").eq("project_id", id),
           supabase.from("entregaveis").select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, arquivos, status, feedback_cliente, feedback_imagem_url, feedback_pins, feedback_imagens, reviewed_at, created_at").eq("project_id", id).order("created_at", { ascending: false }),
+          supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, respondido_em, created_at, template:template_id(id, titulo), briefings_respostas(id, pergunta, resposta)").eq("projeto_id", id).order("created_at", { ascending: false }),
         ]);
 
         if (projetoErr) throw projetoErr;
@@ -404,6 +413,7 @@ export default function ProjetoDetalhesPage() {
         setMyCollabSplits((myCollabSplitsData || []) as any[]);
         setOwnerCollabSplits((ownerCollabSplitsData || []) as any[]);
         setEntregaveis((entregaveisData || []) as Entregavel[]);
+        setProjetoBriefingEnvios((projetoEnvsData || []) as unknown as BriefingEnvioComRespostas[]);
 
         setError(null);
 
@@ -499,6 +509,15 @@ export default function ProjetoDetalhesPage() {
         .then(({ data }) => { if (data) setLinks(data as LinkProjeto[]); });
     };
 
+    const refetchProjetoBriefingEnvios = () => {
+      supabase
+        .from("briefings_envios")
+        .select("id, user_id, template_id, projeto_id, status, prazo_resposta, respondido_em, created_at, template:template_id(id, titulo), briefings_respostas(id, pergunta, resposta)")
+        .eq("projeto_id", id)
+        .order("created_at", { ascending: false })
+        .then(({ data }) => { if (data) setProjetoBriefingEnvios(data as unknown as BriefingEnvioComRespostas[]); });
+    };
+
     const channel = supabase
       .channel(`project-detail-realtime-${id}`)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "collaborator_payment_splits", filter: `project_id=eq.${id}` }, refetchSplits)
@@ -511,6 +530,8 @@ export default function ProjetoDetalhesPage() {
       })
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "arquivos_projeto", filter: `projeto_id=eq.${id}` }, refetchFiles)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "links_projeto", filter: `projeto_id=eq.${id}` }, refetchLinks)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "briefings_envios", filter: `projeto_id=eq.${id}` }, refetchProjetoBriefingEnvios)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "briefings_respostas", filter: `projeto_id=eq.${id}` }, refetchProjetoBriefingEnvios)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -891,25 +912,18 @@ export default function ProjetoDetalhesPage() {
         .eq("id", envioId);
       if (updErr) throw updErr;
 
-      const { data: rData } = await supabase
-        .from("briefings_respostas")
-        .select("*")
-        .eq("envio_id", envioId)
-        .order("created_at", { ascending: true });
-
-      const respostas = (rData || []).map((r: any) => ({
-        pergunta: r.campo_label || r.campo_id || "Campo",
-        resposta: r.valor ?? "—",
-      }));
-
-      const { data: bData, error: bErr } = await supabase
-        .from("briefings")
-        .upsert([{ projeto_id: projeto.id, respostas }], { onConflict: "projeto_id" })
-        .select()
+      const { data: envioData, error: envioErr } = await supabase
+        .from("briefings_envios")
+        .select("id, user_id, template_id, projeto_id, status, prazo_resposta, respondido_em, created_at, template:template_id(id, titulo), briefings_respostas(id, pergunta, resposta)")
+        .eq("id", envioId)
         .single();
-      if (bErr) throw bErr;
+      if (envioErr) throw envioErr;
 
-      setBriefing(bData as Briefing);
+      setProjetoBriefingEnvios(prev => {
+        const exists = prev.some(e => e.id === envioId);
+        if (exists) return prev.map(e => e.id === envioId ? (envioData as unknown as BriefingEnvioComRespostas) : e);
+        return [envioData as unknown as BriefingEnvioComRespostas, ...prev];
+      });
       setBriefingEnvios(prev => prev.map(e => e.id === envioId ? { ...e, projeto_id: projeto.id } : e));
       setAttachBriefingOpen(false);
       setNotify({ open: true, msg: "Briefing vinculado com sucesso!" });
@@ -1053,6 +1067,7 @@ export default function ProjetoDetalhesPage() {
       if (!res.ok) throw new Error(json.error || "Erro desconhecido");
       if (json.email_sent) {
         setPortalMsg("✓ Link de acesso enviado por e-mail.");
+        setTimeout(() => { setPortalMsg(null); setPortalUrl(null); }, 4000);
       } else {
         setPortalMsg(`E-mail não enviado${json.email_error ? `: ${json.email_error}` : ""}. Copie o link abaixo:`);
         setPortalUrl(json.portalUrl);
@@ -2075,21 +2090,60 @@ export default function ProjetoDetalhesPage() {
                   <div className="flex flex-col h-full gap-3">
                     <div className="flex items-center justify-between">
                       <h3 className="text-[20px] text-primary-100 font-semibold">Briefing do projeto</h3>
-                      <button
-                        type="button"
-                        onClick={() => setAttachBriefingOpen(true)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 hover:bg-primary-600 transition-colors text-[13px]"
-                      >
-                        <ClipboardList size={15} />
-                        Vincular briefing
-                      </button>
+                      {projetoBriefingEnvios.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAttachBriefingOpen(true)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 hover:bg-primary-600 transition-colors text-[13px]"
+                        >
+                          <ClipboardList size={15} />
+                          Vincular briefing
+                        </button>
+                      )}
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-                      {!briefing
-                        ? <div className="text-gray-400">Nenhum briefing vinculado. Clique em “Vincular briefing” para anexar um existente.</div>
-                        : <div className="flex flex-col gap-3">{renderBriefing(briefing.respostas)}</div>
-                      }
+                      {projetoBriefingEnvios.length === 0 ? (
+                        <div className="text-gray-400">Nenhum briefing vinculado. Clique em "Vincular briefing" para anexar um existente.</div>
+                      ) : (
+                        <div className="flex flex-col gap-4">
+                          {projetoBriefingEnvios.map(envio => (
+                            <div key={envio.id} className="bg-primary-900/60 border border-primary-700 rounded-xl overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-3 border-b border-primary-700">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[15px] text-gray-100 font-medium">
+                                    {(envio as any).template?.titulo || "Briefing sem título"}
+                                  </span>
+                                  <span className="text-[12px] text-gray-500">
+                                    Enviado em {new Date(envio.created_at).toLocaleDateString("pt-BR")}
+                                    {envio.respondido_em ? ` • Respondido em ${new Date(envio.respondido_em).toLocaleDateString("pt-BR")}` : ""}
+                                  </span>
+                                </div>
+                                {(() => {
+                                  const respondido = envio.status === "respondido" || !!envio.respondido_em || (envio.briefings_respostas && envio.briefings_respostas.length > 0);
+                                  return (
+                                    <span className={`text-[12px] px-2.5 py-1 rounded-full flex-shrink-0 ${respondido ? "text-third-400 bg-third-400/10" : "text-yellow-400 bg-yellow-400/10"}`}>
+                                      {respondido ? "Respondido" : "Aguardando resposta"}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                              {envio.briefings_respostas && envio.briefings_respostas.length > 0 ? (
+                                <ul className="flex flex-col gap-0">
+                                  {envio.briefings_respostas.map((r, idx) => (
+                                    <li key={r.id || idx} className="px-4 py-3 border-t border-primary-700">
+                                      <div className="text-[13px] text-gray-400 mb-0.5">{r.pergunta}</div>
+                                      <div className="text-[14px] text-gray-200 whitespace-pre-wrap break-words">{r.resposta || "—"}</div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div className="px-4 py-3 text-[13px] text-gray-500">Aguardando resposta do cliente.</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3255,7 +3309,7 @@ function EditorToolbar({
       <div className="w-px h-6 bg-primary-700 mx-1" />
 
       <button type="button" className={`${base} ${isActive(() => editor.isActive("blockquote"))}`} onClick={() => editor.chain().focus().toggleBlockquote().run()}>
-        “”
+        ""
       </button>
 
       <button type="button" className={`${base} ${isActive(() => editor.isActive("link"))}`} onClick={onOpenLinkModal}>
