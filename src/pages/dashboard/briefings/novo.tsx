@@ -5,6 +5,7 @@ import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
+import ColorPicker from "@/components/ui/ColorPicker";
 import {
   Pencil,
   SlidersHorizontal,
@@ -472,10 +473,15 @@ export default function NovoBriefingPage() {
       const templateId = String(templateData.id);
 
       if (editId) {
-         await supabase
-           .from("briefings_campos")
-           .delete()
-           .eq("template_id", templateId);
+        const { error: deleteErr } = await supabase
+          .from("briefings_campos")
+          .delete()
+          .eq("template_id", templateId);
+        if (deleteErr) {
+          setFormError("Erro ao atualizar campos: " + deleteErr.message);
+          setSaving(false);
+          return;
+        }
       }
 
       const payloadCampos = questions.map((q, index) => ({
@@ -527,7 +533,7 @@ export default function NovoBriefingPage() {
     <>
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fade-in">
-          <div className="bg-primary-900 border border-gray-700 rounded-2xl p-8 w-[90%] max-w-md text-center flex flex-col gap-6 shadow-2xl">
+          <div className="bg-primary-900 border border-primary-700 rounded-2xl p-8 w-[90%] max-w-md text-center flex flex-col gap-6 shadow-2xl">
             <div className="w-16 h-16 rounded-full bg-primary-500/10 flex items-center justify-center mx-auto mb-2 text-primary-400">
                 <CheckSquare size={32} />
             </div>
@@ -557,7 +563,7 @@ export default function NovoBriefingPage() {
         <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            <header className="h-16 border-b border-gray-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
+            <header className="h-16 border-b border-primary-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => router.push("/dashboard/briefings")}
@@ -609,7 +615,7 @@ export default function NovoBriefingPage() {
                         />
                         </button>
                          {profileOpen && (
-                            <div className="absolute right-0 mt-3 w-56 bg-primary-900 border border-gray-700 rounded-xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-fade-in-down origin-top-right">
+                            <div className="absolute right-0 mt-3 w-56 bg-primary-900 border border-primary-700 rounded-xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-fade-in-down origin-top-right">
                                 <button
                                     className="w-full text-left px-3 py-2 text-[13px] text-gray-300 hover:text-gray-100 hover:bg-primary-700/50 rounded-lg transition-colors flex items-center gap-2"
                                     onClick={() => {
@@ -644,7 +650,7 @@ export default function NovoBriefingPage() {
                         </div>
                     )}
 
-                    <div className="bg-primary-900 border border-gray-700 rounded-2xl shadow-sm group focus-within:border-gray-500 transition-colors">
+                    <div className="bg-primary-900 border border-primary-700 rounded-2xl shadow-sm group focus-within:border-primary-600 transition-colors">
                         <div className="h-2 bg-gradient-to-r from-primary-600 to-primary-400 rounded-t-2xl" />
                         <div className="p-6 md:p-8 flex flex-col gap-6">
                             <input
@@ -672,39 +678,21 @@ export default function NovoBriefingPage() {
                                         <div className="flex items-center gap-6">
                                             <div className="flex flex-col gap-2">
                                                 <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Cor de Fundo</label>
-                                                <div className="flex items-center gap-2 bg-transparent p-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors">
-                                                    <input
-                                                        type="color"
-                                                        value={cardBgColor}
-                                                        onChange={(e) => setCardBgColor(e.target.value)}
-                                                        className="w-8 h-8 rounded cursor-pointer border-none bg-transparent p-0"
-                                                        title="Escolher cor de fundo"
-                                                    />
-                                                    <span className="text-[13px] text-gray-300 font-mono pr-1 uppercase">{cardBgColor}</span>
-                                                </div>
+                                                <ColorPicker value={cardBgColor} onChange={setCardBgColor} />
                                             </div>
 
                                             <div className="flex flex-col gap-2">
                                                 <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Cor do Texto</label>
-                                                <div className="flex items-center gap-2 bg-transparent p-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors">
-                                                    <input
-                                                        type="color"
-                                                        value={cardTextColor}
-                                                        onChange={(e) => setCardTextColor(e.target.value)}
-                                                        className="w-8 h-8 rounded cursor-pointer border-none bg-transparent p-0"
-                                                        title="Escolher cor do texto"
-                                                    />
-                                                    <span className="text-[13px] text-gray-300 font-mono pr-1 uppercase">{cardTextColor}</span>
-                                                </div>
+                                                <ColorPicker value={cardTextColor} onChange={setCardTextColor} />
                                             </div>
                                         </div>
 
                                         <div className="flex flex-col gap-2 relative z-30">
                                             <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Ícone da Capa</label>
                                             <div className="flex gap-2 relative">
-                                                <button 
+                                                <button
                                                     onClick={() => setIconPickerOpen(!iconPickerOpen)}
-                                                    className="h-[46px] px-3 bg-transparent border border-gray-700 hover:border-gray-500 rounded-lg flex items-center gap-2 text-gray-300 transition-colors min-w-[140px] justify-between"
+                                                    className="h-[46px] px-3 bg-transparent border border-primary-700 hover:border-primary-500 rounded-lg flex items-center gap-2 text-gray-300 transition-colors min-w-[140px] justify-between"
                                                 >
                                                     <div className="flex items-center gap-2">
                                                         {ICON_LIST[coverIcon as keyof typeof ICON_LIST] ? (
@@ -722,20 +710,12 @@ export default function NovoBriefingPage() {
                                                     <ChevronDown size={14} className="text-gray-500" />
                                                 </button>
 
-                                                <div className="flex items-center gap-2 bg-transparent p-1.5 rounded-lg border border-gray-700 hover:border-gray-500 transition-colors h-[46px]">
-                                                    <input
-                                                        type="color"
-                                                        value={coverIconColor}
-                                                        onChange={(e) => setCoverIconColor(e.target.value)}
-                                                        className="w-8 h-8 rounded cursor-pointer border-none bg-transparent p-0"
-                                                        title="Cor do Ícone"
-                                                    />
-                                                </div>
+                                                <ColorPicker value={coverIconColor} onChange={setCoverIconColor} />
 
                                                 {iconPickerOpen && (
                                                     <>
                                                         <div className="fixed inset-0 z-40" onClick={() => setIconPickerOpen(false)} />
-                                                        <div className="absolute top-full mt-2 left-0 w-[360px] bg-primary-900 border border-gray-700 shadow-2xl rounded-xl p-4 z-50 grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto novo-briefing-scroll animate-fade-in-down">
+                                                        <div className="absolute top-full mt-2 left-0 w-[360px] bg-primary-900 border border-primary-700 shadow-2xl rounded-xl p-4 z-50 grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto novo-briefing-scroll animate-fade-in-down">
                                                             {Object.keys(ICON_LIST).map((iconName) => {
                                                                 const IconComp = ICON_LIST[iconName as keyof typeof ICON_LIST];
                                                                 return (
@@ -790,11 +770,11 @@ export default function NovoBriefingPage() {
                         {questions.map((q, idx) => (
                             <div 
                                 key={q.id}
-                                className="bg-primary-900 border border-gray-700 rounded-2xl transition-all duration-200 hover:border-gray-500 hover:shadow-lg group"
+                                className="bg-primary-900 border border-primary-700 rounded-2xl transition-all duration-200 hover:border-primary-500 hover:shadow-lg group"
                             >
                                 <div className="p-6 md:p-8 flex flex-col gap-6">
                                     <div className="flex flex-col md:flex-row gap-4 items-start">
-                                        <div className="bg-primary-800/50 w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-bold text-gray-400 border border-gray-700 shrink-0 mt-1">
+                                        <div className="bg-primary-800/50 w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-bold text-gray-400 border border-primary-700 shrink-0 mt-1">
                                             {idx + 1}
                                         </div>
 
@@ -804,14 +784,14 @@ export default function NovoBriefingPage() {
                                                     value={q.titulo}
                                                     onChange={(e) => updateQuestion(q.id, { titulo: e.target.value })}
                                                     placeholder="Digite a pergunta aqui"
-                                                    className="flex-1 bg-transparent border border-gray-700 rounded-xl px-4 py-3 text-[15px] text-gray-100 placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 outline-none transition-all"
+                                                    className="flex-1 bg-transparent border border-primary-700 rounded-xl px-4 py-3 text-[15px] text-gray-100 placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 outline-none transition-all"
                                                 />
                                                 
                                                 <div className="relative md:w-64 shrink-0">
                                                     <select
                                                         value={q.tipo}
                                                         onChange={(e) => handleChangeTipo(q.id, e.target.value)}
-                                                        className="w-full bg-transparent border border-gray-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-200 outline-none focus:border-primary-500 appearance-none cursor-pointer hover:bg-gray-700/20 transition-colors"
+                                                        className="w-full bg-transparent border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-200 outline-none focus:border-primary-500 appearance-none cursor-pointer hover:bg-primary-700/20 transition-colors"
                                                     >
                                                         <option value="short" className="bg-primary-900">Resposta Curta</option>
                                                         <option value="long" className="bg-primary-900">Parágrafo</option>
@@ -863,7 +843,7 @@ export default function NovoBriefingPage() {
                                         </div>
                                     </div>
 
-                                    <div className="pt-4 mt-2 border-t border-gray-700 flex items-center justify-between">
+                                    <div className="pt-4 mt-2 border-t border-primary-700 flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                              <button 
                                                 onClick={() => handleDuplicateQuestion(q.id)}
@@ -898,7 +878,7 @@ export default function NovoBriefingPage() {
                                               </div>
                                         </div>
 
-                                        <div className="flex items-center gap-3 pl-4 border-l border-gray-700">
+                                        <div className="flex items-center gap-3 pl-4 border-l border-primary-700">
                                             <label className="text-[13px] text-gray-300 cursor-pointer select-none" htmlFor={`req-${q.id}`}>Obrigatória</label>
                                             <button
                                                 id={`req-${q.id}`}

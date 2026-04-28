@@ -532,6 +532,40 @@ export default function ProjetosPage() {
     e.preventDefault();
   }, []);
 
+  async function verificarBloqueiosConclusao(projectId: string): Promise<string[]> {
+    const bloqueios: string[] = [];
+
+    const [
+      { data: taskData },
+      { data: briefingData },
+      { data: entregavelData },
+    ] = await Promise.all([
+      supabase.from("tasks").select("id, concluida, status").eq("projeto_id", projectId),
+      supabase.from("briefings_envios").select("id, status, respondido_em").eq("projeto_id", projectId),
+      supabase.from("entregaveis").select("id").eq("project_id", projectId).eq("status", "aguardando_aprovacao"),
+    ]);
+
+    const tarefasIncompletas = (taskData || []).filter(
+      (t: any) => !t.concluida && (t.status || "").toLowerCase() !== "concluida"
+    );
+    if (tarefasIncompletas.length > 0) {
+      bloqueios.push(`${tarefasIncompletas.length} tarefa(s) não concluída(s)`);
+    }
+
+    const briefingsSemResposta = (briefingData || []).filter(
+      (b: any) => b.status !== "respondido" && !b.respondido_em
+    );
+    if (briefingsSemResposta.length > 0) {
+      bloqueios.push(`${briefingsSemResposta.length} briefing(s) sem resposta`);
+    }
+
+    if (entregavelData && entregavelData.length > 0) {
+      bloqueios.push(`${entregavelData.length} entregável(is) aguardando aprovação do cliente`);
+    }
+
+    return bloqueios;
+  }
+
   async function handleFinalizeProject(projectId: string) {
     const proj = projetos.find((p) => p.id === projectId);
     if (!proj) return;
@@ -617,11 +651,34 @@ export default function ProjetosPage() {
     if (currentNs === coluna) return;
 
     if (coluna === "finalizado") {
+      const bloqueios = await verificarBloqueiosConclusao(current);
+      if (bloqueios.length > 0) {
+        openConfirm({
+          title: "Não é possível finalizar",
+          message: `Resolva as pendências antes de finalizar: ${bloqueios.join("; ")}.`,
+          confirmLabel: "Entendido",
+          cancelLabel: "",
+          onConfirm: () => { closeConfirm(); },
+        });
+        return;
+      }
       await handleFinalizeProject(current);
       return;
     }
 
     if (coluna === "pgto pendente") {
+      const bloqueiosConclusao = await verificarBloqueiosConclusao(current);
+      if (bloqueiosConclusao.length > 0) {
+        openConfirm({
+          title: "Não é possível concluir",
+          message: `Resolva as pendências antes de concluir: ${bloqueiosConclusao.join("; ")}.`,
+          confirmLabel: "Entendido",
+          cancelLabel: "",
+          onConfirm: () => { closeConfirm(); },
+        });
+        return;
+      }
+
       const pagList = getPagamentos(proj.id);
       const allAlreadyPaid = pagList.length > 0 && pagList.every((pg) => (pg.status || "").toLowerCase() === "pago");
       if (currentNs === "finalizado" || allAlreadyPaid) {

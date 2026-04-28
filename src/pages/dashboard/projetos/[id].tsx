@@ -17,7 +17,7 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe } from "lucide-react";
+import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe, Send, Plus } from "lucide-react";
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -103,6 +103,7 @@ type BriefingEnvio = {
   projeto_id: string | null;
   status: string;
   prazo_resposta: string | null;
+  respondido_em: string | null;
   created_at: string;
   template?: { id: string; titulo: string } | null;
 };
@@ -257,6 +258,15 @@ export default function ProjetoDetalhesPage() {
   const [attachBriefingOpen, setAttachBriefingOpen] = useState(false);
   const [attachingBriefing, setAttachingBriefing] = useState(false);
 
+  const [sendNewBriefingOpen, setSendNewBriefingOpen] = useState(false);
+  const [sendNewBriefingTemplates, setSendNewBriefingTemplates] = useState<{ id: string; titulo: string }[]>([]);
+  const [loadingNewBriefingTemplates, setLoadingNewBriefingTemplates] = useState(false);
+  const [sendNewBriefingTemplateId, setSendNewBriefingTemplateId] = useState<string | null>(null);
+  const [sendNewBriefingPrazo, setSendNewBriefingPrazo] = useState("");
+  const [sendNewBriefingSendEmail, setSendNewBriefingSendEmail] = useState(false);
+  const [sendingNewBriefing, setSendingNewBriefing] = useState(false);
+  const [sendNewBriefingError, setSendNewBriefingError] = useState<string | null>(null);
+
   const [isEditingHeader, setIsEditingHeader] = useState(false);
   const [editForm, setEditForm] = useState({
     titulo: "",
@@ -377,7 +387,7 @@ export default function ProjetoDetalhesPage() {
           supabase.from("arquivos_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false }),
           supabase.from("links_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false }),
           supabase.from("briefings").select("*").eq("projeto_id", id).maybeSingle(),
-          supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, created_at, template:template_id(id, titulo)").eq("user_id", authUser.id).order("created_at", { ascending: false }),
+          supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, respondido_em, created_at, template:template_id(id, titulo)").eq("user_id", authUser.id).order("created_at", { ascending: false }),
           supabase.from("clientes").select("id, nome, empresa").eq("user_id", authUser.id).order("nome", { ascending: true }),
           supabase.from("project_members").select("user_id, role, email, nome, avatar_url").eq("project_id", id).neq("role", "cliente"),
           supabase.from("project_member_splits").select("project_id, member_user_id, split_type, split_value, payment_status").eq("project_id", id),
@@ -902,8 +912,103 @@ export default function ProjetoDetalhesPage() {
   }
 
 
+  async function handleDetachBriefing(envioId: string) {
+    if (!projeto) return;
+    try {
+      const { error } = await supabase
+        .from("briefings_envios")
+        .update({ projeto_id: null })
+        .eq("id", envioId);
+      if (error) throw error;
+      setProjetoBriefingEnvios((prev) => prev.filter((e) => e.id !== envioId));
+      setBriefingEnvios((prev) => prev.map((e) => e.id === envioId ? { ...e, projeto_id: null } : e));
+      setNotify({ open: true, msg: "Briefing desvinculado." });
+    } catch (err: any) {
+      setNotify({ open: true, msg: "Erro ao desvincular briefing: " + (err.message || "Erro desconhecido") });
+    }
+  }
+
+  async function handleOpenSendNewBriefing() {
+    setSendNewBriefingOpen(true);
+    setSendNewBriefingTemplateId(null);
+    setSendNewBriefingPrazo("");
+    setSendNewBriefingSendEmail(false);
+    setSendNewBriefingError(null);
+    if (sendNewBriefingTemplates.length > 0) return;
+    setLoadingNewBriefingTemplates(true);
+    const { data } = await supabase
+      .from("briefings_templates")
+      .select("id, titulo")
+      .eq("user_id", user.id)
+      .order("titulo", { ascending: true });
+    setSendNewBriefingTemplates(data || []);
+    setLoadingNewBriefingTemplates(false);
+  }
+
+  async function handleSendNewBriefing() {
+    if (!projeto || !user) return;
+    if (!sendNewBriefingTemplateId) {
+      setSendNewBriefingError("Selecione um modelo de briefing.");
+      return;
+    }
+    setSendingNewBriefing(true);
+    setSendNewBriefingError(null);
+    try {
+      const { data: envioData, error: insertErr } = await supabase
+        .from("briefings_envios")
+        .insert({
+          user_id: user.id,
+          template_id: sendNewBriefingTemplateId,
+          projeto_id: projeto.id,
+          cliente_id: projeto.cliente_id || null,
+          status: "pendente",
+          prazo_resposta: sendNewBriefingPrazo || null,
+          token: crypto.randomUUID(),
+          email_enviado: false,
+        })
+        .select("id, user_id, template_id, projeto_id, status, prazo_resposta, respondido_em, created_at, template:template_id(id, titulo), briefings_respostas(id, pergunta, resposta)")
+        .single();
+      if (insertErr || !envioData) throw insertErr;
+
+      if (sendNewBriefingSendEmail) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await fetch("/api/briefings/send-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ envio_id: envioData.id }),
+          });
+        }
+      }
+
+      setProjetoBriefingEnvios((prev) => [envioData as unknown as BriefingEnvioComRespostas, ...prev]);
+      setBriefingEnvios((prev) => [{
+        id: envioData.id,
+        user_id: envioData.user_id,
+        template_id: envioData.template_id,
+        projeto_id: envioData.projeto_id,
+        status: envioData.status,
+        prazo_resposta: envioData.prazo_resposta,
+        respondido_em: (envioData as any).respondido_em ?? null,
+        created_at: envioData.created_at,
+        template: (envioData as any).template ?? null,
+      }, ...prev]);
+      setSendNewBriefingOpen(false);
+      setNotify({ open: true, msg: sendNewBriefingSendEmail ? "Briefing enviado por e-mail ao cliente!" : "Briefing criado com sucesso!" });
+    } catch (err: any) {
+      setSendNewBriefingError(err?.message || "Erro ao criar briefing.");
+    } finally {
+      setSendingNewBriefing(false);
+    }
+  }
+
   async function handleAttachBriefing(envioId: string) {
     if (!projeto) return;
+    const envio = briefingEnvios.find(e => e.id === envioId);
+    if (envio?.projeto_id && envio.projeto_id !== projeto.id) {
+      setNotify({ open: true, msg: "Este briefing já está vinculado a outro projeto. Desvincule-o primeiro." });
+      return;
+    }
     setAttachingBriefing(true);
     try {
       const { error: updErr } = await supabase
@@ -948,6 +1053,44 @@ export default function ProjetoDetalhesPage() {
 
   async function salvarEdicaoHeader() {
     if (!projeto) return;
+
+    const marcandoConcluido = editForm.status === "Concluído" && projeto.status !== "Concluído";
+
+    if (marcandoConcluido) {
+      const bloqueios: string[] = [];
+
+      const tarefasIncompletas = tasks.filter((t) => !isTaskDone(t));
+      if (tarefasIncompletas.length > 0) {
+        bloqueios.push(`${tarefasIncompletas.length} tarefa(s) não concluída(s)`);
+      }
+
+      const entregaveisPendentes = entregaveis.filter((e) => e.status === "aguardando_aprovacao");
+      if (entregaveisPendentes.length > 0) {
+        bloqueios.push(`${entregaveisPendentes.length} entregável(is) aguardando aprovação do cliente`);
+      }
+
+      const briefingsSemResposta = projetoBriefingEnvios.filter(
+        (e) => e.status !== "respondido" && !e.respondido_em && (!e.briefings_respostas || e.briefings_respostas.length === 0)
+      );
+      if (briefingsSemResposta.length > 0) {
+        bloqueios.push(`${briefingsSemResposta.length} briefing(s) enviado(s) sem resposta`);
+      }
+
+      const { data: pagamentosPendentes } = await supabase
+        .from("pagamentos")
+        .select("id")
+        .eq("projeto_id", projeto.id)
+        .eq("status", "pendente");
+      if (pagamentosPendentes && pagamentosPendentes.length > 0) {
+        bloqueios.push(`${pagamentosPendentes.length} pagamento(s) pendente(s)`);
+      }
+
+      if (bloqueios.length > 0) {
+        setNotify({ open: true, msg: `Não é possível concluir o projeto: ${bloqueios.join("; ")}.` });
+        return;
+      }
+    }
+
     try {
       setSaving(true);
       const updates: any = {
@@ -1214,7 +1357,6 @@ export default function ProjetoDetalhesPage() {
           return { url: pub.publicUrl, tipo: f.type, nome: f.name };
         }));
         arquivosData = uploads;
-        // manter compatibilidade com campo legado (primeiro arquivo)
         arquivoUrl = uploads[0].url;
         arquivoTipo = uploads[0].tipo;
       }
@@ -1847,7 +1989,6 @@ export default function ProjetoDetalhesPage() {
                   const filtered = entregavelFilter === "todos" ? entregaveis : entregaveis.filter(e => e.status === entregavelFilter);
                   return (
                   <div className="flex flex-col h-full gap-3">
-                    {/* Header */}
                     <div className="flex items-center justify-between flex-shrink-0">
                       <h3 className="text-[20px] text-primary-100 font-semibold">Entregáveis</h3>
                       {isOwner && (
@@ -1862,7 +2003,6 @@ export default function ProjetoDetalhesPage() {
                       )}
                     </div>
 
-                    {/* Form colapsível */}
                     {isOwner && showEntregavelForm && (
                       <form onSubmit={async (e) => { await handleAddEntregavel(e); setShowEntregavelForm(false); setEntregavelArquivos([]); }} className="flex flex-col gap-2.5 bg-primary-800/80 border border-primary-700 rounded-2xl p-4 flex-shrink-0">
                         <input
@@ -1924,7 +2064,6 @@ export default function ProjetoDetalhesPage() {
                       </form>
                     )}
 
-                    {/* Filtros */}
                     {entregaveis.length > 0 && (
                       <div className="flex gap-1.5 flex-shrink-0 overflow-x-auto pb-0.5">
                         {([
@@ -1957,7 +2096,6 @@ export default function ProjetoDetalhesPage() {
                       </div>
                     )}
 
-                    {/* Lista */}
                     <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar">
                       {filtered.length === 0 ? (
                         <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
@@ -1980,7 +2118,6 @@ export default function ProjetoDetalhesPage() {
                             const files = getEntregavelFiles(ent);
                             return (
                               <li key={ent.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden">
-                                {/* Imagem anotada pelo cliente — clicável para abrir viewer */}
                                 {hasFeedbackImage && (
                                   <button type="button" onClick={() => setFeedbackViewerId(ent.id)} className="relative w-full block overflow-hidden group">
                                     <img src={feedbackThumbUrl!} alt="Anotação" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
@@ -1991,13 +2128,11 @@ export default function ProjetoDetalhesPage() {
                                     </span>
                                   </button>
                                 )}
-                                {/* Carrossel de arquivos — só quando sem feedback anotado */}
                                 {!hasFeedbackImage && files.length > 0 && (
                                   <EntregavelCarousel files={files} />
                                 )}
 
                                 <div className="px-4 py-3 flex flex-col gap-2">
-                                  {/* Título + badge */}
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="flex flex-col min-w-0 flex-1">
                                       <span className="text-[14px] text-primary-100 font-semibold leading-snug truncate">{ent.titulo}</span>
@@ -2006,7 +2141,6 @@ export default function ProjetoDetalhesPage() {
                                     <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${badge.cls}`}>{badge.label}</span>
                                   </div>
 
-                                  {/* Link / PDF */}
                                   {ent.url && <a href={ent.url} target="_blank" rel="noreferrer" className="text-[12px] text-primary-400 hover:text-primary-300 hover:underline truncate transition-colors">{ent.url}</a>}
                                   {ent.arquivo_url && ent.arquivo_tipo === "application/pdf" && (
                                     <a href={ent.arquivo_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[12px] text-primary-400 hover:text-primary-300 w-fit transition-colors">
@@ -2015,14 +2149,12 @@ export default function ProjetoDetalhesPage() {
                                     </a>
                                   )}
 
-                                  {/* Feedback do cliente */}
                                   {ent.status === "para_alteracao" && ent.feedback_cliente && (
                                     <div className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[12px] text-gray-300">
                                       <span className="text-gray-400 font-medium">Feedback: </span>{ent.feedback_cliente}
                                     </div>
                                   )}
 
-                                  {/* Download (aprovado) */}
                                   {ent.status === "aprovado" && files.length > 0 && (
                                     <div className="flex items-center gap-2 pt-1 border-t border-primary-700">
                                       {files.length === 1 ? (
@@ -2051,7 +2183,6 @@ export default function ProjetoDetalhesPage() {
                                     </div>
                                   )}
 
-                                  {/* Ações */}
                                   {isOwner && (
                                     <div className="flex items-center gap-2 pt-1">
                                       {ent.status === "para_alteracao" && ent.arquivo_url && (
@@ -2088,23 +2219,33 @@ export default function ProjetoDetalhesPage() {
 
                 {activeTab === "briefing" && (
                   <div className="flex flex-col h-full gap-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <h3 className="text-[20px] text-primary-100 font-semibold">Briefing do projeto</h3>
-                      {projetoBriefingEnvios.length === 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setAttachBriefingOpen(true)}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 hover:bg-primary-600 transition-colors text-[13px]"
-                        >
-                          <ClipboardList size={15} />
-                          Vincular briefing
-                        </button>
+                      {projeto?.user_id === user?.id && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleOpenSendNewBriefing}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold transition-colors text-[13px]"
+                          >
+                            <Send size={14} />
+                            Novo briefing
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAttachBriefingOpen(true)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 hover:bg-primary-600 transition-colors text-[13px]"
+                          >
+                            <ClipboardList size={14} />
+                            Vincular existente
+                          </button>
+                        </div>
                       )}
                     </div>
 
                     <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
                       {projetoBriefingEnvios.length === 0 ? (
-                        <div className="text-gray-400">Nenhum briefing vinculado. Clique em "Vincular briefing" para anexar um existente.</div>
+                        <div className="text-gray-400">Nenhum briefing neste projeto. Crie um novo ou vincule um já enviado.</div>
                       ) : (
                         <div className="flex flex-col gap-4">
                           {projetoBriefingEnvios.map(envio => (
@@ -2119,14 +2260,25 @@ export default function ProjetoDetalhesPage() {
                                     {envio.respondido_em ? ` • Respondido em ${new Date(envio.respondido_em).toLocaleDateString("pt-BR")}` : ""}
                                   </span>
                                 </div>
-                                {(() => {
-                                  const respondido = envio.status === "respondido" || !!envio.respondido_em || (envio.briefings_respostas && envio.briefings_respostas.length > 0);
-                                  return (
-                                    <span className={`text-[12px] px-2.5 py-1 rounded-full flex-shrink-0 ${respondido ? "text-third-400 bg-third-400/10" : "text-yellow-400 bg-yellow-400/10"}`}>
-                                      {respondido ? "Respondido" : "Aguardando resposta"}
-                                    </span>
-                                  );
-                                })()}
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  {(() => {
+                                    const respondido = envio.status === "respondido" || !!envio.respondido_em || (envio.briefings_respostas && envio.briefings_respostas.length > 0);
+                                    return (
+                                      <span className={`text-[12px] px-2.5 py-1 rounded-full ${respondido ? "text-third-400 bg-third-400/10" : "text-yellow-400 bg-yellow-400/10"}`}>
+                                        {respondido ? "Respondido" : "Aguardando resposta"}
+                                      </span>
+                                    );
+                                  })()}
+                                  {projeto?.user_id === user?.id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDetachBriefing(envio.id)}
+                                      className="text-[12px] px-2.5 py-1 rounded-full text-red-400 bg-red-400/10 hover:bg-red-400/20 transition-colors"
+                                    >
+                                      Desvincular
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                               {envio.briefings_respostas && envio.briefings_respostas.length > 0 ? (
                                 <ul className="flex flex-col gap-0">
@@ -2164,32 +2316,120 @@ export default function ProjetoDetalhesPage() {
               <button onClick={() => setAttachBriefingOpen(false)} className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-3 py-1 hover:bg-primary-700">Fechar</button>
             </div>
 
-            {briefingEnvios.length === 0 ? (
-              <p className="text-gray-400 text-[14px]">Nenhum briefing enviado encontrado.</p>
-            ) : (
-              <ul className="flex flex-col gap-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
-                {briefingEnvios.map(envio => (
-                  <li key={envio.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
-                    <div className="flex flex-col">
-                      <span className="text-[15px] text-gray-100 font-medium">
-                        {(envio as any).template?.titulo || "Briefing sem título"}
-                      </span>
-                      <span className="text-[12px] text-gray-500">
-                        {new Date(envio.created_at).toLocaleDateString("pt-BR")} • {envio.status}
-                        {envio.projeto_id && envio.projeto_id !== id ? " • Vinculado a outro projeto" : ""}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => handleAttachBriefing(envio.id)}
-                      disabled={attachingBriefing}
-                      className="ml-3 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 text-[13px] font-semibold transition-colors disabled:opacity-50"
-                    >
-                      {attachingBriefing ? "..." : "Vincular"}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            {(() => {
+              const jaVinculadosNesteProjetoIds = new Set(projetoBriefingEnvios.map(e => e.id));
+              const enviosDisponíveis = briefingEnvios.filter(e => !jaVinculadosNesteProjetoIds.has(e.id));
+              if (enviosDisponíveis.length === 0) {
+                return <p className="text-gray-400 text-[14px]">Nenhum briefing disponível para vincular. Envios já vinculados a este projeto não aparecem aqui.</p>;
+              }
+              return (
+                <ul className="flex flex-col gap-2 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+                  {enviosDisponíveis.map(envio => {
+                    const jaEmOutroProjeto = !!(envio.projeto_id && envio.projeto_id !== projeto?.id);
+                    const respondido = envio.status === "respondido" || !!envio.respondido_em;
+                    return (
+                      <li key={envio.id} className={`flex items-center justify-between border rounded-xl px-4 py-3 ${jaEmOutroProjeto ? "bg-primary-900/30 border-primary-700/50 opacity-60" : "bg-primary-900/60 border-primary-700"}`}>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[15px] text-gray-100 font-medium">
+                            {(envio as any).template?.titulo || "Briefing sem título"}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[11px] px-2 py-0.5 rounded-full ${respondido ? "text-third-400 bg-third-400/10" : "text-yellow-400 bg-yellow-400/10"}`}>
+                              {respondido ? "Respondido" : "Pendente"}
+                            </span>
+                            <span className="text-[11px] text-gray-500">
+                              {new Date(envio.created_at).toLocaleDateString("pt-BR")}
+                              {jaEmOutroProjeto ? " • Vinculado a outro projeto" : ""}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleAttachBriefing(envio.id)}
+                          disabled={attachingBriefing || jaEmOutroProjeto}
+                          title={jaEmOutroProjeto ? "Este briefing já está vinculado a outro projeto" : undefined}
+                          className="ml-3 flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 text-[13px] font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {attachingBriefing ? "..." : "Vincular"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {sendNewBriefingOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={() => setSendNewBriefingOpen(false)}>
+          <div className="w-full max-w-lg bg-primary-800 border border-primary-700 rounded-2xl p-6 shadow-[0_24px_60px_rgba(0,0,0,0.55)]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <h4 className="text-[18px] text-primary-100 font-semibold">Novo briefing</h4>
+                <p className="text-[12px] text-gray-500 mt-0.5">Cria e vincula um novo envio a este projeto</p>
+              </div>
+              <button onClick={() => setSendNewBriefingOpen(false)} className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-3 py-1 hover:bg-primary-700 text-[13px]">Fechar</button>
+            </div>
+
+            <div className="flex flex-col gap-4 mt-3">
+              <div>
+                <label className="text-[13px] text-gray-400 mb-1.5 block">Qual formulário usar?</label>
+                {loadingNewBriefingTemplates ? (
+                  <div className="text-[13px] text-gray-500">Carregando formulários...</div>
+                ) : sendNewBriefingTemplates.length === 0 ? (
+                  <div className="text-[13px] text-gray-500">Nenhum formulário criado ainda. Crie um na página de Briefings.</div>
+                ) : (
+                  <select
+                    value={sendNewBriefingTemplateId ?? ""}
+                    onChange={e => setSendNewBriefingTemplateId(e.target.value || null)}
+                    className="w-full bg-primary-900 border border-primary-700 rounded-xl px-3 py-2.5 text-[13px] text-gray-200 focus:outline-none focus:border-primary-500"
+                  >
+                    <option value="">Escolha um formulário...</option>
+                    {sendNewBriefingTemplates.map(t => (
+                      <option key={t.id} value={t.id}>{t.titulo}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[13px] text-gray-400 mb-1.5 block">Prazo de resposta (opcional)</label>
+                <DatePicker
+                  value={sendNewBriefingPrazo}
+                  onChange={setSendNewBriefingPrazo}
+                  placeholder="Sem prazo"
+                />
+              </div>
+
+              {projeto?.clientes && (projeto.clientes as any).email && (
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sendNewBriefingSendEmail}
+                    onChange={e => setSendNewBriefingSendEmail(e.target.checked)}
+                    className="w-4 h-4 rounded accent-primary-500"
+                  />
+                  <span className="text-[13px] text-gray-300">
+                    Enviar e-mail ao cliente ({(projeto.clientes as any).email})
+                  </span>
+                </label>
+              )}
+
+              {sendNewBriefingError && (
+                <p className="text-[13px] text-red-400">{sendNewBriefingError}</p>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSendNewBriefing}
+                disabled={sendingNewBriefing || !sendNewBriefingTemplateId}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[14px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send size={15} />
+                {sendingNewBriefing ? "Enviando..." : "Criar briefing"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2329,8 +2569,6 @@ export default function ProjetoDetalhesPage() {
   );
 }
 
-// ─── Helpers de arquivo para entregáveis ─────────────────────────────────────
-
 function getEntregavelFiles(ent: { arquivo_url?: string | null; arquivo_tipo?: string | null; arquivos?: Array<{ url: string; tipo: string; nome: string }> | null; titulo?: string }): Array<{ url: string; tipo: string; nome: string }> {
   if (ent.arquivos && ent.arquivos.length > 0) return ent.arquivos;
   if (ent.arquivo_url) return [{ url: ent.arquivo_url, tipo: ent.arquivo_tipo || "", nome: ent.titulo || "arquivo" }];
@@ -2369,8 +2607,6 @@ async function downloadAllAsZip(files: Array<{ url: string; nome: string }>, zip
   a.click();
   URL.revokeObjectURL(a.href);
 }
-
-// ─── Carrossel de arquivos do entregável ─────────────────────────────────────
 
 function EntregavelCarousel({ files, onClickImage }: {
   files: Array<{ url: string; tipo: string; nome: string }>;
@@ -2433,8 +2669,6 @@ function EntregavelCarousel({ files, onClickImage }: {
   );
 }
 
-// ─── Feedback image viewer (fullscreen, interactive pins, multi-image nav) ───
-
 function FeedbackImageViewer({ entregavel: ent, onClose }: {
   entregavel: Entregavel;
   onClose: () => void;
@@ -2472,7 +2706,6 @@ function FeedbackImageViewer({ entregavel: ent, onClose }: {
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/95 flex flex-col" onClick={onClose}>
-      {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
         <div>
           <p className="text-[16px] font-semibold text-gray-100">{ent.titulo}</p>
@@ -2485,7 +2718,6 @@ function FeedbackImageViewer({ entregavel: ent, onClose }: {
         </button>
       </div>
 
-      {/* Image area with lateral navigation */}
       <div className="flex-1 min-h-0 flex items-center justify-center p-4 gap-4" onClick={e => e.stopPropagation()}>
         {total > 1 && (
           <button type="button"
@@ -2504,7 +2736,6 @@ function FeedbackImageViewer({ entregavel: ent, onClose }: {
             style={{ maxWidth: "100%", maxHeight: "calc(100vh - 8rem)" }}
           />
 
-          {/* Interactive pins */}
           {pins.map((pin, idx) => (
             <div
               key={idx}
@@ -2545,7 +2776,6 @@ function FeedbackImageViewer({ entregavel: ent, onClose }: {
         )}
       </div>
 
-      {/* Dots */}
       {total > 1 && (
         <div className="flex items-center justify-center gap-2 pb-4 flex-shrink-0" onClick={e => e.stopPropagation()}>
           {images.map((_, i) => (

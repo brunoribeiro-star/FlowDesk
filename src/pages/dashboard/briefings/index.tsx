@@ -6,25 +6,25 @@ import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import {
-  Pencil,
-  SlidersHorizontal,
-  Crown,
-  ChevronDown,
-  ChevronUp,
-  Trash2,
-  MoreVertical,
-  ClipboardList,
-  FileText,
-  Calendar,
-  Copy,
-  Send,
-  Eye,
-  Plus,
-  Search,
-  CheckSquare,
-  Square,
-  X,
+  Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Trash2, MoreVertical,
+  ClipboardList, FileText, Calendar, Copy, Send, Eye, Plus, Search, CheckSquare, Square, X,
+  Star, Heart, Zap, Flag, Bookmark, MessageCircle, Hash, Link, Info, AlertCircle, Settings,
+  User, Users, Briefcase, Folder, Image as ImageIcon, Clock, MapPin, Globe, Sun, Moon, Smile,
+  ThumbsUp, Award, Layout, LayoutGrid, List, Target, TrendingUp, PieChart, BarChart, Activity,
+  Box, Package, Truck, ShoppingBag, CreditCard, DollarSign, Monitor, Smartphone, Tablet,
+  Camera, Video, Music, Mic, Speaker, Headphones, Bell, Mail, Phone, Share2, Printer,
+  Download, Upload, Cloud, Database, Server, Lock, Unlock, Key, Shield, Eye as EyeIcon,
 } from "lucide-react";
+
+const ICON_LIST: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties; color?: string }>> = {
+  FileText, Star, Heart, Zap, Flag, Bookmark, MessageCircle, Hash, Link, Info, AlertCircle,
+  Settings, User, Users, Briefcase, Folder, ImageIcon, Calendar, Clock, MapPin, Globe, Sun,
+  Moon, Smile, ThumbsUp, Award, Layout, LayoutGrid, List, Target, TrendingUp, PieChart,
+  BarChart, Activity, Box, Package, Truck, ShoppingBag, CreditCard, DollarSign, Monitor,
+  Smartphone, Tablet, Camera, Video, Music, Mic, Speaker, Headphones, Bell, Mail, Phone,
+  Send, Share2, Printer, Download, Upload, Cloud, Database, Server, Lock, Unlock, Key,
+  Shield, EyeIcon,
+};
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -57,6 +57,8 @@ type BriefingTemplate = {
   campos_count?: number;
   card_bg_color?: string | null;
   card_text_color?: string | null;
+  cover_icon?: string | null;
+  cover_icon_color?: string | null;
 };
 
 type BriefingEnvio = {
@@ -67,7 +69,7 @@ type BriefingEnvio = {
   status: string | null;
   prazo_resposta: string | null;
   created_at: string;
-  responded_at: string | null;
+  respondido_em: string | null;
   token: string | null;
   email_enviado: boolean;
   template?: {
@@ -134,7 +136,7 @@ function classificarEnvio(
 ): "pendente" | "respondido" {
   const raw = String(envio.status || "").toLowerCase();
   if (raw === "respondido" || raw === "concluido") return "respondido";
-  if (envio.responded_at) return "respondido";
+  if (envio.respondido_em) return "respondido";
   if (envio.projeto_id && respostasPorProjeto[envio.projeto_id]) {
     return "respondido";
   }
@@ -254,7 +256,7 @@ export default function BriefingsPage() {
             status,
             prazo_resposta,
             created_at,
-            responded_at,
+            respondido_em,
             token,
             email_enviado,
             template:template_id (
@@ -340,6 +342,8 @@ export default function BriefingsPage() {
         campos_count: countsMap[String(t.id)] || 0,
         card_bg_color: t.card_bg_color ?? "#0f172a",
         card_text_color: t.card_text_color ?? "#ffffff",
+        cover_icon: t.cover_icon ?? null,
+        cover_icon_color: t.cover_icon_color ?? null,
       })) as BriefingTemplate[];
 
       const normalizadosEnvios = (enviosData || []).map((e: any) => {
@@ -383,7 +387,7 @@ export default function BriefingsPage() {
           status: e.status ?? null,
           prazo_resposta: e.prazo_resposta ?? null,
           created_at: e.created_at as string,
-          responded_at: e.responded_at ?? null,
+          respondido_em: e.respondido_em ?? null,
           token: e.token ?? null,
           email_enviado: !!e.email_enviado,
           template: e.template
@@ -446,6 +450,30 @@ export default function BriefingsPage() {
     }
 
     carregar();
+  }, [authUser]);
+
+  useEffect(() => {
+    if (!authUser) return;
+
+    const channel = supabase
+      .channel("briefings-envios-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "briefings_envios", filter: `user_id=eq.${authUser.id}` },
+        (payload) => {
+          const updated = payload.new as any;
+          setEnvios((prev) =>
+            prev.map((e) =>
+              e.id === updated.id
+                ? { ...e, status: updated.status ?? e.status, respondido_em: updated.respondido_em ?? e.respondido_em }
+                : e
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [authUser]);
 
   useEffect(() => {
@@ -652,7 +680,7 @@ export default function BriefingsPage() {
       status: e.status ?? null,
       prazo_resposta: e.prazo_resposta ?? null,
       created_at: e.created_at as string,
-      responded_at: e.responded_at ?? null,
+      respondido_em: e.respondido_em ?? null,
       token: e.token ?? null,
       email_enviado: !!e.email_enviado,
       template: e.template ? { id: String(e.template.id), titulo: e.template.titulo as string } : null,
@@ -662,7 +690,7 @@ export default function BriefingsPage() {
 
   const SELECT_ENVIO_INSERT = `
     id, user_id, template_id, projeto_id, status, prazo_resposta,
-    created_at, responded_at, token, email_enviado,
+    created_at, respondido_em, token, email_enviado,
     template:template_id(id, titulo),
     projeto:projeto_id(id, titulo, cliente_id,
       clientes:cliente_id(id, nome, empresa, foto_url, email))
@@ -736,7 +764,6 @@ export default function BriefingsPage() {
           emailEnviado: false,
         }));
 
-      // Enviar e-mails
       const sessionData = await supabase.auth.getSession();
       const accessToken = sessionData.data.session?.access_token;
 
@@ -879,7 +906,7 @@ export default function BriefingsPage() {
                 </button>
                     {openMenuEnvioId === envio.id && (
                         <div className="absolute right-0 top-6 w-44 bg-primary-800 border border-primary-700 rounded shadow-xl z-20 flex flex-col py-1">
-                             {(envio.status === 'respondido' || envio.responded_at) && (
+                             {(envio.status === 'respondido' || envio.respondido_em) && (
                                 <button
                                 onClick={() => {
                                   setOpenMenuEnvioId(null);
@@ -1313,10 +1340,12 @@ export default function BriefingsPage() {
                             }}
                           >
                             <div className="absolute inset-0 flex items-center justify-center opacity-30 group-hover:opacity-40 transition-opacity">
-                              <ClipboardList
-                                size={48}
-                                color={t.card_text_color || "#ffffff"}
-                              />
+                              {(() => {
+                                const IconComp = t.cover_icon ? ICON_LIST[t.cover_icon] : null;
+                                return IconComp
+                                  ? <IconComp size={48} style={{ color: t.cover_icon_color || t.card_text_color || "#ffffff" }} />
+                                  : <ClipboardList size={48} color={t.card_text_color || "#ffffff"} />;
+                              })()}
                             </div>
 
                             {selectionMode && (
@@ -1819,7 +1848,6 @@ export default function BriefingsPage() {
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-xl bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
 
-              {/* Header */}
               <div className="px-6 pt-5 pb-4 border-b border-primary-800 flex-shrink-0 flex items-start justify-between gap-4">
                 <div>
                   <span className="text-[16px] font-semibold text-gray-100">
@@ -1840,10 +1868,8 @@ export default function BriefingsPage() {
                 </button>
               </div>
 
-              {/* Scrollable body */}
               <div className="flex-1 overflow-y-auto briefings-scroll px-6 py-5 flex flex-col gap-5 min-h-0">
 
-                {/* ── STEP: FORM ── */}
                 {modalStep === "form" && (
                   <>
                     {sendError && (
@@ -1853,7 +1879,6 @@ export default function BriefingsPage() {
                       </div>
                     )}
 
-                    {/* Modelo */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[13px] text-gray-300">Modelo de briefing</label>
                       <div className="relative">
@@ -1871,7 +1896,6 @@ export default function BriefingsPage() {
                       </div>
                     </div>
 
-                    {/* Seletor de modo */}
                     <div className="flex flex-col gap-2">
                       <label className="text-[13px] text-gray-300">Como deseja enviar?</label>
                       <div className="grid grid-cols-2 gap-2">
@@ -1906,7 +1930,6 @@ export default function BriefingsPage() {
                       </div>
                     </div>
 
-                    {/* ── MODO: PROJETO ── */}
                     {sendMode === "projeto" && (
                       <div className="flex flex-col gap-2">
                         <label className="text-[13px] text-gray-300">
@@ -1989,7 +2012,6 @@ export default function BriefingsPage() {
                       </div>
                     )}
 
-                    {/* ── MODO: E-MAIL ── */}
                     {sendMode === "email" && (
                       <div className="flex flex-col gap-3">
                         <div className="flex flex-col gap-1.5">
@@ -2027,7 +2049,6 @@ export default function BriefingsPage() {
                       </div>
                     )}
 
-                    {/* Prazo */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-[13px] text-gray-300">Prazo para resposta <span className="text-gray-500">(opcional)</span></label>
                       <DatePicker value={sendPrazo} onChange={(v) => setSendPrazo(v)} placeholder="dd/mm/aaaa" />
@@ -2035,7 +2056,6 @@ export default function BriefingsPage() {
                   </>
                 )}
 
-                {/* ── STEP: SUCCESS ── */}
                 {modalStep === "success" && (
                   <div className="flex flex-col gap-4">
                     <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
@@ -2088,7 +2108,6 @@ export default function BriefingsPage() {
                 )}
               </div>
 
-              {/* Footer */}
               <div className="px-6 py-4 border-t border-primary-800 flex items-center justify-between flex-shrink-0">
                 {modalStep === "form" ? (
                   <>
