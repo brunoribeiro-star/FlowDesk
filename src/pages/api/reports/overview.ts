@@ -50,7 +50,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .eq("user_id", uid);
   if (windowStart) timeQuery.gte("started_at", windowStart.toISOString());
 
-  const [projRes, pagRes, timeRes] = await Promise.all([
+  const collabEarnedQuery = supabaseAdmin
+    .from("collaborator_payment_splits")
+    .select("amount, status")
+    .eq("member_user_id", uid);
+  if (windowStart) collabEarnedQuery.gte("created_at", windowStart.toISOString());
+
+  const [projRes, pagRes, timeRes, collabEarnedRes] = await Promise.all([
     supabaseAdmin
       .from("projetos")
       .select("id, status, created_at, data_inicio, completed_at")
@@ -58,11 +64,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     pagQuery,
     timeQuery,
+    collabEarnedQuery,
   ]);
 
   const projetos = projRes.data ?? [];
   const pagamentos = pagRes.data ?? [];
   const timeEntries = timeRes.data ?? [];
+  const collabEarned = collabEarnedRes.data ?? [];
   const ownedProjectIds = projetos.map((p) => p.id);
 
   let collabSplitsPaid: { amount: number }[] = [];
@@ -75,19 +83,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     collabSplitsPaid = data ?? [];
   }
 
-  const valorRecebido = pagamentos
+  const ownerRecebido = pagamentos
     .filter((p) => String(p.status ?? "").toLowerCase() === "pago")
     .reduce((acc, p) => acc + Number(p.valor ?? 0), 0);
 
-  const valorPendente = pagamentos
+  const ownerPendente = pagamentos
     .filter((p) => String(p.status ?? "").toLowerCase() === "pendente")
     .reduce((acc, p) => acc + Number(p.valor ?? 0), 0);
+
+  const collabEarnedPago = collabEarned
+    .filter((s) => String(s.status ?? "").toLowerCase() === "pago")
+    .reduce((acc, s) => acc + Number(s.amount ?? 0), 0);
+
+  const collabEarnedPendente = collabEarned
+    .filter((s) => String(s.status ?? "").toLowerCase() !== "pago")
+    .reduce((acc, s) => acc + Number(s.amount ?? 0), 0);
 
   const repassesColaboradores = collabSplitsPaid.reduce(
     (acc, s) => acc + Number(s.amount ?? 0),
     0
   );
 
+  const valorRecebido = ownerRecebido + collabEarnedPago;
+  const valorPendente = ownerPendente + collabEarnedPendente;
   const faturamentoBruto = valorRecebido;
   const faturamentoLiquido = valorRecebido - repassesColaboradores;
 

@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const [pagRes, projRes] = await Promise.all([
+  const [pagRes, projRes, collabEarnedRes] = await Promise.all([
     supabaseAdmin
       .from("pagamentos")
       .select("id, valor, status, data_pagamento, data_prevista, created_at, projeto_id")
@@ -74,10 +74,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .from("projetos")
       .select("id, status")
       .eq("user_id", uid),
+    supabaseAdmin
+      .from("collaborator_payment_splits")
+      .select("amount, status, paid_at, created_at")
+      .eq("member_user_id", uid)
+      .gte("created_at", queryWindowStart.toISOString()),
   ]);
 
   const pagamentos = pagRes.data ?? [];
   const projetos = projRes.data ?? [];
+  const collabEarned = collabEarnedRes.data ?? [];
   const projetoStatusMap: Record<string, string> = {};
   projetos.forEach((p) => {
     projetoStatusMap[p.id] = String(p.status ?? "").toLowerCase();
@@ -124,6 +130,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return;
 
+    const key = monthKey(d.getFullYear(), d.getMonth() + 1);
+    if (!(key in brutoMap)) return;
+    if (isPago) {
+      brutoMap[key] += valor;
+    } else {
+      pendenteMap[key] += valor;
+    }
+  });
+
+  collabEarned.forEach((s) => {
+    const valor = Number(s.amount ?? 0);
+    const status = String(s.status ?? "").toLowerCase();
+    const isPago = status === "pago";
+    const dateStr = isPago ? (s.paid_at ?? s.created_at) : s.created_at;
+    if (!dateStr) return;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return;
     const key = monthKey(d.getFullYear(), d.getMonth() + 1);
     if (!(key in brutoMap)) return;
     if (isPago) {
