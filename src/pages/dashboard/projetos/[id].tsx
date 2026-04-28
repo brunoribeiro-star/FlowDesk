@@ -5,7 +5,7 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
-import { validateImageFile, calcularUrgencia } from "@/lib/utils";
+import { validateImageFile, calcularUrgencia, tempoRelativo } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
@@ -89,13 +89,6 @@ type LinkProjeto = {
   created_at: string;
 };
 
-type Briefing = {
-  id: string;
-  projeto_id: string;
-  respostas: any;
-  created_at: string;
-};
-
 type BriefingEnvio = {
   id: string;
   user_id: string;
@@ -147,22 +140,6 @@ function safeParseJSON(value: any) {
 }
 
 
-function timeAgoPtBR(iso: string) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diff = Math.max(0, now.getTime() - d.getTime());
-  const mins = Math.floor(diff / (1000 * 60));
-  if (mins < 1) return "agora";
-  if (mins < 60) return `há ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `há ${hrs} h`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `há ${days} dia${days > 1 ? "s" : ""}`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `há ${months} mês${months > 1 ? "es" : ""}`;
-  const years = Math.floor(months / 12);
-  return `há ${years} ano${years > 1 ? "s" : ""}`;
-}
 
 function statusLabel(status: ProjetoStatus) {
   if (status === "Em andamento") return "Para fazer";
@@ -223,17 +200,14 @@ export default function ProjetoDetalhesPage() {
   const router = useRouter();
   const idRaw = router.query?.id;
   const id = typeof idRaw === "string" ? idRaw : "";
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [subtasksByTask, setSubtasksByTask] = useState<Record<string, Subtask[]>>({});
   const [files, setFiles] = useState<ArquivoProjeto[]>([]);
   const [links, setLinks] = useState<LinkProjeto[]>([]);
-  const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [clientes, setClientes] = useState<{ id: string; nome: string | null; empresa: string | null }[]>([]);
 
-  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -299,10 +273,8 @@ export default function ProjetoDetalhesPage() {
   const [savingSplit, setSavingSplit] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [inviteAlreadyPaid, setInviteAlreadyPaid] = useState(false);
-  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [markingSplitId, setMarkingSplitId] = useState<string | null>(null);
   const [markingMemberId, setMarkingMemberId] = useState<string | null>(null);
-  const [requestingPayment, setRequestingPayment] = useState(false);
   const [ownerCollabSplits, setOwnerCollabSplits] = useState<any[]>([]);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalMsg, setPortalMsg] = useState<string | null>(null);
@@ -366,7 +338,6 @@ export default function ProjetoDetalhesPage() {
           { data: tasksData, error: tasksErr },
           { data: filesData, error: filesErr },
           { data: linksData, error: linksErr },
-          { data: briefData, error: briefErr },
           { data: envsData },
           { data: clientesData },
           { data: membersData },
@@ -383,10 +354,9 @@ export default function ProjetoDetalhesPage() {
             .select(`*, clientes:cliente_id (id, nome, empresa, email, telefone, foto_url)`)
             .eq("id", id)
             .single(),
-          supabase.from("tasks").select("*").eq("projeto_id", id).order("created_at", { ascending: true }),
-          supabase.from("arquivos_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false }),
-          supabase.from("links_projeto").select("*").eq("projeto_id", id).order("created_at", { ascending: false }),
-          supabase.from("briefings").select("*").eq("projeto_id", id).maybeSingle(),
+          supabase.from("tasks").select("id, projeto_id, user_id, titulo, descricao, status, concluida, due_date, completed_at, created_at, updated_at").eq("projeto_id", id).order("created_at", { ascending: true }),
+          supabase.from("arquivos_projeto").select("id, projeto_id, user_id, nome, url, status, created_at").eq("projeto_id", id).order("created_at", { ascending: false }),
+          supabase.from("links_projeto").select("id, projeto_id, user_id, titulo, url, created_at").eq("projeto_id", id).order("created_at", { ascending: false }),
           supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, respondido_em, created_at, template:template_id(id, titulo)").eq("user_id", authUser.id).order("created_at", { ascending: false }),
           supabase.from("clientes").select("id, nome, empresa").eq("user_id", authUser.id).order("nome", { ascending: true }),
           supabase.from("project_members").select("user_id, role, email, nome, avatar_url").eq("project_id", id).neq("role", "cliente"),
@@ -403,7 +373,6 @@ export default function ProjetoDetalhesPage() {
         if (tasksErr) throw tasksErr;
         if (filesErr) throw filesErr;
         if (linksErr) throw linksErr;
-        if (briefErr) throw briefErr;
         if (cancelled) return;
 
         const proj = projetoData as Projeto;
@@ -413,7 +382,6 @@ export default function ProjetoDetalhesPage() {
         setTasks(tks);
         setFiles((filesData || []) as ArquivoProjeto[]);
         setLinks((linksData || []) as LinkProjeto[]);
-        setBriefing(briefData ? (briefData as Briefing) : null);
         setBriefingEnvios((envsData || []) as unknown as BriefingEnvio[]);
         setClientes((clientesData || []) as { id: string; nome: string | null; empresa: string | null }[]);
         setMembers((membersData || []) as any[]);
@@ -761,38 +729,6 @@ export default function ProjetoDetalhesPage() {
     }
   }
 
-  function renderBriefing(respostas: any) {
-    if (!respostas) return <div className="text-gray-400">Nenhum briefing preenchido.</div>;
-
-    if (Array.isArray(respostas)) {
-      return (
-        <ul className="flex flex-col gap-2">
-          {respostas.map((item, idx) => (
-            <li key={idx} className="bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
-              <div className="text-primary-100 font-medium">{item?.pergunta ?? `Pergunta ${idx + 1}`}</div>
-              <div className="text-gray-300">{item?.resposta ?? "—"}</div>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    if (typeof respostas === "object") {
-      return (
-        <ul className="flex flex-col gap-2">
-          {Object.entries(respostas).map(([pergunta, resposta], idx) => (
-            <li key={idx} className="bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
-              <div className="text-primary-100 font-medium">{pergunta}</div>
-              <div className="text-gray-300">{String(resposta)}</div>
-            </li>
-          ))}
-        </ul>
-      );
-    }
-
-    return <div className="text-gray-300 whitespace-pre-wrap">{String(respostas)}</div>;
-  }
-
   const toggleTaskCompletion = useCallback(async (task: Task) => {
     const isOwner = user && projeto && user.id === projeto.user_id;
     if (!isOwner && task.user_id !== user?.id) return;
@@ -906,11 +842,6 @@ export default function ProjetoDetalhesPage() {
       setNotify({ open: true, msg: "Erro ao atualizar subtask: " + (err.message || "Erro desconhecido") });
     }
   }, [user, projeto]);
-
-  function toggleTaskExpanded(taskId: string) {
-    setExpandedTasks((prev) => ({ ...prev, [taskId]: !prev[taskId] }));
-  }
-
 
   async function handleDetachBriefing(envioId: string) {
     if (!projeto) return;
@@ -1457,11 +1388,11 @@ export default function ProjetoDetalhesPage() {
   const coverSrc = projeto.cover_url || "/project-cover-placeholder.png";
 
   const urgProjeto = calcularUrgencia(projeto.prazo_entrega);
-  const createdLabel = projeto.created_at ? timeAgoPtBR(projeto.created_at) : "—";
+  const createdLabel = projeto.created_at ? tempoRelativo(projeto.created_at) : "—";
 
   return (
     <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+      <Sidebar defaultOpen={false} onOpenChange={() => {}} />
 
       <div className="flex flex-col flex-1 pr-6 py-8 w-full overflow-hidden">
         <div className="flex items-center justify-between gap-4">
@@ -3553,51 +3484,3 @@ function EditorToolbar({
   );
 }
 
-function TaskDescricaoReadonly({ content }: { content: any }) {
-  const editor = useEditor({
-    editable: false,
-    immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({ heading: false }),
-      Heading.configure({ levels: [1, 2, 3] }),
-      Underline,
-      Link,
-      Highlight,
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-    ],
-    content: "",
-  });
-
-  useEffect(() => {
-    if (!editor) return;
-
-    if (!content) {
-      editor.commands.setContent({ type: "doc", content: [{ type: "paragraph" }] });
-      return;
-    }
-
-    let parsed: any = content;
-
-    if (typeof content === "string") {
-      try {
-        parsed = JSON.parse(content);
-      } catch {
-        parsed = {
-          type: "doc",
-          content: [
-            {
-              type: "paragraph",
-              content: [{ type: "text", text: content }],
-            },
-          ],
-        };
-      }
-    }
-
-    editor.commands.setContent(parsed);
-  }, [editor, content]);
-
-  if (!editor) return null;
-
-  return <EditorContent editor={editor} className="tiptap text-[14px] text-gray-100" />;
-} 

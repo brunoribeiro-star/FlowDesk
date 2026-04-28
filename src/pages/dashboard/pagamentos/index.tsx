@@ -9,6 +9,7 @@ import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList } from "@/components/Skeleton";
 import { formatarData, formatarDataCurta, tempoRelativo } from "@/lib/utils";
+import { Send, X } from "lucide-react";
 
 
 type Projeto = {
@@ -30,7 +31,9 @@ type Pagamento = {
   valor: number | null;
   status: string | null;
   data_pagamento: string | null;
-  data_vencimento?: string | null;
+  data_prevista?: string | null;
+  pix_chave?: string | null;
+  notificado_em?: string | null;
   created_at: string;
 };
 
@@ -47,7 +50,7 @@ function classificarPagamento(p: Pagamento): "pago" | "pendente" | "atrasado" {
 
   if (isPago) return "pago";
 
-  const venc = p.data_vencimento;
+  const venc = p.data_prevista;
   if (!venc) return "pendente";
 
   const hoje = new Date();
@@ -73,6 +76,10 @@ export default function PagamentosPage() {
 
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [cobrancaModal, setCobrancaModal] = useState<Pagamento | null>(null);
+  const [pixInput, setPixInput] = useState("");
+  const [enviandoCobranca, setEnviandoCobranca] = useState(false);
+  const [cobrancaFeedback, setCobrancaFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
 
 
@@ -158,21 +165,42 @@ export default function PagamentosPage() {
     return { label: "Pendente", bg: "bg-amber-400", text: "text-primary-900" };
   }
 
-  async function enviarCobranca(p: Pagamento) {
-    const { data: auth } = await supabase.auth.getUser();
-    const u = auth?.user;
-    if (!u) return alert("Usuário não autenticado.");
+  function abrirCobrancaModal(p: Pagamento) {
+    setCobrancaModal(p);
+    setPixInput(p.pix_chave ?? "");
+    setCobrancaFeedback(null);
+  }
 
-    await supabase.from("atividades").insert([
-      {
-        user_id: u.id,
-        projeto_id: p.projeto_id,
-        tipo: "Pagamentos",
-        descricao: "Cobrança enviada ao cliente.",
-      },
-    ]);
+  async function enviarCobranca() {
+    if (!cobrancaModal) return;
+    setEnviandoCobranca(true);
+    setCobrancaFeedback(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sessão inválida.");
 
-    alert("Cobrança registrada.");
+      const resp = await fetch("/api/payments/notify-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pagamento_id: cobrancaModal.id, pix_chave: pixInput.trim() || null }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || "Erro ao enviar cobrança.");
+
+      setPagamentos((prev) =>
+        prev.map((p) =>
+          p.id === cobrancaModal.id
+            ? { ...p, pix_chave: pixInput.trim() || null, notificado_em: new Date().toISOString() }
+            : p
+        )
+      );
+      setCobrancaFeedback({ ok: true, msg: json.email_sent ? "Cobrança enviada ao cliente por e-mail!" : "Cobrança registrada (e-mail não enviado)." });
+    } catch (err: any) {
+      setCobrancaFeedback({ ok: false, msg: err.message });
+    } finally {
+      setEnviandoCobranca(false);
+    }
   }
 
   async function excluirPagamento(id: string) {
@@ -280,7 +308,7 @@ export default function PagamentosPage() {
                   const foto = cliente?.foto_url || "/cliente_placeholder.svg";
                   const tipo = classificarPagamento(p);
                   const dataRef =
-                    tipo === "pago" ? p.data_pagamento : p.data_vencimento;
+                    tipo === "pago" ? p.data_pagamento : p.data_prevista;
 
                   return (
                     <div
@@ -343,10 +371,11 @@ export default function PagamentosPage() {
                       <div className="flex items-center justify-end gap-3">
                         {tipo !== "pago" && (
                           <button
-                            onClick={() => enviarCobranca(p)}
-                            className="px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-500 text-[12px] text-primary-100"
+                            onClick={() => abrirCobrancaModal(p)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-500 text-[12px] text-primary-100"
                           >
-                            Cobrar
+                            <Send size={12} />
+                            {p.notificado_em ? "Reenviar cobrança" : "Cobrar"}
                           </button>
                         )}
 
@@ -402,6 +431,63 @@ export default function PagamentosPage() {
             )}
           </div>
         </section>
+
+        {cobrancaModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-2xl bg-primary-800 border border-primary-700 shadow-2xl overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-primary-700">
+                <div>
+                  <div className="text-[16px] font-semibold text-gray-100">Enviar cobrança</div>
+                  <div className="text-[12px] text-gray-400 mt-0.5">
+                    {cobrancaModal.valor
+                      ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cobrancaModal.valor)
+                      : "—"} · {projetoNome(cobrancaModal.projeto_id)}
+                  </div>
+                </div>
+                <button onClick={() => setCobrancaModal(null)} className="p-2 rounded-lg hover:bg-primary-700 text-gray-400">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="px-6 py-5 flex flex-col gap-4">
+                <div>
+                  <label className="block text-[13px] text-gray-300 mb-1.5">Chave PIX (opcional)</label>
+                  <input
+                    type="text"
+                    value={pixInput}
+                    onChange={(e) => setPixInput(e.target.value)}
+                    placeholder="CPF, e-mail, telefone ou chave aleatória"
+                    className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">Se informada, a chave será exibida no portal do cliente e no e-mail.</p>
+                </div>
+
+                {cobrancaFeedback && (
+                  <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-[13px] ${cobrancaFeedback.ok ? "bg-third-500/10 text-third-400 border border-third-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                    {cobrancaFeedback.msg}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    onClick={() => setCobrancaModal(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-primary-600 text-[14px] text-gray-300 hover:bg-primary-700 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={enviarCobranca}
+                    disabled={enviandoCobranca}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-400 disabled:opacity-60 text-[14px] font-semibold text-primary-900 transition-colors"
+                  >
+                    <Send size={14} />
+                    {enviandoCobranca ? "Enviando..." : "Enviar cobrança"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <style jsx global>{`
           .payments-scroll::-webkit-scrollbar {

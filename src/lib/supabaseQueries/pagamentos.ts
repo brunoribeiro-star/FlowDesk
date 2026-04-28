@@ -21,12 +21,15 @@ async function getUser() {
     return data.user;
 }
 
+const PAGAMENTO_COLS = "id, projeto_id, user_id, valor, forma_pagamento, parcela, total_parcelas, tipo, status, data_pagamento, data_prevista, pix_chave, notificado_em, created_at";
+
 export async function getPagamentos(): Promise<Pagamento[]> {
     const user = await getUser();
 
     const { data, error } = await supabase
         .from("pagamentos")
-        .select("*")
+        .select(PAGAMENTO_COLS)
+        .eq("user_id", user.id)
         .order("data_prevista", { ascending: true });
 
     if (error) throw error;
@@ -34,11 +37,11 @@ export async function getPagamentos(): Promise<Pagamento[]> {
 }
 
 export async function getPagamentosByProjeto(projeto_id: string): Promise<Pagamento[]>{
-    const user = await getUser();
+    await getUser();
 
     const { data, error } = await supabase
         .from("pagamentos")
-        .select("*")
+        .select(PAGAMENTO_COLS)
         .eq("projeto_id", projeto_id)
         .order("parcela", { ascending: true });
 

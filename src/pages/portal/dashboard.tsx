@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { getClientProjects, getClientDashboardStats, getClientActivities } from "@/lib/supabaseQueries/clientPortal";
+import { getClientProjects, getClientDashboardStats, getClientActivities, getClientAllPagamentos } from "@/lib/supabaseQueries/clientPortal";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
-import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock } from "lucide-react";
+import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock, BellRing } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 type DashboardProject = {
@@ -40,6 +40,14 @@ type RawStats = {
   tasks: any[];
 };
 
+type PagamentoCobranca = {
+  id: string;
+  valor: number;
+  pix_chave: string | null;
+  notificado_em: string;
+  projeto_id: string;
+};
+
 export default function PortalDashboardPage() {
   const router = useRouter();
   const [_sidebarOpen, setSidebarOpen] = useState(false);
@@ -48,6 +56,7 @@ export default function PortalDashboardPage() {
   const [projects, setProjects] = useState<DashboardProject[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [rawStats, setRawStats] = useState<RawStats>({ entregaveis: [], briefings: [], pagamentos: [], tasks: [] });
+  const [cobrancasPendentes, setCobrancasPendentes] = useState<PagamentoCobranca[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -59,10 +68,16 @@ export default function PortalDashboardPage() {
       if (!memberRows.length) { setLoading(false); return; }
 
       const projectIds = memberRows.map((r: any) => r.project_id);
-      const [stats, { data: actData }] = await Promise.all([
+      const [stats, { data: actData }, { data: pagData }] = await Promise.all([
         getClientDashboardStats(projectIds),
         getClientActivities(projectIds),
+        getClientAllPagamentos(projectIds),
       ]);
+
+      const cobrancas = (pagData ?? []).filter(
+        (p: any) => p.status === "pendente" && p.notificado_em
+      ) as PagamentoCobranca[];
+      setCobrancasPendentes(cobrancas);
 
       const built: DashboardProject[] = memberRows.map((row: any) => {
         const proj = row.projetos as any;
@@ -183,6 +198,25 @@ export default function PortalDashboardPage() {
 
         <section className="flex-1 flex flex-col gap-4 min-h-0">
 
+          {cobrancasPendentes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => router.push("/portal/pagamentos")}
+              className="w-full flex items-center gap-3 px-5 py-3.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 hover:bg-yellow-500/15 transition-colors text-left"
+            >
+              <BellRing size={18} className="text-yellow-400 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <span className="text-[14px] font-semibold text-yellow-300">
+                  {cobrancasPendentes.length === 1
+                    ? "Você tem 1 cobrança pendente"
+                    : `Você tem ${cobrancasPendentes.length} cobranças pendentes`}
+                </span>
+                <span className="text-[13px] text-yellow-400/70 ml-2">— clique para ver e pagar</span>
+              </div>
+              <span className="text-yellow-400/60 text-[13px] flex-shrink-0">Ver pagamentos →</span>
+            </button>
+          )}
+
           <div className="w-full grid grid-cols-3 gap-4">
             {METRICS.map((m) => (
               <button
@@ -206,12 +240,12 @@ export default function PortalDashboardPage() {
                   <div className="text-[15px] font-semibold text-gray-200">Saúde dos projetos</div>
                   <div className="text-[12px] text-gray-500 mt-0.5">% de conclusão por categoria</div>
                 </div>
-                {firstProject && (
+                {projects.length > 0 && (
                   <button
-                    onClick={() => router.push(projects.length === 1 ? `/portal/projeto/${firstProject.id}` : `/portal/projeto/${firstProject.id}`)}
+                    onClick={() => router.push(projects.length === 1 ? `/portal/projeto/${firstProject!.id}` : "/portal/projetos")}
                     className="text-[12px] text-primary-300 hover:text-primary-200 border border-primary-600 hover:border-primary-500 rounded-lg px-3 py-1.5 transition-colors flex-shrink-0"
                   >
-                    Ver projeto →
+                    {projects.length === 1 ? "Ver projeto →" : "Ver projetos →"}
                   </button>
                 )}
               </div>

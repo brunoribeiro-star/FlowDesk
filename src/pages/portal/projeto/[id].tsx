@@ -872,7 +872,7 @@ function StatusBadge({ status }: { status: string }) {
     "Concluído": "text-third-400 bg-third-400/10 border-third-400",
     "finalizado": "text-third-400 bg-third-400/10 border-third-400",
   };
-  const cls = map[status] ?? "text-gray-400 bg-gray-400/10 border-gray-700";
+  const cls = map[status] ?? "text-primary-400 bg-primary-400/10 border-primary-700";
   return <span className={`text-[12px] px-2.5 py-1 rounded-full border inline-flex ${cls}`}>{status}</span>;
 }
 
@@ -880,7 +880,7 @@ function EntregavelBadge({ status }: { status: string }) {
   if (status === "aprovado") return <span className="text-[12px] text-third-400 bg-third-400/10 border border-third-400 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">Aprovado</span>;
   if (status === "para_alteracao") return <span className="text-[12px] text-primary-200 bg-primary-600/30 border border-primary-500 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">Para alteração</span>;
   if (status === "aguardando_aprovacao") return <span className="text-[12px] text-yellow-400 bg-yellow-400/10 border border-yellow-400 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">Aguardando</span>;
-  return <span className="text-[12px] text-gray-400 bg-gray-400/10 border border-gray-500 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">Rascunho</span>;
+  return <span className="text-[12px] text-primary-400 bg-primary-400/10 border border-primary-700 px-2 py-0.5 rounded-full flex-shrink-0 font-medium">Rascunho</span>;
 }
 
 function extractText(value: any): string | null {

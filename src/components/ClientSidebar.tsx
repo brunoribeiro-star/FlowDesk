@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import clsx from "clsx";
 import LogoFlowDeskIcon from "@/components/LogoFlowDeskIcon";
-import { Home, CheckSquare, ClipboardList, CreditCard, Settings, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, Package, CheckSquare, ClipboardList, CreditCard, Settings, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface ClientSidebarProps {
   defaultOpen?: boolean;
@@ -29,6 +29,7 @@ export default function ClientSidebar({ defaultOpen = false, onOpenChange }: Cli
 
   const mainLinks = [
     { name: "Início", href: "/portal/dashboard", icon: Home },
+    { name: "Projetos", href: "/portal/projetos", icon: Package },
     { name: "Aprovações", href: "/portal/aprovacoes", icon: CheckSquare },
     { name: "Briefings", href: "/portal/briefings", icon: ClipboardList },
     { name: "Pagamentos", href: "/portal/pagamentos", icon: CreditCard },
@@ -48,10 +49,10 @@ export default function ClientSidebar({ defaultOpen = false, onOpenChange }: Cli
 
   const isActive = (href: string) => {
     if (!pathname) return false;
-    if (href === "/portal/dashboard") {
-      return pathname === "/portal/dashboard" || pathname.startsWith("/portal/projeto");
+    if (href === "/portal/projetos") {
+      return pathname === "/portal/projetos" || pathname.startsWith("/portal/projeto/");
     }
-    return pathname === href || pathname.startsWith(href + "/");
+    return pathname === href;
   };
 
   const linkClass = (active: boolean) =>

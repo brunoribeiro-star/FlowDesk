@@ -44,7 +44,7 @@ async function sendPortalEmail(
               <a href="${magicLink}" style="color:#1EB6E8;word-break:break-all;">${magicLink}</a>
             </p>
             <p style="margin-top:32px;font-size:12px;color:#4b5563;">
-              Este link expira em 24 horas. Se você não esperava este acesso, pode ignorar este e-mail.
+              Este link expira em 7 dias. Se você não esperava este acesso, pode ignorar este e-mail.
             </p>
           </div>
         `,

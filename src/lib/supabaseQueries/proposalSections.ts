@@ -39,7 +39,7 @@ export async function addSection(payload: ProposalSectionPayload) {
 export async function getSectionsByProposal(proposalId: string) {
     const { data, error } = await supabase
         .from("proposal_sections")
-        .select("*")
+        .select("id, proposal_id, page, order, type, editable, content, created_at")
         .eq("proposal_id", proposalId)
         .order("page", { ascending: true })
         .order("order", {ascending: true });

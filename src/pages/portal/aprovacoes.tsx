@@ -449,5 +449,5 @@ function EntregavelBadge({ status }: { status: string }) {
   if (status === "aprovado") return <span className="text-[11px] text-third-400 bg-third-400/10 px-2.5 py-1 rounded-full border border-third-400 flex-shrink-0 font-medium">Aprovado</span>;
   if (status === "para_alteracao") return <span className="text-[11px] text-primary-200 bg-primary-600/30 px-2.5 py-1 rounded-full border border-primary-500 flex-shrink-0 font-medium">Para alterar</span>;
   if (status === "aguardando_aprovacao") return <span className="text-[11px] text-yellow-400 bg-yellow-400/10 px-2.5 py-1 rounded-full border border-yellow-400 flex-shrink-0 font-medium">Aguardando</span>;
-  return <span className="text-[11px] text-gray-400 bg-gray-400/10 px-2.5 py-1 rounded-full border border-gray-500 flex-shrink-0 font-medium">Rascunho</span>;
+  return <span className="text-[11px] text-primary-400 bg-primary-400/10 px-2.5 py-1 rounded-full border border-primary-700 flex-shrink-0 font-medium">Rascunho</span>;
 }

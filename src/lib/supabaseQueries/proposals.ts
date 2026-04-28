@@ -52,10 +52,12 @@ export async function createProposal(payload: ProposalPayload) {
   return data;
 }
 
+const PROPOSAL_COLS = "id, user_id, template_id, client_id, title, status, due_date, value, description, primary_color, banner_url, logo_url, pdf_url, created_at";
+
 export async function getProposals() {
   const { data, error } = await supabase
     .from("proposals")
-    .select("*")
+    .select(PROPOSAL_COLS)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -65,7 +67,7 @@ export async function getProposals() {
 export async function getProposal(id: string) {
   const { data, error } = await supabase
     .from("proposals")
-    .select("*")
+    .select(PROPOSAL_COLS)
     .eq("id", id)
     .single();
 

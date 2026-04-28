@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { updateTask } from "@/lib/supabaseQueries/tasks";
+import { calcularUrgencia } from "@/lib/utils";
 import DatePicker from "@/components/DatePicker";
 
 import type { Editor } from "@tiptap/react";
@@ -82,21 +83,6 @@ export default function EditarTarefaPage() {
     },
   });
 
-  function calcularUrgencia(due_date: string | null): UrgenciaOption | "Vencida" | "Sem prioridade" {
-    if (!due_date) return "Sem prioridade";
-
-    const hoje = new Date();
-    const limite = new Date(due_date + "T00:00:00");
-    const diff = limite.getTime() - hoje.getTime();
-    const dias = diff / (1000 * 60 * 60 * 24);
-
-    if (dias < 0) return "Vencida";
-    if (dias <= 1) return "Muito urgente";
-    if (dias <= 2) return "Urgente";
-    if (dias <= 7) return "Normal";
-    return "Baixa";
-  }
-
   async function carregarDados() {
     try {
       setLoading(true);
@@ -111,12 +97,32 @@ export default function EditarTarefaPage() {
 
       setUserId(user.id);
 
-      const { data: taskDb, error: taskError } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("id", taskId)
-        .eq("user_id", user.id)
-        .single();
+      const [
+        { data: taskDb, error: taskError },
+        { data: projetosDb },
+        { data: subtasksDb },
+      ] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id, titulo, descricao, status, due_date, projeto_id, user_id, concluida, created_at")
+          .eq("id", taskId)
+          .eq("user_id", user.id)
+          .single(),
+        supabase
+          .from("projetos")
+          .select("id, titulo")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("subtasks")
+          .select("id, titulo, concluida")
+          .eq("task_id", taskId)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true }),
+      ]);
+
+      setLoadingProjetos(false);
+      setProjetos(projetosDb || []);
 
       if (taskError || !taskDb) {
         setTask(null);
@@ -125,23 +131,6 @@ export default function EditarTarefaPage() {
       }
 
       setTask(taskDb as Task);
-
-      setLoadingProjetos(true);
-      const { data: projetosDb } = await supabase
-        .from("projetos")
-        .select("id, titulo")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      setProjetos(projetosDb || []);
-      setLoadingProjetos(false);
-
-      const { data: subtasksDb } = await supabase
-        .from("subtasks")
-        .select("id, titulo, concluida")
-        .eq("task_id", taskId)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: true });
 
       const mapped: Subtask[] =
         subtasksDb?.map((st: any) => ({
@@ -155,7 +144,7 @@ export default function EditarTarefaPage() {
       if (taskDb.due_date) {
         const u = calcularUrgencia(taskDb.due_date);
         if (u === "Baixa" || u === "Normal" || u === "Urgente" || u === "Muito urgente") {
-          setUrgencia(u);
+          setUrgencia(u as UrgenciaOption);
         }
       }
 

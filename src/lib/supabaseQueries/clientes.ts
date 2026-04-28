@@ -19,7 +19,7 @@ export async function getClientes(): Promise<Cliente[]> {
 
   const { data, error } = await supabase
     .from("clientes")
-    .select("*")
+    .select("id, user_id, nome, empresa, email, telefone, foto_url, cpf_cnpj, created_at, updated_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

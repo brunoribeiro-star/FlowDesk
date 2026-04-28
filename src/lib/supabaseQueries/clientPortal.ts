@@ -70,7 +70,7 @@ export async function getPortalEntregaveis(projectId: string) {
 export async function getPortalPayments(projectId: string) {
   const { data, error } = await supabase
     .from("pagamentos")
-    .select("id, valor, status, data_prevista, forma_pagamento, parcela, total_parcelas")
+    .select("id, valor, status, data_prevista, forma_pagamento, parcela, total_parcelas, pix_chave, notificado_em")
     .eq("projeto_id", projectId)
     .order("data_prevista", { ascending: true });
   return { data: data ?? [], error };
@@ -103,11 +103,15 @@ export async function submitBriefingResposta(
   projectId: string,
   respostas: { pergunta: string; resposta: string }[]
 ) {
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id ?? null;
+
   const rows = respostas.map((r) => ({
     envio_id: envioId,
     projeto_id: projectId,
     pergunta: r.pergunta,
     resposta: r.resposta,
+    user_id: userId,
   }));
 
   const { error } = await supabase.from("briefings_respostas").insert(rows);
@@ -155,7 +159,7 @@ export async function getClientAllPagamentos(projectIds: string[]) {
   if (!projectIds.length) return { data: [], error: null };
   const { data, error } = await supabase
     .from("pagamentos")
-    .select("id, valor, status, data_prevista, forma_pagamento, parcela, total_parcelas, projeto_id, projetos:projeto_id(titulo)")
+    .select("id, valor, status, data_prevista, forma_pagamento, parcela, total_parcelas, pix_chave, notificado_em, projeto_id, projetos:projeto_id(titulo)")
     .in("projeto_id", projectIds)
     .order("data_prevista", { ascending: true });
   return { data: data ?? [], error };

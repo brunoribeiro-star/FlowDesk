@@ -5,10 +5,12 @@ import { supabase } from "@/lib/supabaseClient";
 import { getClientProjects, getClientAllPagamentos } from "@/lib/supabaseQueries/clientPortal";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
+import { Copy, CheckCircle2 } from "lucide-react";
 
 type Pagamento = {
   id: string; valor: number; status: string; data_prevista: string | null;
   forma_pagamento: string; parcela: number | null; total_parcelas: number | null;
+  pix_chave: string | null; notificado_em: string | null;
   projeto_id: string; projetos: { titulo: string } | null;
 };
 
@@ -17,6 +19,7 @@ export default function PortalPagamentosPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
+  const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +37,25 @@ export default function PortalPagamentosPage() {
   const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
   const pending = pagamentos.filter((p) => p.status === "pendente");
   const paid = pagamentos.filter((p) => p.status !== "pendente");
+
+  async function marcarComoPago(pagamentoId: string) {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return;
+    setMarkingPaidId(pagamentoId);
+    try {
+      const resp = await fetch("/api/payments/client-mark-paid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pagamento_id: pagamentoId }),
+      });
+      if (resp.ok) {
+        setPagamentos((prev) => prev.map((p) => p.id === pagamentoId ? { ...p, status: "pago" } : p));
+      }
+    } finally {
+      setMarkingPaidId(null);
+    }
+  }
 
   const totalPending = pending.reduce((s, p) => s + (p.valor ?? 0), 0);
 
@@ -104,7 +126,14 @@ export default function PortalPagamentosPage() {
                       <div className="text-[28px] text-gray-200 font-bold">{formatCurrency(totalPending)}</div>
                     </div>
                     <div className="flex flex-col divide-y divide-primary-700">
-                      {pending.map((p) => <PagamentoItem key={p.id} pagamento={p} />)}
+                      {pending.map((p) => (
+                        <PagamentoItem
+                          key={p.id}
+                          pagamento={p}
+                          onMarcarPago={marcarComoPago}
+                          marking={markingPaidId === p.id}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}
@@ -116,7 +145,7 @@ export default function PortalPagamentosPage() {
                       <div className="text-[28px] text-gray-200 font-bold">{paid.length} pago{paid.length > 1 ? "s" : ""}</div>
                     </div>
                     <div className="flex flex-col divide-y divide-primary-700">
-                      {paid.map((p) => <PagamentoItem key={p.id} pagamento={p} />)}
+                      {paid.map((p) => <PagamentoItem key={p.id} pagamento={p} onMarcarPago={marcarComoPago} marking={false} />)}
                     </div>
                   </div>
                 )}
@@ -136,28 +165,75 @@ export default function PortalPagamentosPage() {
   );
 }
 
-function PagamentoItem({ pagamento: p }: { pagamento: Pagamento }) {
+function PagamentoItem({ pagamento: p, onMarcarPago, marking }: {
+  pagamento: Pagamento;
+  onMarcarPago: (id: string) => void;
+  marking: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
   const isPending = p.status === "pendente";
+
+  function copiarPix() {
+    if (!p.pix_chave) return;
+    navigator.clipboard.writeText(p.pix_chave);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
-    <div className={`flex items-center justify-between px-5 py-4 ${isPending ? "border-l-2 border-yellow-500/50" : ""}`}>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-0.5">
-          <span className="text-[12px] text-gray-500 bg-primary-700 px-2 py-0.5 rounded-full">
-            {(p.projetos as any)?.titulo ?? "Projeto"}
-          </span>
-          {p.total_parcelas && p.total_parcelas > 1 && (
-            <span className="text-[12px] text-gray-500">parcela {p.parcela}/{p.total_parcelas}</span>
+    <div className={`flex flex-col gap-3 px-5 py-4 ${isPending && p.notificado_em ? "border-l-2 border-yellow-500/60" : isPending ? "border-l-2 border-yellow-500/20" : ""}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[12px] text-gray-500 bg-primary-700 px-2 py-0.5 rounded-full">
+              {(p.projetos as any)?.titulo ?? "Projeto"}
+            </span>
+            {p.total_parcelas && p.total_parcelas > 1 && (
+              <span className="text-[12px] text-gray-500">parcela {p.parcela}/{p.total_parcelas}</span>
+            )}
+            {isPending && p.notificado_em && (
+              <span className="text-[11px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded-full border border-yellow-400/20">Cobrança enviada</span>
+            )}
+          </div>
+          <p className="text-[17px] text-gray-200 font-semibold">{formatCurrency(p.valor)}</p>
+          {p.data_prevista && (
+            <p className="text-[12px] text-gray-500 mt-0.5">Vencimento: {new Date(p.data_prevista).toLocaleDateString("pt-BR")}</p>
           )}
         </div>
-        <p className="text-[15px] text-gray-200 font-semibold">{formatCurrency(p.valor)}</p>
-        {p.data_prevista && (
-          <p className="text-[12px] text-gray-500 mt-0.5">Vencimento: {new Date(p.data_prevista).toLocaleDateString("pt-BR")}</p>
-        )}
+        <div className="flex-shrink-0">
+          {isPending
+            ? <span className="text-[12px] text-yellow-400 bg-yellow-400/10 px-2.5 py-1 rounded-full">Pendente</span>
+            : <span className="text-[12px] text-third-400 bg-third-400/10 px-2.5 py-1 rounded-full">Pago</span>
+          }
+        </div>
       </div>
-      {isPending
-        ? <span className="text-[12px] text-yellow-400 bg-yellow-400/10 px-2.5 py-1 rounded-full flex-shrink-0">Pendente</span>
-        : <span className="text-[12px] text-third-400 bg-third-400/10 px-2.5 py-1 rounded-full flex-shrink-0">Pago</span>
-      }
+
+      {isPending && p.pix_chave && (
+        <div className="flex items-center gap-3 bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-gray-500 mb-0.5">Chave PIX</p>
+            <p className="text-[13px] text-primary-300 font-medium truncate">{p.pix_chave}</p>
+          </div>
+          <button
+            onClick={copiarPix}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 text-[12px] text-gray-200 transition-colors flex-shrink-0"
+          >
+            {copied ? <CheckCircle2 size={13} className="text-third-400" /> : <Copy size={13} />}
+            {copied ? "Copiado!" : "Copiar"}
+          </button>
+        </div>
+      )}
+
+      {isPending && (
+        <button
+          onClick={() => onMarcarPago(p.id)}
+          disabled={marking}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-third-500/15 hover:bg-third-500/25 border border-third-500/30 text-[13px] font-medium text-third-400 transition-colors disabled:opacity-60"
+        >
+          <CheckCircle2 size={15} />
+          {marking ? "Confirmando..." : "Já efetuei o pagamento"}
+        </button>
+      )}
     </div>
   );
 }

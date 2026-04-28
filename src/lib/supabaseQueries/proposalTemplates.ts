@@ -28,10 +28,12 @@ export async function createTemplate(payload: ProposalTemplatePayload) {
   return data;
 }
 
+const TEMPLATE_COLS = "id, user_id, title, primary_color, cover_image_url, logo_url, structure, created_at";
+
 export async function getTemplates() {
   const { data, error } = await supabase
     .from("proposal_templates")
-    .select("*")
+    .select(TEMPLATE_COLS)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -41,7 +43,7 @@ export async function getTemplates() {
 export async function getTemplate(id: string) {
   const { data, error } = await supabase
     .from("proposal_templates")
-    .select("*")
+    .select(TEMPLATE_COLS)
     .eq("id", id)
     .single();
 

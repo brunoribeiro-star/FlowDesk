@@ -25,7 +25,7 @@ export async function getSubtasksByTask(task_id: string): Promise<Subtask[]> {
 
   const { data, error } = await supabase
     .from("subtasks")
-    .select("*")
+    .select("id, task_id, user_id, titulo, descricao, concluida, created_at")
     .eq("task_id", task_id)
     .eq("user_id", user.id)
     .order("created_at", { ascending: true });
@@ -41,7 +41,7 @@ export async function getSubtask(id: string): Promise<Subtask | null> {
 
   const { data, error } = await supabase
     .from("subtasks")
-    .select("*")
+    .select("id, task_id, user_id, titulo, descricao, concluida, created_at")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();

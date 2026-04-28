@@ -28,8 +28,8 @@ const ICON_LIST: Record<string, React.ComponentType<{ size?: number; style?: Rea
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import ConfirmModal from "@/components/ui/ConfirmModal";
-import { encode } from "punycode";
 import { useAuth } from "@/contexts/AuthContext";
+import { formatarDataCurta, tempoRelativo } from "@/lib/utils";
 import { SkeletonList } from "@/components/Skeleton";
 
 type Cliente = {
@@ -108,28 +108,6 @@ type FiltroEmail = "" | "com_email" | "sem_email";
 type ActiveTab = "modelos" | "envios";
 type ViewMode = "list" | "board";
 
-function formatarDataCurta(dateStr: string | null | undefined) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("pt-BR");
-}
-
-function tempoRelativo(dateStr: string) {
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "—";
-  const diffMs = Date.now() - d.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 1) return "agora";
-  if (diffMin < 60) return `há ${diffMin} min`;
-  const diffHoras = Math.floor(diffMin / 60);
-  if (diffHoras < 24) return `há ${diffHoras} hora${diffHoras > 1 ? "s" : ""}`;
-  const diffDias = Math.floor(diffHoras / 24);
-  if (diffDias < 30) return `há ${diffDias} dia${diffDias > 1 ? "s" : ""}`;
-  const diffMeses = Math.floor(diffDias / 30);
-  return `há ${diffMeses} mês${diffMeses > 1 ? "es" : ""}`;
-}
-
 function classificarEnvio(
   envio: BriefingEnvio,
   respostasPorProjeto: Record<string, number>
@@ -145,7 +123,6 @@ function classificarEnvio(
 
 export default function BriefingsPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [user, setUser] = useState<any>(null);
 
@@ -499,10 +476,6 @@ export default function BriefingsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
-  const displayName =
-    user?.user_metadata?.nome || user?.email?.split("@")[0] || "Usuário";
-
   const respostasPorProjeto = useMemo(() => {
     const map: Record<string, number> = {};
     respostas.forEach((r) => {
@@ -566,7 +539,6 @@ export default function BriefingsPage() {
   }
 
   async function enviarEmailBriefing(envio: BriefingEnvio) {
-    const { data: auth } = await supabase.auth.getUser();
     const session = await supabase.auth.getSession();
     const token = session.data.session?.access_token;
     if (!token) { showToast("Usuário não autenticado."); return; }
@@ -1210,7 +1182,7 @@ export default function BriefingsPage() {
 
   return (
     <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+      <Sidebar defaultOpen={false} onOpenChange={() => {}} />
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-8 overflow-hidden">
         <header className="w-full flex items-center justify-between gap-4 mb-2">
@@ -1646,8 +1618,6 @@ export default function BriefingsPage() {
                         ? formatarDataCurta(envio.prazo_resposta)
                         : null;
                       
-                      const templateTitulo = envio.template?.titulo || "Briefing";
-                      const projetoTitulo = projeto?.titulo || "Projeto";
                       const isRespondido = tipoEnvio === "respondido";
 
                       return (
@@ -2218,7 +2188,7 @@ export default function BriefingsPage() {
                   </div>
                 ) : (
                   <div className="max-w-2xl mx-auto flex flex-col gap-6">
-                    {viewCampos.map((campo, index) => (
+                    {viewCampos.map((campo) => (
                       <div
                         key={campo.id}
                         className="group bg-primary-900 border border-primary-800 hover:border-primary-700 rounded-2xl p-5 shadow-sm transition-all"

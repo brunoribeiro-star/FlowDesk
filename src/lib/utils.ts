@@ -38,7 +38,7 @@ export function formatarData(dateStr: string | null | undefined): string {
 export function tempoRelativo(dateStr: string): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "—";
-  const diffMs = Date.now() - d.getTime();
+  const diffMs = Math.max(0, Date.now() - d.getTime());
   const diffMin = Math.floor(diffMs / 60000);
   if (diffMin < 1) return "agora";
   if (diffMin < 60) return `há ${diffMin} min`;
@@ -47,7 +47,9 @@ export function tempoRelativo(dateStr: string): string {
   const diffDias = Math.floor(diffHoras / 24);
   if (diffDias < 30) return `há ${diffDias} dia${diffDias > 1 ? "s" : ""}`;
   const diffMeses = Math.floor(diffDias / 30);
-  return `há ${diffMeses} mês${diffMeses > 1 ? "es" : ""}`;
+  if (diffMeses < 12) return `há ${diffMeses} mês${diffMeses > 1 ? "es" : ""}`;
+  const diffAnos = Math.floor(diffMeses / 12);
+  return `há ${diffAnos} ano${diffAnos > 1 ? "s" : ""}`;
 }
 
 export function calcularUrgencia(due_date: string | null): string {
