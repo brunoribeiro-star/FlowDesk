@@ -22,6 +22,7 @@ export default function PortalAprovacoesPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [entregaveis, setEntregaveis] = useState<Entregavel[]>([]);
+  const [approvalAllowed, setApprovalAllowed] = useState<Record<string, boolean>>({});
 
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState("");
@@ -39,6 +40,19 @@ export default function PortalAprovacoesPage() {
       const projectIds = memberRows.map((r: any) => r.project_id);
       const { data } = await getClientAllEntregaveis(projectIds);
       setEntregaveis(data as unknown as Entregavel[]);
+
+      if (projectIds.length > 0) {
+        const planRes = await fetch(`/api/portal/owner-plan?project_ids=${projectIds.join(",")}`);
+        if (planRes.ok) {
+          const planJson = await planRes.json();
+          const allowed: Record<string, boolean> = {};
+          for (const [pid, info] of Object.entries(planJson.plans as Record<string, { portalApproval: boolean }>)) {
+            allowed[pid] = info.portalApproval;
+          }
+          setApprovalAllowed(allowed);
+        }
+      }
+
       setLoading(false);
     })();
   }, [router]);
@@ -192,6 +206,7 @@ export default function PortalAprovacoesPage() {
                   setAnnotatedPins={setAnnotatedPins}
                   setAnnotatedResults={setAnnotatedResults}
                   handleReview={handleReview}
+                  approvalAllowed={approvalAllowed}
                 />
               ))}
             </div>
@@ -302,7 +317,7 @@ function CarouselAprov({ files, onAnnotate, canAnnotate }: { files: Array<{ url:
   );
 }
 
-function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlob, submitting, setReviewingId, setFeedbackText, setAnnotatedBlob, setAnnotatedPins, setAnnotatedResults, handleReview }: any) {
+function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlob, submitting, setReviewingId, setFeedbackText, setAnnotatedBlob, setAnnotatedPins, setAnnotatedResults, handleReview, approvalAllowed }: any) {
   const [annotatorUrl, setAnnotatorUrl] = useState<string | null>(null);
   const isReviewing = reviewingId === e.id;
 
@@ -395,7 +410,13 @@ function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlo
           )}
 
           {e.status === "aguardando_aprovacao" && (
-            isReviewing ? (
+            approvalAllowed[e.project_id] === false ? (
+              <div className="pt-1 border-t border-primary-700">
+                <p className="text-[12px] text-gray-500 text-center py-2">
+                  A aprovação de entregáveis não está disponível neste projeto.
+                </p>
+              </div>
+            ) : isReviewing ? (
               <div className="flex flex-col gap-2.5 pt-1 border-t border-primary-700">
                 <textarea
                   placeholder="Descreva o que precisa ser alterado..."

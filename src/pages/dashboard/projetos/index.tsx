@@ -11,6 +11,8 @@ import { SkeletonList, SkeletonBoardCards } from "@/components/Skeleton";
 import { Search } from "lucide-react";
 import { jsonToPlainText, calcularUrgencia } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
+import { useSubscription } from "@/hooks/useSubscription";
+import { triggerUpgradeBanner } from "@/lib/limitGuard";
 
 type ProjetoStatus = "arquivado" | "para fazer" | "fazendo" | "pausado" | "concluído" | "pgto pendente" | "finalizado";
 
@@ -124,6 +126,7 @@ const ARCHIVED_COLUMNS = [
 export default function ProjetosPage() {
   const router = useRouter();
   const { user: authUser } = useAuth();
+  const subscription = useSubscription();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [projetos, setProjetos] = useState<Projeto[]>([]);
@@ -1262,7 +1265,15 @@ export default function ProjetosPage() {
             <div className="w-px h-8 bg-primary-700 mx-2" />
 
             <button
-              onClick={() => router.push("/dashboard/projetos/novo")}
+              onClick={() => {
+                const limit = subscription.limits.projetos;
+                const ativos = projetos.filter(p => !isArchivedProject(p)).length;
+                if (limit !== null && ativos >= limit) {
+                  triggerUpgradeBanner("projetos");
+                  return;
+                }
+                router.push("/dashboard/projetos/novo");
+              }}
               className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-2 px-6 text-[15px] font-semibold transition-colors shadow-lg shadow-primary-500/20"
             >
               + Projeto

@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import "@/styles/globals.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import UpgradeModal from "@/components/UpgradeModal";
 
 const PROTECTED_ROUTES = ["/dashboard", "/onboarding", "/portal"];
 
@@ -112,6 +113,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
           <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] bg-primary-500 page-progress-bar" />
         )}
         <PageContent Component={Component} pageProps={pageProps} pathname={router.pathname} />
+        <UpgradeModal />
       </AuthProvider>
     </>
   );

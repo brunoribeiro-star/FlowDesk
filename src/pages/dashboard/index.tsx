@@ -11,9 +11,9 @@ import { SkeletonStatCard, SkeletonList } from "@/components/Skeleton";
 
 import {
   FolderKanban,
-  CheckCircle2,
   AlertCircle,
   Wallet,
+  HardDrive,
 } from "lucide-react";
 
 const WEEKS_LABELS = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
@@ -37,6 +37,8 @@ export default function DashboardHome() {
 
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [storageUsedGB, setStorageUsedGB] = useState<number | null>(null);
+  const [storageLimitGB, setStorageLimitGB] = useState<number>(5);
 
 
 
@@ -57,6 +59,45 @@ export default function DashboardHome() {
   }, []);
 
   const { user: authUser } = useAuth();
+
+  useEffect(() => {
+    const CACHE_KEY = "flowdesk_storage_cache";
+    const CACHE_TTL = 5 * 60 * 1000;
+
+    // Mostra cache imediatamente se ainda for válido
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { usedGB, limitGB, ts } = JSON.parse(cached);
+        if (Date.now() - ts < CACHE_TTL) {
+          setStorageUsedGB(usedGB);
+          setStorageLimitGB(limitGB);
+        }
+      }
+    } catch {}
+
+    // Busca em background e atualiza cache
+    async function fetchStorage() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      try {
+        const res = await fetch("/api/subscription/storage-usage", {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setStorageUsedGB(json.usedGB);
+          setStorageLimitGB(json.limitGB);
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            usedGB: json.usedGB,
+            limitGB: json.limitGB,
+            ts: Date.now(),
+          }));
+        }
+      } catch {}
+    }
+    fetchStorage();
+  }, []);
 
   useEffect(() => {
     if (!authUser) return;
@@ -236,10 +277,6 @@ export default function DashboardHome() {
     const projectsWithPayments = new Set(pagamentos.map(p => p.projeto_id).filter(id => id));
 
     const pendentes = pagamentos.filter((p) => {
-      if (p.projeto_id) {
-        const proj = projetos.find(proj => proj.id === p.projeto_id);
-        if (proj && isDoneStatus(proj.status)) return false;
-      }
       if (!p.status) return true;
       const s = String(p.status).toLowerCase();
       return s !== "pago" && s !== "concluido" && s !== "recebido" && s !== "ok";
@@ -320,16 +357,6 @@ export default function DashboardHome() {
         projetosAtivos === 0
           ? "Nenhum ativo"
           : `${projetosAtivos} projeto${projetosAtivos > 1 ? "s" : ""}`,
-      onClick: () => router.push("/dashboard/projetos"),
-    },
-    {
-      id: "projConcluidos",
-      icon: CheckCircle2,
-      label: "Projetos concluídos",
-      value:
-        projetosConcluidos === 0
-          ? "Nenhum concluído"
-          : `${projetosConcluidos} projeto${projetosConcluidos > 1 ? "s" : ""}`,
       onClick: () => router.push("/dashboard/projetos"),
     },
     {
@@ -489,6 +516,40 @@ export default function DashboardHome() {
                 </div>
               </button>
             ))}
+
+            {/* Card de Armazenamento */}
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/configuracoes?tab=armazenamento")}
+              className="flex flex-col justify-center items-start gap-2 p-4 rounded-lg bg-primary-800 border border-primary-700 w-full h-full transition-colors cursor-pointer hover:[background:linear-gradient(180deg,var(--primary-500),var(--primary-800))]"
+            >
+              <HardDrive size={24} className="text-primary-200" />
+              <div className="text-[13px] text-gray-300">Armazenamento</div>
+              {storageUsedGB !== null ? (
+                <>
+                  <div className="text-[22px] text-gray-200 font-semibold">
+                    {storageUsedGB < 1
+                      ? `${(storageUsedGB * 1024).toFixed(0)} MB`
+                      : `${storageUsedGB.toFixed(2)} GB`}
+                  </div>
+                  <div className="w-full h-1.5 bg-primary-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        storageUsedGB / storageLimitGB > 0.85
+                          ? "bg-red-400"
+                          : storageUsedGB / storageLimitGB > 0.6
+                          ? "bg-amber-400"
+                          : "bg-primary-400"
+                      }`}
+                      style={{ width: `${Math.min((storageUsedGB / storageLimitGB) * 100, 100)}%` }}
+                    />
+                  </div>
+                  <div className="text-[11px] text-gray-500">de {storageLimitGB} GB</div>
+                </>
+              ) : (
+                <div className="text-[22px] text-gray-200 font-semibold">–</div>
+              )}
+            </button>
           </div>
 
           <div className="flex-1 grid grid-cols-[1.2fr,0.8fr] gap-4 min-h-0">

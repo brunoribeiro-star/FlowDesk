@@ -22,6 +22,9 @@ import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList, SkeletonStatCard } from "@/components/Skeleton";
+import { useSubscription } from "@/hooks/useSubscription";
+import { triggerUpgradeBanner } from "@/lib/limitGuard";
+import { checkStorageAvailable } from "@/lib/storageCheck";
 
 type ProjetoStatus = "Em andamento" | "Concluído" | "Arquivado";
 
@@ -221,6 +224,7 @@ export default function ProjetoDetalhesPage() {
   const [activeTab, setActiveTab] = useState<TabId>("descricao");
 
   const { user: authUser } = useAuth();
+  const subscription = useSubscription();
   const [user, setUser] = useState<any>(null);
 
 
@@ -617,6 +621,12 @@ export default function ProjetoDetalhesPage() {
     const file = filesSel[0];
     const filePath = `${authUser.id}/${projeto.id}/${Date.now()}_${file.name}`;
 
+    const { data: { session: uploadSession } } = await supabase.auth.getSession();
+    if (uploadSession) {
+      const hasSpace = await checkStorageAvailable(file.size, uploadSession.access_token);
+      if (!hasSpace) { triggerUpgradeBanner("storage"); return; }
+    }
+
     try {
       setSaving(true);
 
@@ -682,6 +692,12 @@ export default function ProjetoDetalhesPage() {
       const ext = (f.name.split(".").pop() || "webp").toLowerCase();
       const uuid = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}_${Math.random()}`.replace(".", "");
       const filePath = `${au.id}/${projeto!.id}/${uuid}.${ext}`;
+
+      const { data: { session: coverSession } } = await supabase.auth.getSession();
+      if (coverSession) {
+        const hasSpace = await checkStorageAvailable(f.size, coverSession.access_token);
+        if (!hasSpace) { triggerUpgradeBanner("storage"); return; }
+      }
 
       try {
         setCoverUploading(true);
@@ -1088,6 +1104,21 @@ export default function ProjetoDetalhesPage() {
   const handleCreateInvite = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projeto || !inviteEmail.trim()) return;
+
+    const coworkingLimit = subscription.limits.coworkingMembros;
+    if (coworkingLimit === 0) {
+      triggerUpgradeBanner("coworking");
+      return;
+    }
+    if (coworkingLimit !== null) {
+      const collaboratorCount = members.filter(m => m.role !== "owner" && m.role !== "cliente").length
+        + pendingInvites.length;
+      if (collaboratorCount >= coworkingLimit) {
+        triggerUpgradeBanner("coworking");
+        return;
+      }
+    }
+
     setInviteLoading(true);
     setInviteMsg(null);
     setInviteLink(null);
@@ -1279,6 +1310,13 @@ export default function ProjetoDetalhesPage() {
       let arquivosData: EntregavelArquivo[] = [];
 
       if (entregavelAnexoTipo === "arquivo" && entregavelArquivos.length > 0) {
+        const { data: { session: entregavelSession } } = await supabase.auth.getSession();
+        if (entregavelSession) {
+          const totalSize = entregavelArquivos.reduce((sum, f) => sum + f.size, 0);
+          const hasSpace = await checkStorageAvailable(totalSize, entregavelSession.access_token);
+          if (!hasSpace) { triggerUpgradeBanner("storage"); setAddingEntregavel(false); return; }
+        }
+
         const uploads = await Promise.all(entregavelArquivos.map(async (f) => {
           const ext = f.name.split(".").pop();
           const path = `${user.id}/${projeto.id}/entregaveis/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
@@ -1337,6 +1375,13 @@ export default function ProjetoDetalhesPage() {
 
   const handleUploadCorrectedFile = useCallback(async (entregavelId: string, file: File) => {
     if (!projeto || !user) return;
+
+    const { data: { session: correctedSession } } = await supabase.auth.getSession();
+    if (correctedSession) {
+      const hasSpace = await checkStorageAvailable(file.size, correctedSession.access_token);
+      if (!hasSpace) { triggerUpgradeBanner("storage"); return; }
+    }
+
     setUploadingCorrectedId(entregavelId);
     try {
       const ext = file.name.split(".").pop();

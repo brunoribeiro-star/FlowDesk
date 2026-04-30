@@ -15,6 +15,8 @@ import {
 import { supabase } from "@/lib/supabaseClient";
 import { SkeletonList } from "@/components/Skeleton";
 import { validateImageFile } from "@/lib/utils";
+import { useSubscription } from "@/hooks/useSubscription";
+import { triggerUpgradeBanner } from "@/lib/limitGuard";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
@@ -38,6 +40,7 @@ type ViewMode = "list" | "board";
 
 export default function ClientesPage() {
   const router = useRouter();
+  const subscription = useSubscription();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -444,13 +447,19 @@ export default function ClientesPage() {
 
                 <div className="w-px h-8 bg-primary-700 mx-2" />
 
-                <Link href="/dashboard/clientes/novo">
-                    <button
-                    className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-2 px-6 text-[15px] font-semibold transition-colors shadow-lg shadow-primary-500/20"
-                    >
-                    + Cliente
-                    </button>
-                </Link>
+                <button
+                  onClick={() => {
+                    const limit = subscription.limits.clientes;
+                    if (limit !== null && clientes.length >= limit) {
+                      triggerUpgradeBanner("clientes");
+                      return;
+                    }
+                    router.push("/dashboard/clientes/novo");
+                  }}
+                  className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-2 px-6 text-[15px] font-semibold transition-colors shadow-lg shadow-primary-500/20"
+                >
+                  + Cliente
+                </button>
 
                 <HeaderProfile />
               </div>

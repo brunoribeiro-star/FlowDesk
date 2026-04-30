@@ -12,9 +12,9 @@ export const IMAGE_SPECS = {
     label: "Avatar / Foto",
     targetWidth: 256,
     targetHeight: 256,
-    maxKB: 80,
-    minKB: 30,
-    hint: "PNG, JPEG ou WebP · 256×256 px · máx. 80 KB",
+    maxKB: 48,
+    minKB: 10,
+    hint: "PNG, JPEG ou WebP · 256×256 px · máx. 48 KB",
   },
 
   logo: {
