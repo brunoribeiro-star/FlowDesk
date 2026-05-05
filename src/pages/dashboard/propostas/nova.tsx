@@ -15,6 +15,8 @@ import { validateImageFile } from "@/lib/utils";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
+import ColorPicker from "@/components/ui/ColorPicker";
+import { User, Briefcase, DollarSign, Calendar, Wrench, AlignLeft, Palette, Image as ImageIcon, ChevronDown } from "lucide-react";
 
 type Client = {
   id: string;
@@ -355,30 +357,37 @@ export default function NovaProposta() {
             </div>
 
             <div className="flex-1 flex flex-col gap-2">
-              <span className="text-xs text-gray-300">Nome da proposta</span>
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                <Briefcase size={13} className="text-primary-400" />
+                Nome da proposta
+              </label>
               <input
                 type="text"
                 value={projectName}
                 onChange={(e) => setProjectName(e.target.value)}
                 placeholder="Ex: Redesign do site"
-                className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-3"
+                className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-primary-500 transition-colors"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-            <div className="flex flex-col gap-1 relative z-30">
-              <span className="text-xs text-gray-300">Cliente</span>
+            <div className="flex flex-col gap-1.5 relative z-30">
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                <User size={13} className="text-primary-400" />
+                Cliente
+              </label>
               <button
                 onClick={() => {
                   setClientsOpen((prev) => !prev);
                   setTechDropdownOpen(false);
                   setStatusOpen(false);
                 }}
-                className="w-full bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 text-left"
+                className="w-full bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 text-left flex items-center justify-between text-gray-100 hover:border-primary-600 focus:outline-none focus:border-primary-500 transition-colors"
               >
-                {clientId ? clientName : "Selecionar cliente"}
+                <span className={clientId ? "text-gray-100" : "text-gray-500"}>{clientId ? clientName : "Selecionar cliente"}</span>
+                <ChevronDown size={15} className="text-gray-400 shrink-0" />
               </button>
 
               {clientsOpen && (
@@ -410,8 +419,10 @@ export default function NovaProposta() {
               )}
             </div>
 
-            <div className="flex flex-col gap-1 relative z-20">
-              <span className="text-xs text-gray-300">Status *</span>
+            <div className="flex flex-col gap-1.5 relative z-20">
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                Status
+              </label>
 
               <button
                 onClick={() => {
@@ -419,21 +430,21 @@ export default function NovaProposta() {
                   setClientsOpen(false);
                   setTechDropdownOpen(false);
                 }}
-                className="w-full bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 text-left flex justify-between items-center"
+                className="w-full bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 text-left flex justify-between items-center hover:border-primary-600 focus:outline-none focus:border-primary-500 transition-colors"
               >
                 {status ? (
                   <span className="flex items-center gap-2">
                     <span
-                      className="w-4 h-4 rounded-full"
+                      className="w-3 h-3 rounded-full shrink-0"
                       style={{ backgroundColor: STATUS_OPTIONS.find(s => s.value === status)?.color }}
                     />
-                    {STATUS_OPTIONS.find(s => s.value === status)?.label}
+                    <span className="text-gray-100">{STATUS_OPTIONS.find(s => s.value === status)?.label}</span>
                   </span>
                 ) : (
-                  "Selecionar"
+                  <span className="text-gray-500">Selecionar</span>
                 )}
 
-                <span className="text-gray-400">⌄</span>
+                <ChevronDown size={15} className="text-gray-400 shrink-0" />
               </button>
 
               {statusOpen && (
@@ -459,14 +470,17 @@ export default function NovaProposta() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-300">Valor base</span>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+              <DollarSign size={13} className="text-primary-400" />
+              Valor base
+            </label>
             <input
               type="text"
               placeholder="R$ 0,00"
               value={valueMasked}
               onChange={(e) => handleMoneyChange(e.target.value)}
-              className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-3"
+              className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-primary-500 transition-colors"
             />
             {value !== null && (
               <span className="text-[11px] text-gray-400 mt-1">
@@ -485,8 +499,11 @@ export default function NovaProposta() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-xs text-gray-300">Vencimento</span>
+            <div className="flex flex-col gap-1.5">
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                <Calendar size={13} className="text-primary-400" />
+                Vencimento
+              </label>
               <DatePicker
                 value={dueDate}
                 onChange={(v) => setDueDate(v)}
@@ -494,10 +511,11 @@ export default function NovaProposta() {
               />
             </div>
 
-            <div className="flex flex-col gap-1 relative z-10">
-              <span className="text-xs text-gray-300">
+            <div className="flex flex-col gap-1.5 relative z-10">
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                <Wrench size={13} className="text-primary-400" />
                 Tecnologias / ferramentas
-              </span>
+              </label>
 
               <div className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-sm flex flex-wrap items-center gap-2 min-h-[44px]">
                 {selectedTechs.length === 0 && !techInput && (
@@ -565,8 +583,11 @@ export default function NovaProposta() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-300">Descrição</span>
+          <div className="flex flex-col gap-1.5">
+            <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+              <AlignLeft size={13} className="text-primary-400" />
+              Descrição
+            </label>
             <textarea
               value={content.section5.description}
               onChange={(e) => {
@@ -580,7 +601,7 @@ export default function NovaProposta() {
                   },
                 }));
               }}
-              className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 h-28 resize-none"
+              className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-3 h-28 resize-none text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-primary-500 transition-colors"
             />
           </div>
         </div>
@@ -591,13 +612,11 @@ export default function NovaProposta() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
             <div className="flex flex-col gap-2 bg-primary-900 border border-primary-700 rounded-xl px-4 py-3">
-              <span className="text-xs text-gray-300">Cor do layout</span>
-              <input
-                type="color"
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value)}
-                className="w-full h-9 rounded-lg cursor-pointer bg-transparent border border-primary-600"
-              />
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                <Palette size={13} className="text-primary-400" />
+                Cor do layout
+              </label>
+              <ColorPicker value={primaryColor} onChange={setPrimaryColor} />
             </div>
 
             <div
@@ -622,7 +641,10 @@ export default function NovaProposta() {
               tabIndex={0}
               onClick={() => document.getElementById("logo-file-input")?.click()}
             >
-              <span className="text-xs text-gray-300">Logo da empresa</span>
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                <ImageIcon size={13} className="text-primary-400" />
+                Logo da empresa
+              </label>
               <div className="flex items-center gap-3 min-h-[36px]">
                 {logoPreviewUrl ? (
                   <img src={logoPreviewUrl} alt="Logo" className="h-8 object-contain rounded" />
@@ -669,7 +691,10 @@ export default function NovaProposta() {
               tabIndex={0}
               onClick={() => document.getElementById("banner-file-input")?.click()}
             >
-              <span className="text-xs text-gray-300">Banner interno</span>
+              <label className="flex items-center gap-1.5 text-[13px] font-medium text-gray-300">
+                <ImageIcon size={13} className="text-primary-400" />
+                Banner interno
+              </label>
               <div className="flex items-center gap-3 min-h-[36px]">
                 {bannerPreviewUrl ? (
                   <img src={bannerPreviewUrl} alt="Banner" className="h-8 object-contain rounded" />

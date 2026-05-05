@@ -318,6 +318,11 @@ export default function ProjetosPage() {
   }, []);
 
   useEffect(() => {
+    const q = router.query.q;
+    if (typeof q === "string" && q.trim()) setQuery(q.trim());
+  }, [router.query.q]);
+
+  useEffect(() => {
     fetchProjetos();
   }, [authUser]);
 
@@ -790,7 +795,8 @@ export default function ProjetosPage() {
             ))}
           </div>
   
-          <div className="flex-1 grid grid-cols-7 auto-rows-fr gap-4 overflow-y-auto custom-scrollbar px-1 pb-2 mt-2">
+          <div className="flex-1 overflow-y-auto custom-scrollbar px-1 pb-2 mt-2">
+          <div className="grid grid-cols-7 auto-rows-[minmax(140px,auto)] gap-4">
             {calendarDays.map((date, i) => {
               if (!date) return <div key={`empty-${i}`} />;
   
@@ -845,6 +851,7 @@ export default function ProjetosPage() {
                 </div>
               );
             })}
+          </div>
           </div>
         </div>
       );
@@ -924,7 +931,7 @@ export default function ProjetosPage() {
                   <div
                     key={p.id}
                     onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
-                    className="group w-full bg-primary-900/45 hover:bg-primary-800/60 border border-primary-700 rounded-full px-5 py-3 flex items-center gap-4 cursor-pointer transition-colors"
+                    className={`group w-full bg-primary-900/45 hover:bg-primary-800/60 border border-primary-700 rounded-xl px-5 py-3 flex items-center gap-4 cursor-pointer transition-colors ${ns === "arquivado" ? "opacity-60" : ""}`}
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-[280px]">
                       <div className="w-[72px] h-[46px] rounded-2xl overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
@@ -1086,7 +1093,7 @@ export default function ProjetosPage() {
                 <div
                   onDragOver={handleColumnDragOver}
                   onDrop={() => handleColumnDrop(col.status as ProjetoStatus)}
-                  className="flex flex-col gap-4 pb-4 px-2 flex-1"
+                  className={`pb-4 px-2 flex-1 ${col.status === "arquivado" ? "grid grid-cols-2 gap-4 auto-rows-min" : "flex flex-col gap-4"}`}
                 >
                   {colProjects.length === 0 ? (
                     <div className="text-[13px] text-gray-500 italic px-1">Nenhum projeto.</div>

@@ -105,6 +105,9 @@ async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
     ?? sub.trial_end
     ?? (sub as any).current_period_end;
 
+  const stripeInterval = sub.items?.data?.[0]?.plan?.interval;
+  const billingInterval: "mensal" | "anual" = stripeInterval === "year" ? "anual" : "mensal";
+
   await supabase
     .from("subscriptions")
     .update({
@@ -114,6 +117,7 @@ async function handleSubscriptionUpsert(sub: Stripe.Subscription) {
       current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
       trial_used: trialUsed,
       cancel_at_period_end: sub.cancel_at_period_end,
+      billing_interval: billingInterval,
     })
     .eq("user_id", existing.user_id);
 }

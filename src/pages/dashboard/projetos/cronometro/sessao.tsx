@@ -273,10 +273,13 @@ export default function ProjetoCronometroSessaoPage() {
   }
 
   function handleAdjust(delta: number) {
-    setSecondsLeft(v => {
-      const next = Math.max(0, v + delta * 60);
+    const adj = delta * 30;
+    if (endAtRef.current !== null) {
+      endAtRef.current = endAtRef.current + adj * 1000;
+    }
+    setSecondsLeft(prev => {
+      const next = Math.max(0, prev + adj);
       if (next > totalSeconds.current) totalSeconds.current = next;
-      if (endAtRef.current) endAtRef.current = Date.now() + next * 1000;
       return next;
     });
   }
@@ -466,8 +469,9 @@ export default function ProjetoCronometroSessaoPage() {
             <div className="flex items-center gap-5">
               <button
                 onClick={() => handleAdjust(-1)}
-                disabled={concluded || isPomodoro}
-                className="w-10 h-10 rounded-full border border-primary-700 bg-primary-800/50 flex items-center justify-center text-gray-300 hover:bg-primary-700 hover:text-white transition-all disabled:opacity-30"
+                disabled={concluded}
+                title="-30s"
+                className="w-10 h-10 rounded-full border border-primary-700 bg-primary-800/50 flex items-center justify-center text-gray-300 hover:bg-primary-700 hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Minus size={15} />
               </button>
@@ -475,7 +479,7 @@ export default function ProjetoCronometroSessaoPage() {
               <button
                 onClick={togglePlay}
                 disabled={concluded || secondsLeft === 0}
-                className="w-[64px] h-[64px] rounded-full flex items-center justify-center transition-all shadow-lg shadow-primary-500/30 disabled:opacity-30"
+                className="w-[64px] h-[64px] rounded-full flex items-center justify-center transition-all shadow-lg shadow-primary-500/30 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 style={{ background: isBreak ? "var(--secondary-500)" : "var(--primary-500)" }}
               >
                 {running
@@ -486,8 +490,9 @@ export default function ProjetoCronometroSessaoPage() {
 
               <button
                 onClick={() => handleAdjust(1)}
-                disabled={concluded || isPomodoro}
-                className="w-10 h-10 rounded-full border border-primary-700 bg-primary-800/50 flex items-center justify-center text-gray-300 hover:bg-primary-700 hover:text-white transition-all disabled:opacity-30"
+                disabled={concluded}
+                title="+30s"
+                className="w-10 h-10 rounded-full border border-primary-700 bg-primary-800/50 flex items-center justify-center text-gray-300 hover:bg-primary-700 hover:text-white transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <Plus size={15} />
               </button>

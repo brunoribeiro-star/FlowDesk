@@ -346,12 +346,12 @@ export default function ClientesPage() {
     });
 
     return (
-      <div className="mt-6 h-full min-h-0 overflow-x-auto pb-4 custom-scrollbar">
-        <div className="flex min-h-0 divide-x divide-primary-700">
+      <div className="mt-6 h-full min-h-0 overflow-y-hidden pb-4">
+        <div className="grid grid-cols-4 min-h-0 h-full divide-x divide-primary-700">
            {boardColumns.map(col => {
                const list = grouped[col.id] || [];
                return (
-                   <div key={col.id} className="min-w-[320px] w-[360px] px-4 flex flex-col min-h-0">
+                   <div key={col.id} className="min-w-0 px-4 flex flex-col min-h-0 h-full">
                        <div className="px-2 py-4 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${col.color}`} />

@@ -40,6 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     trialEnd: isTrialActive ? trialEnd.toISOString() : null,
     currentPeriodEnd: sub?.current_period_end ?? null,
     cancelAtPeriodEnd: sub?.cancel_at_period_end ?? false,
+    billingInterval: (sub?.billing_interval as "mensal" | "anual") ?? null,
     limits: {
       ...limits,
       storageGB: limits.storageGB + extraStorageGB,

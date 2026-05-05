@@ -345,16 +345,6 @@ export default function RelatoriosPage() {
           ) : null}
         </section>
 
-        {!loadingOverview && overviewData && (
-          <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-primary-800 border border-primary-700 text-[12px] text-gray-400">
-            <AlertCircle size={15} className="text-primary-400 shrink-0 mt-0.5" />
-            <span>
-              Tempo de ciclo calculado com precisão a partir de agora. Projetos e tarefas concluídos
-              antes desta versão usam{" "}
-              <strong className="text-gray-300">updated_at</strong> como aproximação histórica.
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );

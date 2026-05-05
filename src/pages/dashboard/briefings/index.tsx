@@ -830,7 +830,7 @@ export default function BriefingsPage() {
     const EnvioBoardCard = ({ envio }: { envio: BriefingEnvio }) => {
       const projeto = projetoDoEnvio(envio);
       const cliente = projeto?.clientes || null;
-      const foto = cliente?.foto_url || "/cliente_placeholder.svg";
+      const foto = cliente?.foto_url || null;
       const enviadoEm = formatarDataCurta(envio.created_at);
       const prazoResStr = envio.prazo_resposta
         ? formatarDataCurta(envio.prazo_resposta)
@@ -848,13 +848,13 @@ export default function BriefingsPage() {
         >
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Image
-                src={foto}
-                alt="Cliente"
-                width={28}
-                height={28}
-                className="rounded-full object-cover border border-primary-600"
-              />
+              <div className="w-7 h-7 rounded-full border border-primary-600 bg-primary-700 flex items-center justify-center shrink-0 overflow-hidden">
+                {foto ? (
+                  <Image src={foto} alt="Cliente" width={28} height={28} className="object-cover w-full h-full" />
+                ) : (
+                  <User size={14} className="text-primary-300" />
+                )}
+              </div>
               <div className="flex flex-col">
                 <span className="text-[13px] font-medium text-gray-100 line-clamp-1">
                   {cliente?.nome || "Cliente"}
@@ -1608,8 +1608,7 @@ export default function BriefingsPage() {
                       );
                       const projeto = projetoDoEnvio(envio);
                       const cliente = projeto?.clientes || null;
-                      const foto =
-                        cliente?.foto_url || "/cliente_placeholder.svg";
+                      const foto = cliente?.foto_url || null;
                       const enviadoEm = formatarDataCurta(envio.created_at);
                       const totalRespostas =
                         envio.projeto_id &&
@@ -1626,13 +1625,13 @@ export default function BriefingsPage() {
                           className="grid grid-cols-[2.2fr,1.4fr,1.2fr,1fr,1.2fr] gap-4 px-6 py-4 items-center hover:bg-primary-800/60 transition-colors"
                         >
                           <div className="flex items-center gap-3">
-                            <Image
-                              src={foto}
-                              alt="Cliente"
-                              width={40}
-                              height={40}
-                              className="rounded-full object-cover border border-primary-700"
-                            />
+                            <div className="w-10 h-10 rounded-full border border-primary-700 bg-primary-700 flex items-center justify-center shrink-0 overflow-hidden">
+                              {foto ? (
+                                <Image src={foto} alt="Cliente" width={40} height={40} className="object-cover w-full h-full" />
+                              ) : (
+                                <User size={18} className="text-primary-300" />
+                              )}
+                            </div>
                             <div className="flex flex-col">
                               <span className="text-[14px] text-gray-100">
                                 {cliente?.nome || "Cliente não informado"}

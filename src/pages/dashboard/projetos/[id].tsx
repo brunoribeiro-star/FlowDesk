@@ -2350,11 +2350,21 @@ export default function ProjetoDetalhesPage() {
 
             <div className="flex flex-col gap-4 mt-3">
               <div>
-                <label className="text-[13px] text-gray-400 mb-1.5 block">Qual formulário usar?</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[13px] text-gray-400">Qual formulário usar?</label>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/dashboard/briefings/novo?projeto_id=${id}`)}
+                    className="text-[12px] text-primary-400 hover:text-primary-300 transition-colors flex items-center gap-1"
+                  >
+                    <Plus size={13} />
+                    Criar novo modelo
+                  </button>
+                </div>
                 {loadingNewBriefingTemplates ? (
                   <div className="text-[13px] text-gray-500">Carregando formulários...</div>
                 ) : sendNewBriefingTemplates.length === 0 ? (
-                  <div className="text-[13px] text-gray-500">Nenhum formulário criado ainda. Crie um na página de Briefings.</div>
+                  <div className="text-[13px] text-gray-500">Nenhum formulário criado ainda.</div>
                 ) : (
                   <select
                     value={sendNewBriefingTemplateId ?? ""}

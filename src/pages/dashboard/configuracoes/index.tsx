@@ -15,14 +15,10 @@ import clsx from "clsx";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PLAN_PRICES, type BillingPeriod } from "@/lib/stripeConfig";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 type SettingsSection = "perfil" | "aparencia" | "exibicao" | "seguranca" | "assinatura" | "armazenamento";
 type ToastType = "success" | "error" | "info";
 type ToastState = { open: boolean; type: ToastType; message: string };
 type ViewMode = "list" | "board";
-
-// ─── Theme data ───────────────────────────────────────────────────────────────
 
 type ThemePreview = {
   slug: ThemeSlug;
@@ -44,8 +40,6 @@ const THEMES: ThemePreview[] = [
   { slug: "lucy",      name: "Lucy",      previewBg: "#111424", bars: ["#5F67B0", "#3A4073", "#222847"] },
 ];
 
-// ─── Nav items ────────────────────────────────────────────────────────────────
-
 type NavItem = {
   id: SettingsSection;
   label: string;
@@ -60,8 +54,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: "assinatura",    label: "Assinatura",     icon: CreditCard },
   { id: "armazenamento", label: "Armazenamento",  icon: HardDrive },
 ];
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -229,8 +221,6 @@ function PrefRow({
   );
 }
 
-// ─── AvatarPickerModal ────────────────────────────────────────────────────────
-
 function AvatarPickerModal({
   onSelect,
   onClose,
@@ -281,7 +271,6 @@ function AvatarPickerModal({
         className="w-full max-w-md bg-primary-800 border border-primary-700 rounded-2xl p-6 shadow-[0_24px_80px_rgba(0,0,0,0.75)] flex flex-col gap-5"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-[18px] font-semibold text-gray-100">Escolher foto de perfil</h2>
@@ -296,7 +285,6 @@ function AvatarPickerModal({
           </button>
         </div>
 
-        {/* Drop zone */}
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -328,7 +316,6 @@ function AvatarPickerModal({
           </div>
         </div>
 
-        {/* File picker button */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -345,7 +332,6 @@ function AvatarPickerModal({
           onChange={handleFileChange}
         />
 
-        {/* Cancel */}
         <div className="flex justify-end border-t border-primary-700 pt-4 -mb-1">
           <button
             type="button"
@@ -360,8 +346,6 @@ function AvatarPickerModal({
   );
 }
 
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 export default function ConfiguracoesPage() {
   const router = useRouter();
 
@@ -369,9 +353,14 @@ export default function ConfiguracoesPage() {
   const subscription = useSubscription();
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>("mensal");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+
+  function isCurrentPlan(plan: string): boolean {
+    if (subscription.isTrialActive || subscription.plan !== plan) return false;
+    if (subscription.billingInterval === null) return true;
+    return subscription.billingInterval === billingPeriod;
+  }
   const [portalLoading, setPortalLoading] = useState(false);
 
-  // Profile
   const [userData, setUserData] = useState<any>(null);
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -381,18 +370,15 @@ export default function ConfiguracoesPage() {
   const [saving, setSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
-  // Appearance
   const [theme, setTheme] = useState<ThemeSlug>("default");
   const [sidebarDefault, setSidebarDefault] = useState(true);
 
-  // Display — view modes (corrected keys that match each page)
   const [projetosView, setProjetosView] = useState<ViewMode>("list");
   const [tarefasView, setTarefasView] = useState<ViewMode>("list");
   const [briefingsView, setBriefingsView] = useState<ViewMode>("list");
   const [propostasView, setPropostasView] = useState<ViewMode>("list");
   const [clientesView, setClientesView] = useState<ViewMode>("list");
 
-  // Security
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
@@ -402,20 +388,16 @@ export default function ConfiguracoesPage() {
   const [showConfirmar, setShowConfirmar] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // Toast
   const [toast, setToast] = useState<ToastState>({ open: false, type: "info", message: "" });
   const toastRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Leave guard
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingRoute, setPendingRoute] = useState<string | null>(null);
 
-  // Image converter
   const { converterState, triggerConverter, cancelConverter } = useImageConverter();
 
   const [loading, setLoading] = useState(true);
 
-  // Armazenamento
   type StorageFile = { id: string; nome: string; url: string; created_at: string; projeto_id: string };
   type StorageProject = { id: string; titulo: string; completed_at: string; status: string; files: StorageFile[] };
   const [storageProjects, setStorageProjects] = useState<StorageProject[]>([]);
@@ -423,23 +405,19 @@ export default function ConfiguracoesPage() {
   const [storageLoading, setStorageLoading] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
 
-  // ── URL tab param + checkout redirect ────────────────────────────────────────
   useEffect(() => {
     const { tab, checkout, storage } = router.query;
     if (tab === "assinatura") setSection("assinatura");
     if (tab === "armazenamento") setSection("armazenamento");
 
     if (checkout === "success" || storage === "added") {
-      // aguarda o webhook processar e busca o status atualizado
       const timer = setTimeout(() => {
         subscription.refresh();
       }, 2500);
       return () => clearTimeout(timer);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query]);
 
-  // ── Load ──────────────────────────────────────────────────────────────────────
   useEffect(() => {
     async function load() {
       const { data, error } = await supabase.auth.getUser();
@@ -482,18 +460,15 @@ export default function ConfiguracoesPage() {
     load();
   }, []);
 
-  // ── Armazenamento ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (section !== "armazenamento" || !userData) return;
     loadStorageData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [section, userData]);
 
   async function loadStorageData() {
     const CACHE_KEY = "flowdesk_storage_cache";
     const CACHE_TTL = 5 * 60 * 1000;
 
-    // Mostra valor do cache imediatamente enquanto busca em background
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
@@ -506,7 +481,6 @@ export default function ConfiguracoesPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Busca storage usage em background — não bloqueia a listagem de projetos
       if (session) {
         fetch("/api/subscription/storage-usage", {
           headers: { Authorization: `Bearer ${session.access_token}` },
@@ -522,7 +496,6 @@ export default function ConfiguracoesPage() {
           .catch(() => {});
       }
 
-      // Busca projetos não ativos — sem filtro de completed_at para não perder projetos sem essa data
       const { data: projs } = await supabase
         .from("projetos")
         .select("id, titulo, completed_at, status")
@@ -575,7 +548,6 @@ export default function ConfiguracoesPage() {
             .filter((p) => p.files.length > 0)
         );
         showToast("success", "Arquivo excluído com sucesso.");
-        // Atualiza o uso de storage
         const { data: { session: s2 } } = await supabase.auth.getSession();
         if (s2) {
           const ur = await fetch("/api/subscription/storage-usage", {
@@ -594,7 +566,6 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  // ── Route guard ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const handleRouteChangeStart = (url: string) => {
       if (!profileDirty || url === router.asPath) return;
@@ -607,14 +578,12 @@ export default function ConfiguracoesPage() {
     return () => router.events.off("routeChangeStart", handleRouteChangeStart);
   }, [profileDirty, router]);
 
-  // ── Toast ─────────────────────────────────────────────────────────────────────
   function showToast(type: ToastType, message: string) {
     if (toastRef.current) clearTimeout(toastRef.current);
     setToast({ open: true, type, message });
     toastRef.current = setTimeout(() => setToast((p) => ({ ...p, open: false })), 4000);
   }
 
-  // ── Phone format ──────────────────────────────────────────────────────────────
   function formatPhone(value: string) {
     const digits = value.replace(/\D/g, "").slice(0, 11);
     if (!digits) return "";
@@ -623,7 +592,6 @@ export default function ConfiguracoesPage() {
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
   }
 
-  // ── Avatar ────────────────────────────────────────────────────────────────────
   async function doAvatarUpload(file: File) {
     if (!userData) return;
     try {
@@ -646,7 +614,6 @@ export default function ConfiguracoesPage() {
     triggerConverter(file, IMAGE_SPECS.avatar, doAvatarUpload);
   }
 
-  // ── Save profile ──────────────────────────────────────────────────────────────
   async function salvarPerfil() {
     if (!userData) return;
     try {
@@ -681,7 +648,6 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  // ── Theme ─────────────────────────────────────────────────────────────────────
   function handleThemeChange(slug: ThemeSlug) {
     setTheme(slug);
     applyTheme(slug);
@@ -689,13 +655,11 @@ export default function ConfiguracoesPage() {
     showToast("success", "Tema aplicado.");
   }
 
-  // ── Sidebar preference (immediate save) ──────────────────────────────────────
   function handleSidebarToggle(val: boolean) {
     setSidebarDefault(val);
     localStorage.setItem("sidebar_open", String(val));
   }
 
-  // ── View mode handlers (immediate save — keys match each page's localStorage) ─
   function handleProjetosView(v: ViewMode) {
     setProjetosView(v);
     localStorage.setItem("projetosViewMode", v);
@@ -717,7 +681,6 @@ export default function ConfiguracoesPage() {
     localStorage.setItem("clientesParams", JSON.stringify({ viewMode: v }));
   }
 
-  // ── Password change ───────────────────────────────────────────────────────────
   async function atualizarSenha() {
     if (!senhaAtual || !novaSenha || !confirmarNovaSenha) {
       showToast("error", "Preencha todos os campos de senha.");
@@ -763,14 +726,12 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  // ── Leave guard ───────────────────────────────────────────────────────────────
   function confirmarSaida() {
     setShowLeaveModal(false);
     setProfileDirty(false);
     if (pendingRoute) { const t = pendingRoute; setPendingRoute(null); router.push(t); }
   }
 
-  // ── Stripe checkout ───────────────────────────────────────────────────────────
   async function startCheckout(plan: "essencial" | "profissional") {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
@@ -832,7 +793,6 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="h-screen w-screen bg-primary-900 flex items-center justify-center text-gray-100">
@@ -847,7 +807,6 @@ export default function ConfiguracoesPage() {
 
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ── Secondary settings nav ────────────────────────────────────── */}
         <aside className="w-[220px] bg-primary-800 border-r border-primary-700 flex flex-col py-7 px-3 gap-0.5 shrink-0">
           <div className="px-3 mb-5">
             <h1 className="text-[17px] font-semibold text-gray-100">Configurações</h1>
@@ -872,10 +831,8 @@ export default function ConfiguracoesPage() {
           ))}
         </aside>
 
-        {/* ── Main content ──────────────────────────────────────────────── */}
         <main className="flex-1 overflow-y-auto custom-scrollbar py-8 px-8">
 
-          {/* ─── PERFIL ──────────────────────────────────────────────────── */}
           {section === "perfil" && (
             <div className="flex flex-col gap-5 w-full">
               <SectionHeader
@@ -903,7 +860,6 @@ export default function ConfiguracoesPage() {
                 }
               />
 
-              {/* Avatar */}
               <Card>
                 <CardTitle>Foto de perfil</CardTitle>
                 <CardSubtitle>{IMAGE_SPECS.avatar.hint}</CardSubtitle>
@@ -928,7 +884,6 @@ export default function ConfiguracoesPage() {
                 </div>
               </Card>
 
-              {/* Fields */}
               <Card>
                 <CardTitle>Informações pessoais</CardTitle>
                 <div className="h-px bg-primary-700 mb-5" />
@@ -973,7 +928,6 @@ export default function ConfiguracoesPage() {
             </div>
           )}
 
-          {/* ─── APARÊNCIA ───────────────────────────────────────────────── */}
           {section === "aparencia" && (
             <div className="flex flex-col gap-5 w-full">
               <SectionHeader
@@ -981,7 +935,6 @@ export default function ConfiguracoesPage() {
                 description="Escolha o tema visual e configure o comportamento da interface."
               />
 
-              {/* Themes */}
               <Card>
                 <CardTitle>Tema</CardTitle>
                 <CardSubtitle>Personalize as cores da interface. A mudança é aplicada imediatamente.</CardSubtitle>
@@ -1027,7 +980,6 @@ export default function ConfiguracoesPage() {
                 </div>
               </Card>
 
-              {/* Interface */}
               <Card>
                 <CardTitle>Interface</CardTitle>
                 <div className="h-px bg-primary-700 mb-1" />
@@ -1043,7 +995,6 @@ export default function ConfiguracoesPage() {
             </div>
           )}
 
-          {/* ─── EXIBIÇÃO ────────────────────────────────────────────────── */}
           {section === "exibicao" && (
             <div className="flex flex-col gap-5 w-full">
               <SectionHeader
@@ -1096,7 +1047,6 @@ export default function ConfiguracoesPage() {
             </div>
           )}
 
-          {/* ─── SEGURANÇA ───────────────────────────────────────────────── */}
           {section === "seguranca" && (
             <div className="flex flex-col gap-5 w-full">
               <SectionHeader
@@ -1142,7 +1092,6 @@ export default function ConfiguracoesPage() {
             </div>
           )}
 
-          {/* ─── ASSINATURA ──────────────────────────────────────────────── */}
           {section === "assinatura" && (
             <div className="flex flex-col gap-5 w-full">
               <SectionHeader
@@ -1150,7 +1099,6 @@ export default function ConfiguracoesPage() {
                 description="Gerencie seu plano, faturamento e recursos disponíveis."
               />
 
-              {/* Status atual */}
               {!subscription.loading && (
                 <Card>
                   <div className="flex items-center justify-between gap-4">
@@ -1210,7 +1158,6 @@ export default function ConfiguracoesPage() {
                     )}
                   </div>
 
-                  {/* Limites atuais */}
                   <div className="mt-5 pt-5 border-t border-primary-700 grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       {
@@ -1243,7 +1190,6 @@ export default function ConfiguracoesPage() {
                 </Card>
               )}
 
-              {/* Toggle período */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center bg-primary-900 border border-primary-700 rounded-full p-1">
                   {(["mensal", "anual"] as BillingPeriod[]).map((p) => (
@@ -1265,16 +1211,14 @@ export default function ConfiguracoesPage() {
                 )}
               </div>
 
-              {/* Planos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Essencial */}
                 <Card>
                   <div className="flex items-start justify-between gap-2 mb-4">
                     <div>
                       <h3 className="text-[17px] font-bold text-gray-100">Essencial</h3>
                       <p className="text-[12px] text-gray-500 mt-0.5">Para quem está começando</p>
                     </div>
-                    {subscription.plan === "essencial" && !subscription.isTrialActive && (
+                    {isCurrentPlan("essencial") && (
                       <span className="text-[11px] bg-primary-700 text-primary-300 px-2 py-1 rounded-full border border-primary-600 shrink-0">Plano atual</span>
                     )}
                   </div>
@@ -1311,7 +1255,11 @@ export default function ConfiguracoesPage() {
                     ))}
                   </ul>
 
-                  {subscription.plan !== "essencial" || subscription.isTrialActive ? (
+                  {isCurrentPlan("essencial") ? (
+                    <div className="w-full bg-primary-900 border border-primary-700 text-gray-500 rounded-xl py-2.5 text-[14px] text-center">
+                      Plano atual
+                    </div>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => startCheckout("essencial")}
@@ -1320,16 +1268,11 @@ export default function ConfiguracoesPage() {
                     >
                       {checkoutLoading === "essencial" ? "Aguarde..." : "Escolher Essencial"}
                     </button>
-                  ) : (
-                    <div className="w-full bg-primary-900 border border-primary-700 text-gray-500 rounded-xl py-2.5 text-[14px] text-center">
-                      Plano atual
-                    </div>
                   )}
                 </Card>
 
-                {/* Profissional */}
                 {(() => {
-                  const isProfissionalAtivo = subscription.plan === "profissional" && !subscription.isTrialActive;
+                  const isProfissionalAtivo = isCurrentPlan("profissional");
                   return (
                 <Card className={clsx(
                   "relative",
@@ -1348,7 +1291,7 @@ export default function ConfiguracoesPage() {
                       <h3 className="text-[17px] font-bold text-gray-100">Profissional</h3>
                       <p className="text-[12px] text-gray-500 mt-0.5">Para freelancers ativos</p>
                     </div>
-                    {isProfissionalAtivo && (
+                    {isCurrentPlan("profissional") && (
                       <span className="text-[11px] bg-primary-700 text-primary-300 px-2 py-1 rounded-full border border-primary-600 shrink-0">Plano atual</span>
                     )}
                     {subscription.isTrialActive && (
@@ -1389,7 +1332,7 @@ export default function ConfiguracoesPage() {
                     ))}
                   </ul>
 
-                  {subscription.plan === "profissional" && !subscription.isTrialActive ? (
+                  {isProfissionalAtivo ? (
                     <div className="w-full bg-primary-900 border border-primary-700 text-gray-500 rounded-xl py-2.5 text-[14px] text-center">
                       Plano atual
                     </div>
@@ -1404,7 +1347,9 @@ export default function ConfiguracoesPage() {
                         ? "Aguarde..."
                         : subscription.isTrialActive
                           ? "Assinar Profissional"
-                          : "Fazer upgrade"}
+                          : subscription.plan === "profissional"
+                            ? "Trocar para " + (billingPeriod === "anual" ? "anual" : "mensal")
+                            : "Fazer upgrade"}
                     </button>
                   )}
                 </Card>
@@ -1412,7 +1357,6 @@ export default function ConfiguracoesPage() {
                 })()}
               </div>
 
-              {/* Storage add-on */}
               <Card>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
@@ -1446,7 +1390,6 @@ export default function ConfiguracoesPage() {
                 </div>
               </Card>
 
-              {/* Trial info */}
               {!subscription.isTrialActive && !subscription.trialUsed && (
                 <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl p-4">
                   <Zap size={16} className="text-amber-400 mt-0.5 shrink-0" />
@@ -1458,7 +1401,6 @@ export default function ConfiguracoesPage() {
             </div>
           )}
 
-          {/* ─── ARMAZENAMENTO ───────────────────────────────────────────────── */}
           {section === "armazenamento" && (
             <div className="flex flex-col gap-5 w-full">
               <SectionHeader
@@ -1466,7 +1408,6 @@ export default function ConfiguracoesPage() {
                 description="Gerencie o espaço usado pelos seus projetos."
               />
 
-              {/* Barra de uso */}
               <Card>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[14px] text-gray-300 font-medium">Uso de armazenamento</span>
@@ -1545,7 +1486,6 @@ export default function ConfiguracoesPage() {
 
                     return (
                       <Card key={proj.id}>
-                        {/* Cabeçalho do projeto */}
                         <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary-700">
                           <div className="flex items-center gap-2">
                             <FolderOpen size={16} className="text-gray-500 shrink-0" />
@@ -1572,7 +1512,6 @@ export default function ConfiguracoesPage() {
                           )}
                         </div>
 
-                        {/* Lista de arquivos */}
                         <div className="flex flex-col gap-1">
                           {proj.files.map((file) => {
                             const ext = file.nome.split(".").pop()?.toLowerCase() ?? "";
@@ -1629,7 +1568,6 @@ export default function ConfiguracoesPage() {
         </main>
       </div>
 
-      {/* ── Password modal ─────────────────────────────────────────────────── */}
       <Modal
         open={showPasswordModal}
         title="Trocar senha"
@@ -1715,7 +1653,6 @@ export default function ConfiguracoesPage() {
         </div>
       </Modal>
 
-      {/* ── Leave guard modal ──────────────────────────────────────────────── */}
       <Modal
         open={showLeaveModal}
         title="Descartar alterações?"
@@ -1744,7 +1681,6 @@ export default function ConfiguracoesPage() {
         </p>
       </Modal>
 
-      {/* ── Toast ─────────────────────────────────────────────────────────── */}
       {toast.open && (
         <div className="fixed bottom-6 right-6 z-[70] animate-[fadeIn_0.2s_ease-out]">
           <div className="flex items-start gap-3 bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 shadow-xl min-w-[260px] max-w-[360px]">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback, KeyboardEvent } from "react";
+import { useMemo, useState, useEffect, useRef, KeyboardEvent } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
@@ -14,6 +14,14 @@ import {
   AlertCircle,
   Wallet,
   HardDrive,
+  CheckSquare,
+  Paperclip,
+  DollarSign,
+  FileText,
+  Activity,
+  Users,
+  X,
+  Search,
 } from "lucide-react";
 
 const WEEKS_LABELS = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
@@ -35,8 +43,15 @@ export default function DashboardHome() {
   const [ownedMemberSplits, setOwnedMemberSplits] = useState<any[]>([]);
   const [ownedCollabPaySplitsPending, setOwnedCollabPaySplitsPending] = useState<any[]>([]);
 
+  const { user: authUser } = useAuth();
+
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<{ projetos: any[]; tarefas: any[]; clientes: any[] } | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   const [storageUsedGB, setStorageUsedGB] = useState<number | null>(null);
   const [storageLimitGB, setStorageLimitGB] = useState<number>(5);
 
@@ -58,13 +73,45 @@ export default function DashboardHome() {
       );
   }, []);
 
-  const { user: authUser } = useAuth();
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const q = searchTerm.trim();
+    if (!q) { setSearchResults(null); setSearchOpen(false); return; }
+
+    setSearchLoading(true);
+    setSearchOpen(true);
+
+    const timer = setTimeout(async () => {
+      const pattern = `%${q}%`;
+      const [projRes, tarefasRes, clientesRes] = await Promise.all([
+        supabase.from("projetos").select("id, titulo, status").ilike("titulo", pattern).eq("user_id", authUser?.id ?? "").limit(5),
+        supabase.from("tasks").select("id, titulo, status, projeto_id").ilike("titulo", pattern).limit(5),
+        supabase.from("clientes").select("id, nome, email").ilike("nome", pattern).eq("user_id", authUser?.id ?? "").limit(5),
+      ]);
+      setSearchResults({
+        projetos: projRes.data ?? [],
+        tarefas: tarefasRes.data ?? [],
+        clientes: clientesRes.data ?? [],
+      });
+      setSearchLoading(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, authUser]);
 
   useEffect(() => {
     const CACHE_KEY = "flowdesk_storage_cache";
     const CACHE_TTL = 5 * 60 * 1000;
 
-    // Mostra cache imediatamente se ainda for válido
     try {
       const cached = localStorage.getItem(CACHE_KEY);
       if (cached) {
@@ -76,7 +123,6 @@ export default function DashboardHome() {
       }
     } catch {}
 
-    // Busca em background e atualiza cache
     async function fetchStorage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -386,9 +432,13 @@ export default function DashboardHome() {
 
   function handleSearch(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
-      const q = searchTerm.trim();
-      if (!q) return;
-      router.push(`/dashboard/busca?query=${encodeURIComponent(q)}`);
+      if (!searchTerm.trim()) return;
+      setSearchOpen(false);
+      setSearchModalOpen(true);
+    }
+    if (e.key === "Escape") {
+      setSearchOpen(false);
+      setSearchModalOpen(false);
     }
   }
 
@@ -447,15 +497,73 @@ export default function DashboardHome() {
           </div>
 
           <div className="flex-1 bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 flex items-center gap-3 min-w-0">
-            <div className="flex-1 flex items-center gap-3 bg-primary-700 border border-primary-600 rounded-lg px-3 py-2.5 min-w-0">
-              <Image src="/buscar.svg" alt="Buscar" width={16} height={16} />
-              <input
-                placeholder="Buscar por projetos, tarefas, clientes..."
-                className="w-full bg-transparent outline-none text-[14px] text-gray-200 placeholder-gray-400"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={handleSearch}
-              />
+            <div ref={searchRef} className="relative flex-1 min-w-0">
+              <div className="flex items-center gap-3 bg-primary-700 border border-primary-600 rounded-lg px-3 py-2.5">
+                <Search size={15} className="text-gray-400 shrink-0" />
+                <input
+                  placeholder="Buscar por projetos, tarefas, clientes..."
+                  className="w-full bg-transparent outline-none text-[14px] text-gray-200 placeholder-gray-400"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={handleSearch}
+                  onFocus={() => { if (searchTerm.trim()) setSearchOpen(true); }}
+                />
+                {searchTerm && (
+                  <button onClick={() => { setSearchTerm(""); setSearchResults(null); setSearchOpen(false); }}>
+                    <X size={14} className="text-gray-400 hover:text-gray-200" />
+                  </button>
+                )}
+              </div>
+
+              {searchOpen && searchTerm.trim() && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-primary-800 border border-primary-600 rounded-xl shadow-2xl z-50 overflow-hidden">
+                  {searchLoading ? (
+                    <div className="px-4 py-3 text-[13px] text-gray-400">Buscando...</div>
+                  ) : !searchResults || (searchResults.projetos.length + searchResults.tarefas.length + searchResults.clientes.length) === 0 ? (
+                    <div className="px-4 py-3 text-[13px] text-gray-400">Nenhum resultado encontrado.</div>
+                  ) : (
+                    <div className="flex flex-col">
+                      {searchResults.projetos.length > 0 && (
+                        <div>
+                          <div className="px-4 pt-3 pb-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Projetos</div>
+                          {searchResults.projetos.map((p) => (
+                            <button key={p.id} onClick={() => { setSearchOpen(false); router.push(`/dashboard/projetos/${p.id}`); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-primary-700 transition-colors text-left">
+                              <FolderKanban size={14} className="text-primary-300 shrink-0" />
+                              <span className="text-[13px] text-gray-200 truncate">{p.titulo}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.tarefas.length > 0 && (
+                        <div>
+                          <div className="px-4 pt-3 pb-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Tarefas</div>
+                          {searchResults.tarefas.map((t) => (
+                            <button key={t.id} onClick={() => { setSearchOpen(false); router.push(`/dashboard/tarefas/${t.id}`); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-primary-700 transition-colors text-left">
+                              <CheckSquare size={14} className="text-primary-300 shrink-0" />
+                              <span className="text-[13px] text-gray-200 truncate">{t.titulo}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {searchResults.clientes.length > 0 && (
+                        <div>
+                          <div className="px-4 pt-3 pb-1 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Clientes</div>
+                          {searchResults.clientes.map((c) => (
+                            <button key={c.id} onClick={() => { setSearchOpen(false); router.push(`/dashboard/clientes`); }} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-primary-700 transition-colors text-left">
+                              <Users size={14} className="text-primary-300 shrink-0" />
+                              <span className="text-[13px] text-gray-200 truncate">{c.nome}</span>
+                              {c.email && <span className="text-[12px] text-gray-500 truncate">{c.email}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button onClick={() => { setSearchOpen(false); setSearchModalOpen(true); }} className="w-full px-4 py-3 text-[12px] text-primary-300 hover:bg-primary-700 border-t border-primary-700 text-left transition-colors">
+                        Ver todos os resultados para <strong>"{searchTerm}"</strong>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <HeaderProfile />
@@ -640,7 +748,10 @@ export default function DashboardHome() {
                   Novo projeto
                 </button>
 
-                <button className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 text-[18px]">
+                <button
+                  onClick={() => router.push("/dashboard/briefings/novo")}
+                  className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 text-[18px] hover:bg-primary-700 transition-colors"
+                >
                   Novo briefing
                 </button>
               </div>
@@ -658,8 +769,8 @@ export default function DashboardHome() {
                       key={i}
                       className="flex items-start gap-3 py-3 border-b border-primary-700 last:border-b-0"
                     >
-                      <div className="w-7 h-7 rounded-full bg-primary-700 border border-primary-600 flex items-center justify-center text-gray-200 text-[18px]">
-                        •
+                      <div className="w-7 h-7 rounded-full bg-primary-700 border border-primary-600 flex items-center justify-center shrink-0">
+                        {getAtividadeIcon(a.tipo)}
                       </div>
 
                       <div className="flex-1 flex flex-col gap-1">
@@ -689,6 +800,65 @@ export default function DashboardHome() {
           </div>
         </section>
       </div>
+
+      {searchModalOpen && (
+        <div className="fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4" onClick={() => setSearchModalOpen(false)}>
+          <div className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-primary-700">
+              <Search size={15} className="text-gray-400 shrink-0" />
+              <span className="text-[14px] text-gray-200 flex-1">Resultados para <strong>"{searchTerm}"</strong></span>
+              <button onClick={() => setSearchModalOpen(false)}><X size={16} className="text-gray-400 hover:text-gray-200" /></button>
+            </div>
+            <div className="overflow-y-auto max-h-[60vh] custom-scrollbar">
+              {searchLoading ? (
+                <div className="px-4 py-6 text-[13px] text-gray-400 text-center">Buscando...</div>
+              ) : !searchResults || (searchResults.projetos.length + searchResults.tarefas.length + searchResults.clientes.length) === 0 ? (
+                <div className="px-4 py-8 text-[13px] text-gray-400 text-center">Nenhum resultado encontrado.</div>
+              ) : (
+                <div className="flex flex-col divide-y divide-primary-700">
+                  {searchResults.projetos.length > 0 && (
+                    <div className="py-2">
+                      <div className="px-4 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2"><FolderKanban size={12} /> Projetos ({searchResults.projetos.length})</div>
+                      {searchResults.projetos.map((p) => (
+                        <button key={p.id} onClick={() => { setSearchModalOpen(false); router.push(`/dashboard/projetos/${p.id}`); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary-800 transition-colors text-left">
+                          <FolderKanban size={15} className="text-primary-300 shrink-0" />
+                          <span className="text-[14px] text-gray-200">{p.titulo}</span>
+                          <span className="ml-auto text-[11px] text-gray-500 capitalize">{p.status}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {searchResults.tarefas.length > 0 && (
+                    <div className="py-2">
+                      <div className="px-4 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2"><CheckSquare size={12} /> Tarefas ({searchResults.tarefas.length})</div>
+                      {searchResults.tarefas.map((t) => (
+                        <button key={t.id} onClick={() => { setSearchModalOpen(false); router.push(`/dashboard/tarefas/${t.id}`); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary-800 transition-colors text-left">
+                          <CheckSquare size={15} className="text-primary-300 shrink-0" />
+                          <span className="text-[14px] text-gray-200">{t.titulo}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {searchResults.clientes.length > 0 && (
+                    <div className="py-2">
+                      <div className="px-4 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2"><Users size={12} /> Clientes ({searchResults.clientes.length})</div>
+                      {searchResults.clientes.map((c) => (
+                        <button key={c.id} onClick={() => { setSearchModalOpen(false); router.push(`/dashboard/clientes`); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-primary-800 transition-colors text-left">
+                          <Users size={15} className="text-primary-300 shrink-0" />
+                          <div className="flex flex-col">
+                            <span className="text-[14px] text-gray-200">{c.nome}</span>
+                            {c.email && <span className="text-[12px] text-gray-500">{c.email}</span>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
@@ -722,6 +892,16 @@ export default function DashboardHome() {
       `}</style>
     </div>
   );
+}
+
+function getAtividadeIcon(tipo: string) {
+  const t = (tipo || "").toLowerCase();
+  if (t === "tarefa_concluida" || t === "tarefa") return <CheckSquare size={14} className="text-primary-300" />;
+  if (t === "arquivo_enviado" || t === "arquivo") return <Paperclip size={14} className="text-primary-300" />;
+  if (t === "pagamentos" || t === "pagamento") return <DollarSign size={14} className="text-primary-300" />;
+  if (t === "projetos" || t === "projeto") return <FolderKanban size={14} className="text-primary-300" />;
+  if (t === "briefing") return <FileText size={14} className="text-primary-300" />;
+  return <Activity size={14} className="text-primary-300" />;
 }
 
 function toCurrency(v: number) {

@@ -9,6 +9,7 @@ export interface SubscriptionStatus {
   trialEnd: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
+  billingInterval: "mensal" | "anual" | null;
   limits: PlanLimits & { storageGB: number };
   extraStorageAddons: number;
   trialUsed: boolean;
@@ -22,6 +23,7 @@ const DEFAULT: SubscriptionStatus = {
   trialEnd: null,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
+  billingInterval: null,
   limits: { projetos: 10, clientes: 10, storageGB: 5, coworkingMembros: 1 },
   extraStorageAddons: 0,
   trialUsed: false,

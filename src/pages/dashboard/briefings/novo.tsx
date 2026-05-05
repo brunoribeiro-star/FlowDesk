@@ -181,6 +181,7 @@ export default function NovoBriefingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("edit");
+  const projetoId = searchParams.get("projeto_id");
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -510,6 +511,18 @@ export default function NovoBriefingPage() {
         return;
       }
 
+      if (!editId && projetoId) {
+        await supabase.from("briefings_envios").insert({
+          user_id: user.id,
+          template_id: templateId,
+          projeto_id: projetoId,
+          cliente_id: null,
+          status: "pendente",
+          token: crypto.randomUUID(),
+          email_enviado: false,
+        });
+      }
+
       setShowSuccessModal(true);
       setSaving(false);
     } catch (err: any) {
@@ -549,12 +562,29 @@ export default function NovoBriefingPage() {
                 </p>
             </div>
 
-            <button
-              onClick={() => router.push("/dashboard/briefings")}
-              className="w-full px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-white font-semibold transition-all shadow-lg shadow-primary-500/20"
-            >
-              Voltar para a lista
-            </button>
+            {projetoId ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => router.push(`/dashboard/projetos/${projetoId}`)}
+                  className="w-full px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-white font-semibold transition-all shadow-lg shadow-primary-500/20"
+                >
+                  Voltar ao projeto
+                </button>
+                <button
+                  onClick={() => router.push("/dashboard/briefings")}
+                  className="w-full px-6 py-3 rounded-xl bg-transparent hover:bg-primary-800 text-gray-400 text-[13px] transition-all"
+                >
+                  Ver todos os briefings
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => router.push("/dashboard/briefings")}
+                className="w-full px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-white font-semibold transition-all shadow-lg shadow-primary-500/20"
+              >
+                Voltar para a lista
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -566,7 +596,7 @@ export default function NovoBriefingPage() {
             <header className="h-16 border-b border-primary-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => router.push("/dashboard/briefings")}
+                        onClick={() => router.push(projetoId ? `/dashboard/projetos/${projetoId}` : "/dashboard/briefings")}
                         className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-800 text-gray-400 hover:text-gray-200 transition-colors"
                         title="Voltar"
                     >

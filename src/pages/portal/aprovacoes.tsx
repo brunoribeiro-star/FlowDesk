@@ -429,7 +429,7 @@ function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlo
                   <button disabled={submitting} onClick={() => handleReview(e.id, "aprovado")}
                     className="flex-1 bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-xl py-2.5 text-[13px] transition-colors disabled:opacity-50"
                   >Aprovar</button>
-                  <button disabled={submitting || !feedbackText.trim()} onClick={() => handleReview(e.id, "para_alteracao")}
+                  <button disabled={submitting || (!feedbackText.trim() && !annotatedBlob)} onClick={() => handleReview(e.id, "para_alteracao")}
                     className="flex-1 bg-primary-900 hover:bg-primary-800 text-gray-300 border border-primary-700 rounded-xl py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
                   >Pedir alteração</button>
                 </div>

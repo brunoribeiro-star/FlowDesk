@@ -62,7 +62,7 @@ export default function HeaderProfile({ user }: HeaderProfileProps) {
             className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
             onClick={() => {
               setProfileOpen(false);
-              router.push("/dashboard/perfil");
+              router.push("/dashboard/configuracoes");
             }}
           >
             <Pencil size={20} className="text-primary-200" />
@@ -80,7 +80,13 @@ export default function HeaderProfile({ user }: HeaderProfileProps) {
             Personalizar tema
           </button>
 
-          <button className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300">
+          <button
+            className="flex items-center gap-3 text-yellow-400 hover:text-yellow-300"
+            onClick={() => {
+              setProfileOpen(false);
+              router.push("/dashboard/configuracoes?tab=assinatura");
+            }}
+          >
             <Crown size={20} />
             Assinatura
           </button>
