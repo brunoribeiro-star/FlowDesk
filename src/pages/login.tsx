@@ -7,6 +7,7 @@ import { useRouter } from "next/router";
 import AuthBackground from "@/components/auth/AuthBackground";
 import AuthCard from "@/components/auth/AuthCard";
 import AuthInput from "@/components/auth/AuthInput";
+import Head from "next/head";
 
 function traduzirErroSupabase(msg: string): string {
   if (msg.includes("Invalid login credentials")) return "E-mail ou senha incorretos.";
@@ -54,10 +55,34 @@ export default function LoginPage() {
   }
 
   return (
+    <>
+    <Head><title>Entrar — FlowDesk</title></Head>
     <AuthBackground>
       <AuthCard>
         <div className="flex justify-center mb-8">
           <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
+        </div>
+
+        {/* Role toggle */}
+        <div
+          className="flex items-center gap-1 p-1 rounded-xl mb-7"
+          style={{ background: "var(--primary-900)", border: "1px solid var(--primary-700)" }}
+        >
+          <button
+            type="button"
+            className="flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors"
+            style={{ background: "var(--primary-700)", color: "var(--gray-100)" }}
+          >
+            Freelancer
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/portal/login")}
+            className="flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors"
+            style={{ color: "var(--gray-500)" }}
+          >
+            Cliente
+          </button>
         </div>
 
         <h1
@@ -161,5 +186,6 @@ export default function LoginPage() {
         </p>
       </AuthCard>
     </AuthBackground>
+    </>
   );
 }
