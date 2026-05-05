@@ -77,7 +77,7 @@ function PageContent({ Component, pageProps, pathname }: { Component: any; pageP
             <div className="flex flex-col gap-2.5 w-full">
               <button
                 type="button"
-                onClick={() => router.push("/dashboard/configuracoes?tab=assinatura")}
+                onClick={() => router.push("/subscribe")}
                 className="w-full py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[15px] transition-colors flex items-center justify-center gap-2"
               >
                 <Zap size={16} />
