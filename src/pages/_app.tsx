@@ -4,16 +4,37 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import "@/styles/globals.css";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import Image from "next/image";
+import { Zap } from "lucide-react";
 import UpgradeModal from "@/components/UpgradeModal";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const PROTECTED_ROUTES = ["/dashboard", "/onboarding", "/portal"];
 
 function PageContent({ Component, pageProps, pathname }: { Component: any; pageProps: any; pathname: string }) {
   const { loading, user } = useAuth();
   const router = useRouter();
+  const subscription = useSubscription();
+
   const isProtected = PROTECTED_ROUTES.some((path) => pathname.startsWith(path))
     && pathname !== "/portal/login"
     && pathname !== "/portal/[token]";
+
+  const isDashboard = pathname.startsWith("/dashboard");
+  // Configuracoes is always accessible so the user can subscribe
+  const isConfiguracoes = pathname.startsWith("/dashboard/configuracoes");
+
+  const hasValidSubscription =
+    !!subscription.currentPeriodEnd &&
+    new Date(subscription.currentPeriodEnd) > new Date();
+
+  const isTrialExpired =
+    isDashboard &&
+    !isConfiguracoes &&
+    !!user &&
+    !subscription.loading &&
+    !subscription.isTrialActive &&
+    !hasValidSubscription;
 
   useEffect(() => {
     if (!loading && isProtected && !user) {
@@ -25,11 +46,56 @@ function PageContent({ Component, pageProps, pathname }: { Component: any; pageP
     }
   }, [loading, user, isProtected, router, pathname]);
 
-  if (isProtected && loading) {
+  if (isProtected && (loading || (isDashboard && !!user && subscription.loading))) {
     return (
       <div className="h-screen flex items-center justify-center bg-primary-900">
         <div className="flex flex-col items-center gap-4">
           <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isTrialExpired) {
+    return (
+      <div className="min-h-screen bg-primary-900 flex items-center justify-center p-6">
+        <div className="w-full max-w-md flex flex-col items-center text-center gap-7">
+          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={130} height={34} priority />
+
+          <div className="bg-primary-800 border border-primary-700 rounded-2xl p-8 shadow-[0_24px_60px_rgba(0,0,0,0.4)] flex flex-col items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+              <Zap size={26} className="text-amber-400" />
+            </div>
+
+            <div>
+              <h1 className="text-[20px] font-bold text-gray-100 mb-2">Período de teste encerrado</h1>
+              <p className="text-[14px] text-gray-400 leading-relaxed">
+                Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar usando o FlowDesk e não perder seus projetos e dados.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2.5 w-full">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/configuracoes?tab=assinatura")}
+                className="w-full py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[15px] transition-colors flex items-center justify-center gap-2"
+              >
+                <Zap size={16} />
+                Ver planos e assinar
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const { supabase } = await import("@/lib/supabaseClient");
+                  await supabase.auth.signOut();
+                  router.replace("/login");
+                }}
+                className="w-full py-2.5 rounded-xl text-gray-500 hover:text-gray-300 text-[13px] transition-colors"
+              >
+                Sair da conta
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );

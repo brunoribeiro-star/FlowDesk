@@ -13,7 +13,9 @@ import type { ProjectForStatus } from "@/components/reports/ProjectStatusDonut";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ReportPeriod } from "@/lib/reportUtils";
-import { BarChart3, RefreshCw, AlertCircle } from "lucide-react";
+import { BarChart3, RefreshCw, AlertCircle, Lock, Zap } from "lucide-react";
+import { useRouter } from "next/router";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const RevenueChart = dynamic(() => import("@/components/reports/RevenueChart"), {
   ssr: false,
@@ -67,6 +69,8 @@ async function fetchWithAuth(path: string, token: string) {
 
 export default function RelatoriosPage() {
   const { user: authUser } = useAuth();
+  const router = useRouter();
+  const subscription = useSubscription();
 
   const [period, setPeriod] = useState<ReportPeriod>("365d");
   const [overviewData, setOverviewData] = useState<OverviewData | null>(null);
@@ -204,6 +208,30 @@ export default function RelatoriosPage() {
           </div>
         </header>
 
+        {!subscription.loading && !subscription.limits.relatoriosCompletos && (
+          <div className="flex flex-col items-center justify-center gap-4 text-center py-20">
+            <div className="w-14 h-14 rounded-2xl bg-primary-800 border border-primary-700 flex items-center justify-center">
+              <Lock size={26} className="text-primary-400" />
+            </div>
+            <div>
+              <h3 className="text-[18px] font-semibold text-gray-100 mb-2">Relatórios completos</h3>
+              <p className="text-[14px] text-gray-400 max-w-sm leading-relaxed">
+                Acesse métricas detalhadas, faturamento e análise de desempenho com o plano Profissional.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard/configuracoes?tab=assinatura")}
+              className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-xl text-[14px] transition-colors"
+            >
+              <Zap size={15} />
+              Ver planos
+            </button>
+          </div>
+        )}
+
+        {(subscription.loading || subscription.limits.relatoriosCompletos) && (
+        <>
         <section className="flex flex-col gap-3">
           <div className="text-[15px] font-medium text-gray-300">Visão geral</div>
 
@@ -344,6 +372,8 @@ export default function RelatoriosPage() {
             <PerformanceSection data={performanceData} />
           ) : null}
         </section>
+        </>
+        )}
 
       </div>
     </div>

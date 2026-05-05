@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { X, FolderOpen, Users, HardDrive, UserPlus } from "lucide-react";
+import { X, FolderOpen, Users, HardDrive, UserPlus, Lock, BarChart3 } from "lucide-react";
 import type { LimitType } from "@/lib/limitGuard";
 
 type ModalContent = {
@@ -37,6 +37,20 @@ const CONTENT: Record<LimitType, ModalContent> = {
     title: "Limite de colaboradores atingido",
     description:
       "O Plano Essencial permite 1 colaborador por projeto. No Plano Profissional, você pode convidar até 5 colaboradores por projeto.",
+    cta: "Assinar Plano Profissional",
+  },
+  portal_cliente: {
+    icon: <Lock size={28} className="text-primary-400" />,
+    title: "Recurso do plano Profissional",
+    description:
+      "Entregáveis e aprovações pelo cliente estão disponíveis apenas no Plano Profissional. No Essencial, o cliente pode acompanhar status e responder briefings.",
+    cta: "Assinar Plano Profissional",
+  },
+  relatorios: {
+    icon: <BarChart3 size={28} className="text-primary-400" />,
+    title: "Relatórios completos",
+    description:
+      "Acesse métricas detalhadas de faturamento, desempenho e produtividade com o Plano Profissional.",
     cta: "Assinar Plano Profissional",
   },
 };

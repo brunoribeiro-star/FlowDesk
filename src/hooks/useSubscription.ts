@@ -24,7 +24,7 @@ const DEFAULT: SubscriptionStatus = {
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   billingInterval: null,
-  limits: { projetos: 10, clientes: 10, storageGB: 5, coworkingMembros: 1 },
+  limits: { projetos: 10, clientes: 10, storageGB: 5, coworkingMembros: 1, portalClienteCompleto: false, relatoriosCompletos: false },
   extraStorageAddons: 0,
   trialUsed: false,
   loading: true,

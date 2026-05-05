@@ -138,6 +138,7 @@ async function handleSubscriptionDeleted(sub: Stripe.Subscription) {
     status: "canceled",
     stripe_subscription_id: null,
     cancel_at_period_end: false,
+    current_period_end: null,
   }).eq("user_id", existing.user_id);
 }
 

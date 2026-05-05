@@ -6,6 +6,8 @@ export interface PlanLimits {
   clientes: number | null;
   storageGB: number;
   coworkingMembros: number | null;
+  portalClienteCompleto: boolean;
+  relatoriosCompletos: boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
@@ -14,18 +16,24 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
     clientes: null,
     storageGB: 20,
     coworkingMembros: 5,
+    portalClienteCompleto: true,
+    relatoriosCompletos: true,
   },
   essencial: {
     projetos: 10,
     clientes: 10,
     storageGB: 5,
     coworkingMembros: 1,
+    portalClienteCompleto: false,
+    relatoriosCompletos: false,
   },
   profissional: {
     projetos: null,
     clientes: null,
     storageGB: 20,
     coworkingMembros: 5,
+    portalClienteCompleto: true,
+    relatoriosCompletos: true,
   },
 };
 

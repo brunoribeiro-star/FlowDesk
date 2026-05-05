@@ -356,6 +356,7 @@ export default function ConfiguracoesPage() {
 
   function isCurrentPlan(plan: string): boolean {
     if (subscription.isTrialActive || subscription.plan !== plan) return false;
+    if (!subscription.currentPeriodEnd) return false;
     if (subscription.billingInterval === null) return true;
     return subscription.billingInterval === billingPeriod;
   }

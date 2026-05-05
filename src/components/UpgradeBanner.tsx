@@ -7,6 +7,8 @@ const LIMIT_LABELS: Record<string, string> = {
   clientes: "Você atingiu o limite de clientes do plano Essencial.",
   storage: "Seu armazenamento está cheio.",
   coworking: "Limite de colaboradores atingido. Faça upgrade para adicionar mais.",
+  portal_cliente: "Entregáveis e aprovações pelo cliente são exclusivos do plano Profissional.",
+  relatorios: "Relatórios completos são exclusivos do plano Profissional.",
 };
 
 export default function UpgradeBanner() {

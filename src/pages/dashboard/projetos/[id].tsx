@@ -17,7 +17,7 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe, Send, Plus } from "lucide-react";
+import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe, Send, Plus, Lock, Zap } from "lucide-react";
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1955,6 +1955,29 @@ export default function ProjetoDetalhesPage() {
                 )}
 
                 {activeTab === "entregaveis" && (() => {
+                  if (!subscription.limits.portalClienteCompleto) {
+                    return (
+                      <div className="flex flex-col items-center justify-center h-full gap-4 text-center py-16">
+                        <div className="w-12 h-12 rounded-2xl bg-primary-800 border border-primary-700 flex items-center justify-center">
+                          <Lock size={22} className="text-primary-400" />
+                        </div>
+                        <div>
+                          <h3 className="text-[17px] font-semibold text-gray-100 mb-1">Recurso do plano Profissional</h3>
+                          <p className="text-[14px] text-gray-400 max-w-sm leading-relaxed">
+                            Entregáveis e aprovações pelo cliente estão disponíveis apenas no plano Profissional.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => router.push("/dashboard/configuracoes?tab=assinatura")}
+                          className="flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-xl text-[14px] transition-colors"
+                        >
+                          <Zap size={15} />
+                          Ver planos
+                        </button>
+                      </div>
+                    );
+                  }
                   const isOwner = projeto?.user_id === user?.id;
                   const counts = {
                     todos: entregaveis.length,
