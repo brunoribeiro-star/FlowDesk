@@ -13,7 +13,7 @@ import { applyTheme, getStoredTheme, ThemeSlug } from "@/utils/themeLoader";
 import { User, Palette, LayoutGrid, Shield, Eye, EyeOff, Check, Upload, CreditCard, Zap, HardDrive, ExternalLink, ChevronRight, Trash2, FileText, File, FolderOpen, AlertTriangle } from "lucide-react";
 import clsx from "clsx";
 import { useSubscription } from "@/hooks/useSubscription";
-import { PLAN_PRICES, type BillingPeriod } from "@/lib/stripeConfig";
+import { PLAN_PRICES, TRIAL_DAYS, type BillingPeriod } from "@/lib/stripeConfig";
 
 type SettingsSection = "perfil" | "aparencia" | "exibicao" | "seguranca" | "assinatura" | "armazenamento";
 type ToastType = "success" | "error" | "info";
@@ -1122,15 +1122,23 @@ export default function ConfiguracoesPage() {
                       </div>
                       {subscription.isTrialActive && subscription.trialEnd && (() => {
                         const daysLeft = Math.ceil((new Date(subscription.trialEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                        const progress = Math.max(0, Math.min(100, (daysLeft / TRIAL_DAYS) * 100));
                         return (
-                          <p className="text-[13px] text-gray-400">
-                            <span className="text-amber-300 font-semibold">{daysLeft} {daysLeft === 1 ? "dia" : "dias"} restantes</span>
-                            {" "}de teste grátis — assine antes de{" "}
-                            <span className="text-gray-200 font-medium">
-                              {new Date(subscription.trialEnd).toLocaleDateString("pt-BR")}
-                            </span>
-                            {" "}para não perder o acesso.
-                          </p>
+                          <div className="mt-1">
+                            <p className="text-[13px] text-gray-400 mb-2">
+                              <span className="text-amber-300 font-semibold">{daysLeft} {daysLeft === 1 ? "dia" : "dias"} restantes</span>
+                              {" "}de teste grátis — expira em{" "}
+                              <span className="text-gray-200 font-medium">
+                                {new Date(subscription.trialEnd).toLocaleDateString("pt-BR")}
+                              </span>
+                            </p>
+                            <div className="w-full h-1.5 bg-primary-700 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-amber-400 rounded-full transition-all"
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                          </div>
                         );
                       })()}
                       {!subscription.isTrialActive && subscription.currentPeriodEnd && (
@@ -1142,7 +1150,7 @@ export default function ConfiguracoesPage() {
                         </p>
                       )}
                       {!subscription.isTrialActive && !subscription.currentPeriodEnd && (
-                        <p className="text-[13px] text-gray-400">Plano gratuito com recursos limitados.</p>
+                        <p className="text-[13px] text-gray-400">Plano Essencial — sem assinatura ativa.</p>
                       )}
                     </div>
                     {subscription.currentPeriodEnd && (
