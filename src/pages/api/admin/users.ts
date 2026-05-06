@@ -51,6 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status,
       isTrialActive,
       isLifetime: sub?.is_lifetime ?? false,
+      stripeSubscriptionId: sub?.stripe_subscription_id ?? null,
+      billingInterval: sub?.billing_interval ?? null,
       trialEnd: isTrialActive ? trialEnd.toISOString() : null,
       currentPeriodEnd: sub?.current_period_end ?? null,
       trialUsed: sub?.trial_used ?? false,
