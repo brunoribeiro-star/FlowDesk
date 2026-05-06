@@ -28,6 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const trialEnd = new Date(createdAt.getTime() + TRIAL_DAYS * 24 * 60 * 60 * 1000);
   const isTrialActive = !sub?.trial_used && now < trialEnd;
 
+  const isLifetime = sub?.is_lifetime ?? false;
   const plan: PlanId = isTrialActive ? "trial" : (sub?.plan as PlanId) ?? "essencial";
   const status = sub?.status ?? (isTrialActive ? "trialing" : "free");
   const extraStorageGB = ((sub?.extra_storage_addons ?? 0) as number) * STORAGE_ADDON_GB;
@@ -37,6 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     plan,
     status,
     isTrialActive,
+    isLifetime,
     trialEnd: isTrialActive ? trialEnd.toISOString() : null,
     currentPeriodEnd: sub?.current_period_end ?? null,
     cancelAtPeriodEnd: sub?.cancel_at_period_end ?? false,

@@ -16,6 +16,7 @@ interface AdminUser {
   plan: string;
   status: string;
   isTrialActive: boolean;
+  isLifetime: boolean;
   trialEnd: string | null;
   currentPeriodEnd: string | null;
   trialUsed: boolean;
@@ -40,6 +41,9 @@ const DURATION_OPTIONS = [
 ];
 
 function planBadge(user: AdminUser) {
+  if (user.isLifetime) {
+    return { label: "Permanente", cls: "bg-green-500/15 text-green-400 border border-green-500/30" };
+  }
   if (user.isTrialActive) {
     return { label: "Trial ativo", cls: "bg-amber-500/15 text-amber-300 border border-amber-500/30" };
   }
@@ -66,6 +70,7 @@ function daysLeft(date: string | null) {
   if (!date) return null;
   const diff = Math.ceil((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (diff <= 0) return null;
+  if (diff > 1825) return null; // > 5 anos = conta permanente, não mostrar
   return diff;
 }
 
@@ -83,6 +88,7 @@ export default function AdminPage() {
   const [grantTarget, setGrantTarget] = useState<AdminUser | null>(null);
   const [grantPlan, setGrantPlan] = useState<"essencial" | "profissional">("profissional");
   const [grantDays, setGrantDays] = useState(30);
+  const [grantLifetime, setGrantLifetime] = useState(false);
   const [granting, setGranting] = useState(false);
   const [grantSuccess, setGrantSuccess] = useState(false);
 
@@ -140,7 +146,7 @@ export default function AdminPage() {
     const res = await fetch("/api/admin/grant-plan", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ userId: grantTarget.id, plan: grantPlan, days: grantDays }),
+      body: JSON.stringify({ userId: grantTarget.id, plan: grantPlan, days: grantDays, lifetime: grantLifetime }),
     });
     if (res.ok) {
       setGrantSuccess(true);
@@ -189,7 +195,6 @@ export default function AdminPage() {
 
       <div className="min-h-screen bg-primary-900 text-gray-100">
 
-        {/* Top bar */}
         <div className="border-b border-primary-800 px-6 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={110} height={28} priority />
@@ -210,7 +215,6 @@ export default function AdminPage() {
 
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-6">
 
-          {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
               { label: "Usuários", value: stats.total, icon: <Users size={16} className="text-primary-400" /> },
@@ -230,7 +234,6 @@ export default function AdminPage() {
             ))}
           </div>
 
-          {/* Search + tabs + refresh */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[200px]">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -273,7 +276,6 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {/* Users tab */}
           {tab === "usuarios" && (
             <div className="flex flex-col gap-2">
               {loadingUsers ? (
@@ -288,23 +290,19 @@ export default function AdminPage() {
                   const remaining = daysLeft(u.isTrialActive ? u.trialEnd : u.currentPeriodEnd);
                   return (
                     <div key={u.id} className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-4">
-                      {/* Avatar */}
                       <div className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-[13px] font-semibold text-primary-300 shrink-0">
                         {initials(u.nome, u.email)}
                       </div>
 
-                      {/* Name + email */}
                       <div className="flex-1 min-w-0">
                         <p className="text-[14px] font-medium text-gray-100 truncate">{u.nome ?? "—"}</p>
                         <p className="text-[12px] text-gray-500 truncate">{u.email}</p>
                       </div>
 
-                      {/* Badge */}
                       <span className={clsx("hidden sm:inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0", badge.cls)}>
                         {badge.label}
                       </span>
 
-                      {/* Dates */}
                       <div className="hidden md:flex flex-col items-end shrink-0 text-[11px] text-gray-500">
                         <span>Cadastro: {fmt(u.created_at)}</span>
                         {remaining !== null && (
@@ -317,10 +315,9 @@ export default function AdminPage() {
                         )}
                       </div>
 
-                      {/* Grant button */}
                       <button
                         type="button"
-                        onClick={() => { setGrantTarget(u); setGrantPlan("profissional"); setGrantDays(30); setGrantSuccess(false); }}
+                        onClick={() => { setGrantTarget(u); setGrantPlan("profissional"); setGrantDays(30); setGrantLifetime(false); setGrantSuccess(false); }}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-200 transition-colors shrink-0"
                       >
                         <Zap size={12} />
@@ -333,7 +330,6 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Leads tab */}
           {tab === "leads" && (
             <div className="flex flex-col gap-2">
               {loadingLeads ? (
@@ -368,7 +364,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Grant plan modal */}
       {grantTarget && (
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4"
@@ -388,7 +383,6 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {/* Plan selector */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] font-medium text-gray-400">Plano</label>
               <div className="flex gap-2">
@@ -410,22 +404,45 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Duration selector */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[12px] font-medium text-gray-400">Duração</label>
-              <div className="relative">
-                <select
-                  value={grantDays}
-                  onChange={e => setGrantDays(Number(e.target.value))}
-                  className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 appearance-none transition-colors"
-                >
-                  {DURATION_OPTIONS.map(opt => (
-                    <option key={opt.days} value={opt.days}>{opt.label}</option>
-                  ))}
-                </select>
-                <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+            <button
+              type="button"
+              onClick={() => setGrantLifetime(v => !v)}
+              className={clsx(
+                "flex items-center justify-between w-full px-4 py-2.5 rounded-xl border text-[13px] transition-colors",
+                grantLifetime
+                  ? "bg-green-500/15 border-green-500/40 text-green-300"
+                  : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
+              )}
+            >
+              <span>Acesso permanente</span>
+              <div className={clsx(
+                "w-8 h-4 rounded-full relative transition-colors",
+                grantLifetime ? "bg-green-500" : "bg-primary-600"
+              )}>
+                <div className={clsx(
+                  "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
+                  grantLifetime ? "translate-x-4" : "translate-x-0.5"
+                )} />
               </div>
-            </div>
+            </button>
+
+            {!grantLifetime && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12px] font-medium text-gray-400">Duração</label>
+                <div className="relative">
+                  <select
+                    value={grantDays}
+                    onChange={e => setGrantDays(Number(e.target.value))}
+                    className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 appearance-none transition-colors"
+                  >
+                    {DURATION_OPTIONS.map(opt => (
+                      <option key={opt.days} value={opt.days}>{opt.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
@@ -438,7 +455,7 @@ export default function AdminPage() {
                   : "bg-primary-500 hover:bg-primary-400 text-primary-900 disabled:opacity-60"
               )}
             >
-              {grantSuccess ? "Plano concedido!" : granting ? "Concedendo..." : `Conceder ${grantDays} dias de ${grantPlan === "profissional" ? "Profissional" : "Essencial"}`}
+              {grantSuccess ? "Plano concedido!" : granting ? "Concedendo..." : grantLifetime ? `Conceder acesso permanente (${grantPlan === "profissional" ? "Profissional" : "Essencial"})` : `Conceder ${grantDays} dias de ${grantPlan === "profissional" ? "Profissional" : "Essencial"}`}
             </button>
           </div>
         </div>

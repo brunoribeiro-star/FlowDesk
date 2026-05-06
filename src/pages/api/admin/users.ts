@@ -50,6 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       plan,
       status,
       isTrialActive,
+      isLifetime: sub?.is_lifetime ?? false,
       trialEnd: isTrialActive ? trialEnd.toISOString() : null,
       currentPeriodEnd: sub?.current_period_end ?? null,
       trialUsed: sub?.trial_used ?? false,

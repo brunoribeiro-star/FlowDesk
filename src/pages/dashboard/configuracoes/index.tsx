@@ -356,6 +356,7 @@ export default function ConfiguracoesPage() {
 
   function isCurrentPlan(plan: string): boolean {
     if (subscription.isTrialActive || subscription.plan !== plan) return false;
+    if (subscription.isLifetime) return true;
     if (!subscription.currentPeriodEnd) return false;
     if (subscription.billingInterval === null) return true;
     return subscription.billingInterval === billingPeriod;
@@ -1142,7 +1143,10 @@ export default function ConfiguracoesPage() {
                           </div>
                         );
                       })()}
-                      {!subscription.isTrialActive && subscription.currentPeriodEnd && (
+                      {subscription.isLifetime && (
+                        <p className="text-[13px] text-green-400 font-medium">Acesso permanente</p>
+                      )}
+                      {!subscription.isLifetime && !subscription.isTrialActive && subscription.currentPeriodEnd && (
                         <p className="text-[13px] text-gray-400">
                           {subscription.cancelAtPeriodEnd ? "Cancela em" : "Renova em"}{" "}
                           <span className="text-gray-200 font-medium">
@@ -1150,7 +1154,7 @@ export default function ConfiguracoesPage() {
                           </span>
                         </p>
                       )}
-                      {!subscription.isTrialActive && !subscription.currentPeriodEnd && (
+                      {!subscription.isLifetime && !subscription.isTrialActive && !subscription.currentPeriodEnd && (
                         <p className="text-[13px] text-gray-400">Plano Essencial — sem assinatura ativa.</p>
                       )}
                     </div>

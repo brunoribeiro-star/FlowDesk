@@ -6,6 +6,7 @@ export interface SubscriptionStatus {
   plan: PlanId;
   status: string;
   isTrialActive: boolean;
+  isLifetime: boolean;
   trialEnd: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -20,6 +21,7 @@ const DEFAULT: SubscriptionStatus = {
   plan: "essencial",
   status: "free",
   isTrialActive: false,
+  isLifetime: false,
   trialEnd: null,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
@@ -53,6 +55,7 @@ export function useSubscription(): SubscriptionStatus & { refresh: () => void } 
       setData({ ...DEFAULT, loading: false });
       return;
     }
+    setData((prev) => ({ ...prev, loading: true }));
     fetch();
   }, [user, fetch]);
 

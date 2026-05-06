@@ -25,8 +25,8 @@ function PageContent({ Component, pageProps, pathname }: { Component: any; pageP
   const isConfiguracoes = pathname.startsWith("/dashboard/configuracoes");
 
   const hasValidSubscription =
-    !!subscription.currentPeriodEnd &&
-    new Date(subscription.currentPeriodEnd) > new Date();
+    subscription.isLifetime ||
+    (!!subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd) > new Date());
 
   const isTrialExpired =
     isDashboard &&

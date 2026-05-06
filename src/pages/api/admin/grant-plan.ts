@@ -18,17 +18,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).end();
   if (!(await requireAdmin(req))) return res.status(403).json({ error: "Forbidden" });
 
-  const { userId, plan, days } = req.body as {
+  const { userId, plan, days, lifetime } = req.body as {
     userId?: string;
     plan?: "essencial" | "profissional";
     days?: number;
+    lifetime?: boolean;
   };
 
-  if (!userId || !plan || !days) {
-    return res.status(400).json({ error: "userId, plan e days são obrigatórios." });
+  if (!userId || !plan || (!lifetime && !days)) {
+    return res.status(400).json({ error: "userId, plan e days (ou lifetime) são obrigatórios." });
   }
 
-  const periodEnd = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+  const periodEnd = lifetime
+    ? null
+    : new Date(Date.now() + (days!) * 24 * 60 * 60 * 1000).toISOString();
 
   const { error } = await supabase.from("subscriptions").upsert(
     {
@@ -39,6 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       trial_used: true,
       cancel_at_period_end: false,
       billing_interval: "mensal",
+      is_lifetime: lifetime ?? false,
     },
     { onConflict: "user_id" }
   );
