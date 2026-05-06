@@ -1,18 +1,25 @@
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Head from "next/head";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
 import {
-  Users, Zap, CreditCard, Search, X, ChevronDown, LogOut, RefreshCw,
-  Mail, Trash2, AlertTriangle,
+  Users, Zap, Search, X, ChevronDown, LogOut,
+  RefreshCw, Mail, Trash2, AlertTriangle, LayoutDashboard,
+  ExternalLink, Camera,
 } from "lucide-react";
 import clsx from "clsx";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer,
+  ComposedChart, Bar, Line,
+  AreaChart, Area,
+  BarChart,
+  PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface AdminUser {
   id: string;
@@ -49,8 +56,49 @@ interface RevenueData {
   totalUsers: number;
 }
 
-type Tab = "usuarios" | "leads" | "receita";
+interface SnapshotRow {
+  date: string;
+  mrr: number;
+  arr: number;
+  active_subscribers: number;
+  essencial_count: number;
+  profissional_count: number;
+  total_users: number;
+  trial_count: number;
+  new_users_today: number;
+}
+
+interface AnalyticsData {
+  snapshots: SnapshotRow[];
+  userGrowth: { label: string; novos: number }[];
+  hasSnapshotData: boolean;
+  period: string;
+  groupBy: "day" | "week" | "month";
+  totalUsers: number;
+}
+
+type Page = "dashboard" | "usuarios" | "leads";
+type Period = "7d" | "30d" | "90d" | "180d" | "365d" | "all";
 type FilterType = "all" | "trial" | "pagantes";
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+
+const SNAP_PERIODS: { label: string; value: Period }[] = [
+  { label: "30 dias", value: "30d" },
+  { label: "3 meses", value: "90d" },
+  { label: "6 meses", value: "180d" },
+  { label: "1 ano", value: "365d" },
+  { label: "Tudo", value: "all" },
+];
+
+const USER_PERIODS: { label: string; value: Period }[] = [
+  { label: "7 dias", value: "7d" },
+  { label: "30 dias", value: "30d" },
+  { label: "3 meses", value: "90d" },
+  { label: "6 meses", value: "180d" },
+  { label: "1 ano", value: "365d" },
+  { label: "Tudo", value: "all" },
+];
 
 const DURATION_OPTIONS = [
   { label: "30 dias", days: 30 },
@@ -60,19 +108,15 @@ const DURATION_OPTIONS = [
   { label: "1 ano", days: 365 },
 ];
 
+const PIE_COLORS = ["var(--primary-500)", "#60a5fa", "#34d399", "#f59e0b"];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function planBadge(user: AdminUser) {
-  if (user.isLifetime) {
-    return { label: "Permanente", cls: "bg-green-500/15 text-green-400 border border-green-500/30" };
-  }
-  if (user.isTrialActive) {
-    return { label: "Trial ativo", cls: "bg-amber-500/15 text-amber-300 border border-amber-500/30" };
-  }
-  if (user.plan === "profissional" && user.currentPeriodEnd) {
-    return { label: "Profissional", cls: "bg-primary-500/20 text-primary-300 border border-primary-500/30" };
-  }
-  if (user.plan === "essencial" && user.currentPeriodEnd) {
-    return { label: "Essencial", cls: "bg-primary-800 text-gray-300 border border-primary-600" };
-  }
+  if (user.isLifetime) return { label: "Permanente", cls: "bg-green-500/15 text-green-400 border border-green-500/30" };
+  if (user.isTrialActive) return { label: "Trial ativo", cls: "bg-amber-500/15 text-amber-300 border border-amber-500/30" };
+  if (user.plan === "profissional" && user.currentPeriodEnd) return { label: "Profissional", cls: "bg-primary-500/20 text-primary-300 border border-primary-500/30" };
+  if (user.plan === "essencial" && user.currentPeriodEnd) return { label: "Essencial", cls: "bg-primary-800 text-gray-300 border border-primary-600" };
   return { label: "Sem plano", cls: "bg-rose-500/15 text-rose-400 border border-rose-500/30" };
 }
 
@@ -96,19 +140,574 @@ function fmtCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function fmtDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function ChartTip({ active, payload, label, currency }: any) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-primary-900 border border-primary-600 rounded-lg px-3 py-2.5 text-[12px] shadow-xl min-w-[120px]">
+      <div className="text-gray-400 mb-1.5 font-medium">{label}</div>
+      {payload.map((entry: any) => (
+        <div key={entry.dataKey} className="flex items-center gap-2 mb-0.5">
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: entry.color }} />
+          <span className="text-gray-300">{entry.name ?? entry.dataKey}:</span>
+          <span className="text-gray-100 font-semibold">
+            {currency ? fmtCurrency(Number(entry.value)) : entry.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PeriodPills({ options, value, onChange }: {
+  options: { label: string; value: Period }[];
+  value: Period;
+  onChange: (v: Period) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {options.map(o => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={clsx(
+            "px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors",
+            value === o.value
+              ? "bg-primary-500 text-primary-900"
+              : "bg-primary-800 border border-primary-700 text-gray-400 hover:text-gray-200"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ─── DashboardPage ───────────────────────────────────────────────────────────
+
+interface DashboardPageProps {
+  revenueData: RevenueData | null;
+  loadingRevenue: boolean;
+  totalUsers: number;
+  trialCount: number;
+  getToken: () => Promise<string>;
+  onTriggerSnapshot: () => void;
+  snapshotting: boolean;
+}
+
+function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, getToken, onTriggerSnapshot, snapshotting }: DashboardPageProps) {
+  const [snapPeriod, setSnapPeriod] = useState<Period>("90d");
+  const [snapData, setSnapData] = useState<AnalyticsData | null>(null);
+  const [loadingSnap, setLoadingSnap] = useState(true);
+
+  const [userPeriod, setUserPeriod] = useState<Period>("90d");
+  const [userData, setUserData] = useState<AnalyticsData | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  const fetchSnap = useCallback(async (period: Period) => {
+    setLoadingSnap(true);
+    const token = await getToken();
+    const res = await fetch(`/api/admin/analytics?period=${period}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) setSnapData(await res.json());
+    setLoadingSnap(false);
+  }, [getToken]);
+
+  const fetchUser = useCallback(async (period: Period) => {
+    setLoadingUser(true);
+    const token = await getToken();
+    const res = await fetch(`/api/admin/analytics?period=${period}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) setUserData(await res.json());
+    setLoadingUser(false);
+  }, [getToken]);
+
+  useEffect(() => { fetchSnap(snapPeriod); }, [snapPeriod, fetchSnap]);
+  useEffect(() => { fetchUser(userPeriod); }, [userPeriod, fetchUser]);
+
+  const planDistData = revenueData
+    ? Object.entries(revenueData.planDistribution).map(([plan, count]) => ({
+        name: plan === "profissional" ? "Profissional" : "Essencial",
+        value: count,
+      }))
+    : [];
+
+  const noSnap = !loadingSnap && (!snapData?.hasSnapshotData || snapData.snapshots.length === 0);
+
+  return (
+    <div className="flex flex-col gap-5">
+
+      {/* ── Stats row ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {[
+          { label: "MRR", value: fmtCurrency(revenueData?.mrr ?? 0), sub: "mensal recorrente", color: "text-primary-300" },
+          { label: "ARR", value: fmtCurrency(revenueData?.arr ?? 0), sub: "anual recorrente", color: "text-primary-300" },
+          { label: "Assinantes", value: String(revenueData?.activeSubscribers ?? 0), sub: "planos Stripe ativos", color: "text-green-400" },
+          { label: "Usuários", value: String(totalUsers), sub: "contas criadas", color: "text-gray-200" },
+          { label: "Em trial", value: String(trialCount), sub: "trial ativo agora", color: "text-amber-400" },
+        ].map(s => (
+          <div key={s.label} className="bg-primary-800 border border-primary-700 rounded-xl p-4">
+            <p className="text-[11px] text-gray-500 mb-1">{s.label}</p>
+            <p className={clsx("text-[20px] font-bold leading-tight", s.color)}>{loadingRevenue ? "—" : s.value}</p>
+            <p className="text-[10px] text-gray-600 mt-0.5">{s.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Revenue + Plan distribution ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {/* MRR + Assinantes (ComposedChart) — 2/3 width */}
+        <div className="lg:col-span-2 bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h3 className="text-[14px] font-semibold text-gray-200">MRR & Assinantes ativos</h3>
+            <PeriodPills options={SNAP_PERIODS} value={snapPeriod} onChange={v => { setSnapPeriod(v); }} />
+          </div>
+
+          {loadingSnap ? (
+            <div className="h-56 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : noSnap ? (
+            <div className="h-56 flex flex-col items-center justify-center gap-2 text-center">
+              <p className="text-[13px] text-gray-400 font-medium">Histórico ainda sendo coletado</p>
+              <p className="text-[12px] text-gray-600 max-w-[260px]">O cron grava um snapshot por dia. Volte amanhã para ver a primeira tendência, ou grave agora.</p>
+              <button
+                type="button"
+                onClick={onTriggerSnapshot}
+                disabled={snapshotting}
+                className="mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 border border-primary-600 rounded-lg text-[12px] text-gray-300 hover:text-gray-100 transition-colors disabled:opacity-60"
+              >
+                <Camera size={12} />
+                {snapshotting ? "Gravando..." : "Gravar snapshot agora"}
+              </button>
+            </div>
+          ) : (
+            <div className="h-56">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={snapData!.snapshots} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradMrr" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--primary-500)" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="var(--primary-500)" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-700)" vertical={false} />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={fmtDate}
+                    tick={{ fill: "#9ca3af", fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    yAxisId="mrr"
+                    orientation="left"
+                    tickFormatter={v => `R$${(v / 1000).toFixed(1)}k`}
+                    tick={{ fill: "#9ca3af", fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={52}
+                  />
+                  <YAxis
+                    yAxisId="sub"
+                    orientation="right"
+                    tick={{ fill: "#9ca3af", fontSize: 10 }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                    width={28}
+                  />
+                  <Tooltip content={<ChartTip currency />} />
+                  <Bar yAxisId="sub" dataKey="active_subscribers" name="Assinantes" fill="#60a5fa" fillOpacity={0.35} radius={[3, 3, 0, 0]} />
+                  <Line yAxisId="mrr" type="monotone" dataKey="mrr" name="MRR" stroke="var(--primary-500)" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Plan distribution — 1/3 width */}
+        <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
+          <h3 className="text-[14px] font-semibold text-gray-200">Distribuição de planos</h3>
+          {loadingRevenue ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : planDistData.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-[12px] text-gray-500 text-center">Nenhum assinante ativo ainda</p>
+            </div>
+          ) : (
+            <>
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={planDistData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={64}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {planDistData.map((_, i) => (
+                        <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }: any) => {
+                        if (!active || !payload?.length) return null;
+                        return (
+                          <div className="bg-primary-900 border border-primary-600 rounded-lg px-3 py-2 text-[12px] shadow-xl">
+                            <div className="text-gray-300 font-medium">{payload[0].name}</div>
+                            <div className="text-gray-100">{payload[0].value} assinantes</div>
+                          </div>
+                        );
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-col gap-2">
+                {planDistData.map((d, i) => (
+                  <div key={d.name} className="flex items-center justify-between text-[12px]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="text-gray-400">{d.name}</span>
+                    </div>
+                    <span className="text-gray-200 font-medium">{d.value}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* ── ARR ao longo do tempo ── */}
+      {!noSnap && snapData && snapData.snapshots.length > 0 && (
+        <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h3 className="text-[14px] font-semibold text-gray-200">ARR ao longo do tempo</h3>
+            <PeriodPills options={SNAP_PERIODS} value={snapPeriod} onChange={setSnapPeriod} />
+          </div>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={snapData.snapshots} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradArr" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#60a5fa" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="#60a5fa" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-700)" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tickFormatter={v => `R$${(v / 1000).toFixed(1)}k`} tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} width={52} />
+                <Tooltip content={<ChartTip currency />} />
+                <Area type="monotone" dataKey="arr" name="ARR" stroke="#60a5fa" strokeWidth={2} fill="url(#gradArr)" dot={false} activeDot={{ r: 4, fill: "#60a5fa" }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Total de usuários acumulado ── */}
+      {!noSnap && snapData && snapData.snapshots.length > 0 && (
+        <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h3 className="text-[14px] font-semibold text-gray-200">Total de usuários cadastrados</h3>
+            <PeriodPills options={SNAP_PERIODS} value={snapPeriod} onChange={setSnapPeriod} />
+          </div>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={snapData.snapshots} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="gradUsers" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-700)" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={fmtDate} tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} width={36} />
+                <Tooltip content={<ChartTip />} />
+                <Area type="monotone" dataKey="total_users" name="Total" stroke="#34d399" strokeWidth={2} fill="url(#gradUsers)" dot={false} activeDot={{ r: 4, fill: "#34d399" }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* ── Novos usuários por período ── */}
+      <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h3 className="text-[14px] font-semibold text-gray-200">Novos usuários</h3>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {userData?.groupBy === "day" ? "agrupado por dia" : userData?.groupBy === "week" ? "agrupado por semana" : "agrupado por mês"}
+            </p>
+          </div>
+          <PeriodPills options={USER_PERIODS} value={userPeriod} onChange={v => { setUserPeriod(v); }} />
+        </div>
+        {loadingUser ? (
+          <div className="h-52 flex items-center justify-center">
+            <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : (
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={userData?.userGrowth ?? []} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-700)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                <YAxis tick={{ fill: "#9ca3af", fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} width={28} />
+                <Tooltip content={<ChartTip />} />
+                <Bar dataKey="novos" name="Novos usuários" fill="var(--primary-500)" fillOpacity={0.85} radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      {/* ── Gravar snapshot manual ── */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onTriggerSnapshot}
+          disabled={snapshotting}
+          className="flex items-center gap-2 px-4 py-2 bg-primary-800 border border-primary-700 hover:border-primary-600 rounded-xl text-[12px] text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-60"
+        >
+          <Camera size={13} />
+          {snapshotting ? "Gravando snapshot..." : "Gravar snapshot agora"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── UsersPage ───────────────────────────────────────────────────────────────
+
+interface UsersPageProps {
+  users: AdminUser[];
+  loading: boolean;
+  onGrant: (user: AdminUser) => void;
+  onDelete: (user: AdminUser) => void;
+}
+
+function UsersPage({ users, loading, onGrant, onDelete }: UsersPageProps) {
+  const [search, setSearch] = useState("");
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const now = new Date();
+
+  const filtered = users.filter(u => {
+    if (search) {
+      const s = search.toLowerCase();
+      if (!u.email.toLowerCase().includes(s) && !(u.nome ?? "").toLowerCase().includes(s)) return false;
+    }
+    if (activeFilter === "trial") return u.isTrialActive;
+    if (activeFilter === "pagantes") return !!u.stripeSubscriptionId && !!u.currentPeriodEnd && new Date(u.currentPeriodEnd) > now;
+    return true;
+  });
+
+  const counts = {
+    all: users.length,
+    trial: users.filter(u => u.isTrialActive).length,
+    pagantes: users.filter(u => !!u.stripeSubscriptionId && !!u.currentPeriodEnd && new Date(u.currentPeriodEnd) > now).length,
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar por nome ou e-mail..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-primary-800 border border-primary-700 rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center bg-primary-800 border border-primary-700 rounded-xl p-1 gap-0.5">
+          {([
+            { label: `Todos (${counts.all})`, value: "all" },
+            { label: `Trial (${counts.trial})`, value: "trial" },
+            { label: `Pagantes (${counts.pagantes})`, value: "pagantes" },
+          ] as { label: string; value: FilterType }[]).map(f => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setActiveFilter(f.value)}
+              className={clsx(
+                "px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
+                activeFilter === f.value ? "bg-primary-500 text-primary-900" : "text-gray-400 hover:text-gray-200"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {loading ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-[68px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
+          ))
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 text-[14px]">Nenhum usuário encontrado.</div>
+        ) : (
+          filtered.map(u => {
+            const badge = planBadge(u);
+            const dateForDays = u.isTrialActive ? u.trialEnd : u.currentPeriodEnd;
+            const remaining = u.isLifetime ? null : daysLeft(dateForDays);
+            const isManualGrant = !u.stripeSubscriptionId && !!u.currentPeriodEnd && !u.isLifetime;
+
+            return (
+              <div key={u.id} className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-4">
+                <div className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-[13px] font-semibold text-primary-300 shrink-0">
+                  {initials(u.nome, u.email)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-gray-100 truncate">{u.nome ?? "—"}</p>
+                  <p className="text-[12px] text-gray-500 truncate">{u.email}</p>
+                </div>
+                <span className={clsx("hidden sm:inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0", badge.cls)}>
+                  {badge.label}
+                </span>
+                <div className="hidden md:flex flex-col items-end shrink-0 text-[11px] text-gray-500 min-w-[110px]">
+                  <span>Cadastro: {fmt(u.created_at)}</span>
+                  {u.isLifetime && <span className="text-green-400">Acesso permanente</span>}
+                  {!u.isLifetime && remaining !== null && (
+                    <span className={remaining <= 3 ? "text-rose-400" : "text-gray-500"}>
+                      {u.isTrialActive ? "Trial" : isManualGrant ? "Expira" : "Renova"} em {remaining}d
+                    </span>
+                  )}
+                  {!u.isLifetime && remaining === null && u.currentPeriodEnd && (
+                    <span className="text-rose-400">Expirou {fmt(u.currentPeriodEnd)}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onGrant(u)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-200 transition-colors"
+                  >
+                    <Zap size={12} />
+                    Conceder
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(u)}
+                    className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-700 hover:bg-rose-500/15 border border-primary-600 hover:border-rose-500/40 text-gray-500 hover:text-rose-400 transition-colors"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── LeadsPage ───────────────────────────────────────────────────────────────
+
+interface LeadsPageProps {
+  leads: Lead[];
+  loading: boolean;
+}
+
+function LeadsPage({ leads, loading }: LeadsPageProps) {
+  const [search, setSearch] = useState("");
+
+  const filtered = leads.filter(l =>
+    !search ||
+    l.email.toLowerCase().includes(search.toLowerCase()) ||
+    (l.nome ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="relative max-w-sm">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Buscar lead..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full bg-primary-800 border border-primary-700 rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
+        />
+        {search && (
+          <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+            <X size={13} />
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-[60px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
+          ))
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 text-[14px]">Nenhum lead encontrado.</div>
+        ) : (
+          filtered.map(l => (
+            <div key={l.id} className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-4">
+              <div className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-[13px] font-semibold text-primary-300 shrink-0">
+                {initials(l.nome, l.email)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-medium text-gray-100 truncate">{l.nome ?? "—"}</p>
+                <p className="text-[12px] text-gray-500 truncate">{l.email}</p>
+              </div>
+              <span className="hidden sm:block text-[11px] text-gray-500 shrink-0">{fmt(l.created_at)}</span>
+              <a
+                href={`mailto:${l.email}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-200 transition-colors shrink-0"
+              >
+                <Mail size={12} />
+                Contatar
+              </a>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── AdminPage ───────────────────────────────────────────────────────────────
+
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [tab, setTab] = useState<Tab>("usuarios");
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [page, setPage] = useState<Page>("dashboard");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [revenueData, setRevenueData] = useState<RevenueData | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [loadingRevenue, setLoadingRevenue] = useState(true);
-  const [search, setSearch] = useState("");
+  const [snapshotting, setSnapshotting] = useState(false);
 
   const [grantTarget, setGrantTarget] = useState<AdminUser | null>(null);
   const [grantPlan, setGrantPlan] = useState<"essencial" | "profissional">("profissional");
@@ -124,54 +723,37 @@ export default function AdminPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.replace("/login"); return; }
-    if (user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
-      router.replace("/dashboard");
-    }
+    if (user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) router.replace("/dashboard");
   }, [user, authLoading, router]);
 
-  async function getToken() {
+  const getToken = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token ?? "";
-  }
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     const token = await getToken();
-    const res = await fetch("/api/admin/users", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setUsers(data.users ?? []);
-    }
+    const res = await fetch("/api/admin/users", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) { const d = await res.json(); setUsers(d.users ?? []); }
     setLoadingUsers(false);
-  }, []);
+  }, [getToken]);
 
   const fetchLeads = useCallback(async () => {
     setLoadingLeads(true);
     const token = await getToken();
-    const res = await fetch("/api/admin/leads", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setLeads(data.leads ?? []);
-    }
+    const res = await fetch("/api/admin/leads", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) { const d = await res.json(); setLeads(d.leads ?? []); }
     setLoadingLeads(false);
-  }, []);
+  }, [getToken]);
 
   const fetchRevenue = useCallback(async () => {
     setLoadingRevenue(true);
     const token = await getToken();
-    const res = await fetch("/api/admin/revenue", {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setRevenueData(data);
-    }
+    const res = await fetch("/api/admin/revenue", { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) setRevenueData(await res.json());
     setLoadingRevenue(false);
-  }, []);
+  }, [getToken]);
 
   useEffect(() => {
     if (!user || user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) return;
@@ -179,6 +761,17 @@ export default function AdminPage() {
     fetchLeads();
     fetchRevenue();
   }, [user, fetchUsers, fetchLeads, fetchRevenue]);
+
+  async function handleTriggerSnapshot() {
+    setSnapshotting(true);
+    const token = await getToken();
+    await fetch("/api/admin/snapshot", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    setSnapshotting(false);
+    fetchRevenue();
+  }
 
   async function handleGrantPlan() {
     if (!grantTarget) return;
@@ -192,10 +785,7 @@ export default function AdminPage() {
     if (res.ok) {
       setGrantSuccess(true);
       fetchUsers();
-      setTimeout(() => {
-        setGrantTarget(null);
-        setGrantSuccess(false);
-      }, 1200);
+      setTimeout(() => { setGrantTarget(null); setGrantSuccess(false); }, 1200);
     }
     setGranting(false);
   }
@@ -214,61 +804,30 @@ export default function AdminPage() {
       setUsers(prev => prev.filter(u => u.id !== deleteTarget.id));
       setDeleteTarget(null);
     } else {
-      const data = await res.json();
-      setDeleteError(data.error ?? "Erro ao excluir usuário.");
+      const d = await res.json();
+      setDeleteError(d.error ?? "Erro ao excluir usuário.");
     }
     setDeleting(false);
   }
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    router.replace("/login");
+  function openGrant(u: AdminUser) {
+    setGrantTarget(u);
+    setGrantPlan("profissional");
+    setGrantDays(30);
+    setGrantLifetime(false);
+    setGrantSuccess(false);
   }
 
-  function handleStatClick(filter: FilterType | "leads") {
-    if (filter === "leads") {
-      setTab("leads");
-      setSearch("");
-      return;
-    }
-    setTab("usuarios");
-    setActiveFilter(filter);
-    setSearch("");
+  function openDelete(u: AdminUser) {
+    setDeleteTarget(u);
+    setDeleteError(null);
   }
 
-  const now = new Date();
-
-  const filteredUsers = users.filter(u => {
-    if (search) {
-      const s = search.toLowerCase();
-      if (!u.email.toLowerCase().includes(s) && !(u.nome ?? "").toLowerCase().includes(s)) return false;
-    }
-    if (activeFilter === "trial") return u.isTrialActive;
-    if (activeFilter === "pagantes") {
-      return !!u.stripeSubscriptionId && !!u.currentPeriodEnd && new Date(u.currentPeriodEnd) > now;
-    }
-    return true;
-  });
-
-  const filteredLeads = leads.filter(l =>
-    !search ||
-    l.email.toLowerCase().includes(search.toLowerCase()) ||
-    (l.nome ?? "").toLowerCase().includes(search.toLowerCase())
-  );
-
-  const stats = {
-    total: users.length,
-    trial: users.filter(u => u.isTrialActive).length,
-    pagantes: users.filter(u => !!u.stripeSubscriptionId && !!u.currentPeriodEnd && new Date(u.currentPeriodEnd) > now).length,
-    leads: leads.length,
-  };
-
-  const planDistributionData = revenueData
-    ? Object.entries(revenueData.planDistribution).map(([plan, count]) => ({
-        plano: plan === "profissional" ? "Profissional" : "Essencial",
-        assinantes: count,
-      }))
-    : [];
+  const navItems: { label: string; value: Page; icon: React.ReactNode }[] = [
+    { label: "Dashboard", value: "dashboard", icon: <LayoutDashboard size={18} /> },
+    { label: `Usuários (${users.length})`, value: "usuarios", icon: <Users size={18} /> },
+    { label: `Leads (${leads.length})`, value: "leads", icon: <Mail size={18} /> },
+  ];
 
   if (authLoading || !user) return (
     <div className="h-screen flex items-center justify-center bg-primary-900">
@@ -280,406 +839,137 @@ export default function AdminPage() {
     <>
       <Head><title>Admin — FlowDesk</title></Head>
 
-      <div className="min-h-screen bg-primary-900 text-gray-100">
+      <div className="flex h-screen bg-primary-900 overflow-hidden">
 
-        <div className="border-b border-primary-800 px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={110} height={28} priority />
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-primary-400 bg-primary-800 border border-primary-700 px-2 py-0.5 rounded-md">Admin</span>
+        {/* ── Sidebar ── */}
+        <aside className="w-[220px] shrink-0 bg-primary-800 border-r border-primary-700 flex flex-col h-full">
+          <div className="px-4 py-5 border-b border-primary-700">
+            <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={100} height={24} priority />
+            <span className="mt-2 inline-flex text-[10px] font-bold uppercase tracking-widest text-primary-400 bg-primary-900 border border-primary-700 px-2 py-0.5 rounded-md">
+              Admin
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-gray-400 hidden sm:block">{user.email}</span>
+
+          <nav className="flex flex-col gap-0.5 px-2 py-4 flex-1">
+            {navItems.map(item => (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setPage(item.value)}
+                className={clsx(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all w-full text-left",
+                  page === item.value
+                    ? "bg-gradient-to-r from-primary-800 to-primary-700 border-l-2 border-primary-400 text-primary-100"
+                    : "text-gray-400 hover:text-gray-200 hover:bg-primary-700"
+                )}
+              >
+                <span className={page === item.value ? "text-primary-300" : "text-gray-500"}>
+                  {item.icon}
+                </span>
+                {item.label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="px-2 pb-4 flex flex-col gap-1 border-t border-primary-700 pt-4">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors"
+            >
+              <ExternalLink size={16} className="text-gray-500" />
+              Abrir FlowDesk
+            </Link>
             <button
               type="button"
-              onClick={handleSignOut}
-              className="flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-gray-300 transition-colors"
+              onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors w-full text-left"
             >
-              <LogOut size={14} />
+              <LogOut size={16} className="text-gray-500" />
               Sair
             </button>
+            <p className="px-3 pt-2 text-[10px] text-gray-600 truncate">{user.email}</p>
           </div>
-        </div>
+        </aside>
 
-        <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col gap-6">
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {([
-              { label: "Usuários", value: stats.total, icon: <Users size={16} className="text-primary-400" />, filter: "all" as const },
-              { label: "Trial ativo", value: stats.trial, icon: <Zap size={16} className="text-amber-400" />, filter: "trial" as const },
-              { label: "Pagantes", value: stats.pagantes, icon: <CreditCard size={16} className="text-green-400" />, filter: "pagantes" as const },
-              { label: "Leads LP", value: stats.leads, icon: <Mail size={16} className="text-primary-400" />, filter: "leads" as const },
-            ] as { label: string; value: number; icon: React.ReactNode; filter: FilterType | "leads" }[]).map(s => {
-              const isActive = s.filter !== "leads"
-                ? tab === "usuarios" && activeFilter === s.filter
-                : tab === "leads";
-              return (
-                <button
-                  key={s.label}
-                  type="button"
-                  onClick={() => handleStatClick(s.filter)}
-                  className={clsx(
-                    "bg-primary-800 border rounded-xl p-4 flex items-center gap-3 transition-all text-left",
-                    isActive
-                      ? "border-primary-500 ring-1 ring-primary-500/30"
-                      : "border-primary-700 hover:border-primary-600"
-                  )}
-                >
-                  <div className="w-8 h-8 rounded-lg bg-primary-900 flex items-center justify-center shrink-0">
-                    {s.icon}
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-500">{s.label}</p>
-                    <p className="text-[20px] font-bold text-gray-100">{s.value}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap">
-            {tab !== "receita" && (
-              <div className="relative flex-1 min-w-[200px]">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder={tab === "leads" ? "Buscar lead..." : "Buscar por nome ou e-mail..."}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-primary-800 border border-primary-700 rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
-                />
-                {search && (
-                  <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
-            )}
-
-            <div className="flex items-center bg-primary-800 border border-primary-700 rounded-xl p-1">
-              {(["usuarios", "leads", "receita"] as Tab[]).map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => { setTab(t); if (t === "usuarios") setActiveFilter("all"); setSearch(""); }}
-                  className={clsx(
-                    "px-4 py-1.5 rounded-lg text-[13px] font-medium transition-colors",
-                    tab === t ? "bg-primary-500 text-primary-900" : "text-gray-400 hover:text-gray-200"
-                  )}
-                >
-                  {t === "usuarios" ? `Usuários (${users.length})` : t === "leads" ? `Leads (${leads.length})` : "Receita"}
-                </button>
-              ))}
-            </div>
-
+        {/* ── Main content ── */}
+        <main className="flex-1 overflow-y-auto">
+          <div className="flex items-center justify-between px-8 py-5 border-b border-primary-800">
+            <h1 className="text-[16px] font-semibold text-gray-100">
+              {page === "dashboard" ? "Dashboard" : page === "usuarios" ? "Usuários" : "Leads"}
+            </h1>
             <button
               type="button"
               onClick={() => { fetchUsers(); fetchLeads(); fetchRevenue(); }}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-primary-800 border border-primary-700 rounded-xl text-[13px] text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-primary-800 border border-primary-700 rounded-xl text-[12px] text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors"
             >
-              <RefreshCw size={13} />
+              <RefreshCw size={12} />
+              Atualizar
             </button>
           </div>
 
-          {tab === "usuarios" && activeFilter !== "all" && (
-            <div className="flex items-center gap-2 -mt-2">
-              <span className="text-[12px] text-gray-500">Filtrando:</span>
-              <button
-                type="button"
-                onClick={() => setActiveFilter("all")}
-                className="flex items-center gap-1.5 px-2.5 py-0.5 bg-primary-800 border border-primary-600 rounded-full text-[12px] text-primary-300 hover:text-gray-200 transition-colors"
-              >
-                {activeFilter === "trial" ? "Trial ativo" : "Pagantes"}
-                <X size={11} />
-              </button>
-            </div>
-          )}
-
-          {tab === "usuarios" && (
-            <div className="flex flex-col gap-2">
-              {loadingUsers ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-[68px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
-                ))
-              ) : filteredUsers.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 text-[14px]">Nenhum usuário encontrado.</div>
-              ) : (
-                filteredUsers.map(u => {
-                  const badge = planBadge(u);
-                  const dateForDays = u.isTrialActive ? u.trialEnd : u.currentPeriodEnd;
-                  const remaining = u.isLifetime ? null : daysLeft(dateForDays);
-                  const isManualGrant = !u.stripeSubscriptionId && !!u.currentPeriodEnd && !u.isLifetime;
-
-                  return (
-                    <div key={u.id} className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-4">
-                      <div className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-[13px] font-semibold text-primary-300 shrink-0">
-                        {initials(u.nome, u.email)}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[14px] font-medium text-gray-100 truncate">{u.nome ?? "—"}</p>
-                        <p className="text-[12px] text-gray-500 truncate">{u.email}</p>
-                      </div>
-
-                      <span className={clsx("hidden sm:inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0", badge.cls)}>
-                        {badge.label}
-                      </span>
-
-                      <div className="hidden md:flex flex-col items-end shrink-0 text-[11px] text-gray-500 min-w-[110px]">
-                        <span>Cadastro: {fmt(u.created_at)}</span>
-                        {u.isLifetime && (
-                          <span className="text-green-400">Acesso permanente</span>
-                        )}
-                        {!u.isLifetime && remaining !== null && (
-                          <span className={remaining <= 3 ? "text-rose-400" : "text-gray-500"}>
-                            {u.isTrialActive ? "Trial" : isManualGrant ? "Expira" : "Renova"} em {remaining}d
-                          </span>
-                        )}
-                        {!u.isLifetime && remaining === null && u.currentPeriodEnd && (
-                          <span className="text-rose-400">Expirou {fmt(u.currentPeriodEnd)}</span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => { setGrantTarget(u); setGrantPlan("profissional"); setGrantDays(30); setGrantLifetime(false); setGrantSuccess(false); }}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-200 transition-colors"
-                        >
-                          <Zap size={12} />
-                          Conceder
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setDeleteTarget(u); setDeleteError(null); }}
-                          className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-700 hover:bg-rose-500/15 border border-primary-600 hover:border-rose-500/40 text-gray-500 hover:text-rose-400 transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-
-          {tab === "leads" && (
-            <div className="flex flex-col gap-2">
-              {loadingLeads ? (
-                Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-[60px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
-                ))
-              ) : filteredLeads.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 text-[14px]">Nenhum lead encontrado.</div>
-              ) : (
-                filteredLeads.map(l => (
-                  <div key={l.id} className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-[13px] font-semibold text-primary-300 shrink-0">
-                      {initials(l.nome, l.email)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[14px] font-medium text-gray-100 truncate">{l.nome ?? "—"}</p>
-                      <p className="text-[12px] text-gray-500 truncate">{l.email}</p>
-                    </div>
-                    <span className="hidden sm:block text-[11px] text-gray-500 shrink-0">{fmt(l.created_at)}</span>
-                    <a
-                      href={`mailto:${l.email}`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-200 transition-colors shrink-0"
-                    >
-                      <Mail size={12} />
-                      Contatar
-                    </a>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {tab === "receita" && (
-            <div className="flex flex-col gap-4">
-              {loadingRevenue ? (
-                <div className="flex items-center justify-center py-16">
-                  <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-              ) : revenueData ? (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="bg-primary-800 border border-primary-700 rounded-xl p-5">
-                      <p className="text-[11px] text-gray-500 mb-1">MRR</p>
-                      <p className="text-[26px] font-bold text-gray-100">{fmtCurrency(revenueData.mrr)}</p>
-                      <p className="text-[11px] text-gray-600 mt-0.5">receita mensal recorrente</p>
-                    </div>
-                    <div className="bg-primary-800 border border-primary-700 rounded-xl p-5">
-                      <p className="text-[11px] text-gray-500 mb-1">ARR</p>
-                      <p className="text-[26px] font-bold text-gray-100">{fmtCurrency(revenueData.arr)}</p>
-                      <p className="text-[11px] text-gray-600 mt-0.5">receita anual recorrente</p>
-                    </div>
-                    <div className="bg-primary-800 border border-primary-700 rounded-xl p-5">
-                      <p className="text-[11px] text-gray-500 mb-1">Assinantes ativos</p>
-                      <p className="text-[26px] font-bold text-gray-100">{revenueData.activeSubscribers}</p>
-                      <p className="text-[11px] text-gray-600 mt-0.5">planos Stripe ativos</p>
-                    </div>
-                  </div>
-
-                  <div className="bg-primary-800 border border-primary-700 rounded-xl p-5">
-                    <h3 className="text-[14px] font-semibold text-gray-200 mb-4">Novos usuários por semana (últimas 12 semanas)</h3>
-                    <div className="h-52">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={revenueData.weeklyGrowth} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="gradNovos" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--primary-500)" stopOpacity={0.35} />
-                              <stop offset="95%" stopColor="var(--primary-500)" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-700)" vertical={false} />
-                          <XAxis
-                            dataKey="semana"
-                            tick={{ fill: "#9ca3af", fontSize: 11 }}
-                            axisLine={false}
-                            tickLine={false}
-                          />
-                          <YAxis
-                            tick={{ fill: "#9ca3af", fontSize: 11 }}
-                            axisLine={false}
-                            tickLine={false}
-                            allowDecimals={false}
-                          />
-                          <Tooltip
-                            content={({ active, payload, label }: any) => {
-                              if (!active || !payload?.length) return null;
-                              return (
-                                <div className="bg-primary-900 border border-primary-600 rounded-lg px-3 py-2 text-[12px] shadow-xl">
-                                  <div className="text-gray-400 mb-0.5">{label}</div>
-                                  <div className="text-gray-100 font-medium">{payload[0].value} novos usuários</div>
-                                </div>
-                              );
-                            }}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="novos"
-                            stroke="var(--primary-500)"
-                            strokeWidth={2}
-                            fill="url(#gradNovos)"
-                            dot={false}
-                            activeDot={{ r: 4, fill: "var(--primary-500)" }}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {planDistributionData.length > 0 && (
-                    <div className="bg-primary-800 border border-primary-700 rounded-xl p-5">
-                      <h3 className="text-[14px] font-semibold text-gray-200 mb-4">Distribuição de planos (assinantes ativos)</h3>
-                      <div className="h-40">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={planDistributionData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-700)" vertical={false} />
-                            <XAxis
-                              dataKey="plano"
-                              tick={{ fill: "#9ca3af", fontSize: 12 }}
-                              axisLine={false}
-                              tickLine={false}
-                            />
-                            <YAxis
-                              tick={{ fill: "#9ca3af", fontSize: 11 }}
-                              axisLine={false}
-                              tickLine={false}
-                              allowDecimals={false}
-                            />
-                            <Tooltip
-                              content={({ active, payload, label }: any) => {
-                                if (!active || !payload?.length) return null;
-                                return (
-                                  <div className="bg-primary-900 border border-primary-600 rounded-lg px-3 py-2 text-[12px] shadow-xl">
-                                    <div className="text-gray-400 mb-0.5">{label}</div>
-                                    <div className="text-gray-100 font-medium">{payload[0].value} assinantes</div>
-                                  </div>
-                                );
-                              }}
-                            />
-                            <Bar dataKey="assinantes" fill="var(--primary-500)" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  )}
-
-                  {planDistributionData.length === 0 && (
-                    <div className="bg-primary-800 border border-primary-700 rounded-xl p-8 text-center">
-                      <p className="text-[13px] text-gray-500">Nenhum assinante Stripe ativo ainda.</p>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-12 text-gray-500 text-[14px]">Falha ao carregar dados de receita.</div>
-              )}
-            </div>
-          )}
-        </div>
+          <div className="px-8 py-6">
+            {page === "dashboard" && (
+              <DashboardPage
+                revenueData={revenueData}
+                loadingRevenue={loadingRevenue}
+                totalUsers={users.length}
+                trialCount={users.filter(u => u.isTrialActive).length}
+                getToken={getToken}
+                onTriggerSnapshot={handleTriggerSnapshot}
+                snapshotting={snapshotting}
+              />
+            )}
+            {page === "usuarios" && (
+              <UsersPage
+                users={users}
+                loading={loadingUsers}
+                onGrant={openGrant}
+                onDelete={openDelete}
+              />
+            )}
+            {page === "leads" && (
+              <LeadsPage
+                leads={leads}
+                loading={loadingLeads}
+              />
+            )}
+          </div>
+        </main>
       </div>
 
+      {/* ── Grant modal ── */}
       {grantTarget && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4"
-          onClick={() => !granting && setGrantTarget(null)}
-        >
-          <div
-            className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => !granting && setGrantTarget(null)}>
+          <div className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-[16px] font-semibold text-gray-100">Conceder plano</h2>
                 <p className="text-[13px] text-gray-500 mt-0.5 truncate max-w-[220px]">{grantTarget.nome ?? grantTarget.email}</p>
               </div>
-              <button type="button" onClick={() => setGrantTarget(null)} className="text-gray-500 hover:text-gray-300 transition-colors">
-                <X size={18} />
-              </button>
+              <button type="button" onClick={() => setGrantTarget(null)} className="text-gray-500 hover:text-gray-300 transition-colors"><X size={18} /></button>
             </div>
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[12px] font-medium text-gray-400">Plano</label>
               <div className="flex gap-2">
                 {(["essencial", "profissional"] as const).map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setGrantPlan(p)}
-                    className={clsx(
-                      "flex-1 py-2 rounded-xl text-[13px] font-medium border transition-colors",
-                      grantPlan === p
-                        ? "bg-primary-500/20 border-primary-500 text-primary-300"
-                        : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
-                    )}
-                  >
+                  <button key={p} type="button" onClick={() => setGrantPlan(p)}
+                    className={clsx("flex-1 py-2 rounded-xl text-[13px] font-medium border transition-colors",
+                      grantPlan === p ? "bg-primary-500/20 border-primary-500 text-primary-300" : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
+                    )}>
                     {p === "essencial" ? "Essencial" : "Profissional"}
                   </button>
                 ))}
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setGrantLifetime(v => !v)}
-              className={clsx(
-                "flex items-center justify-between w-full px-4 py-2.5 rounded-xl border text-[13px] transition-colors",
-                grantLifetime
-                  ? "bg-green-500/15 border-green-500/40 text-green-300"
-                  : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
-              )}
-            >
-              <span>Acesso permanente</span>
-              <div className={clsx(
-                "w-8 h-4 rounded-full relative transition-colors",
-                grantLifetime ? "bg-green-500" : "bg-primary-600"
+            <button type="button" onClick={() => setGrantLifetime(v => !v)}
+              className={clsx("flex items-center justify-between w-full px-4 py-2.5 rounded-xl border text-[13px] transition-colors",
+                grantLifetime ? "bg-green-500/15 border-green-500/40 text-green-300" : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
               )}>
-                <div className={clsx(
-                  "absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform",
-                  grantLifetime ? "translate-x-4" : "translate-x-0.5"
-                )} />
+              <span>Acesso permanente</span>
+              <div className={clsx("w-8 h-4 rounded-full relative transition-colors", grantLifetime ? "bg-green-500" : "bg-primary-600")}>
+                <div className={clsx("absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform", grantLifetime ? "translate-x-4" : "translate-x-0.5")} />
               </div>
             </button>
 
@@ -687,36 +977,20 @@ export default function AdminPage() {
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-medium text-gray-400">Duração</label>
                 <div className="relative">
-                  <select
-                    value={grantDays}
-                    onChange={e => setGrantDays(Number(e.target.value))}
-                    className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 appearance-none transition-colors"
-                  >
-                    {DURATION_OPTIONS.map(opt => (
-                      <option key={opt.days} value={opt.days}>{opt.label}</option>
-                    ))}
+                  <select value={grantDays} onChange={e => setGrantDays(Number(e.target.value))}
+                    className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 appearance-none transition-colors">
+                    {DURATION_OPTIONS.map(opt => <option key={opt.days} value={opt.days}>{opt.label}</option>)}
                   </select>
                   <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                 </div>
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={handleGrantPlan}
-              disabled={granting || grantSuccess}
-              className={clsx(
-                "w-full py-3 rounded-xl font-semibold text-[14px] transition-all",
-                grantSuccess
-                  ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                  : "bg-primary-500 hover:bg-primary-400 text-primary-900 disabled:opacity-60"
-              )}
-            >
-              {grantSuccess
-                ? "Plano concedido!"
-                : granting
-                ? "Concedendo..."
-                : grantLifetime
+            <button type="button" onClick={handleGrantPlan} disabled={granting || grantSuccess}
+              className={clsx("w-full py-3 rounded-xl font-semibold text-[14px] transition-all",
+                grantSuccess ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-primary-500 hover:bg-primary-400 text-primary-900 disabled:opacity-60"
+              )}>
+              {grantSuccess ? "Plano concedido!" : granting ? "Concedendo..." : grantLifetime
                 ? `Acesso permanente — ${grantPlan === "profissional" ? "Profissional" : "Essencial"}`
                 : `Conceder ${grantDays}d de ${grantPlan === "profissional" ? "Profissional" : "Essencial"}`}
             </button>
@@ -724,52 +998,32 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ── Delete modal ── */}
       {deleteTarget && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4"
-          onClick={() => !deleting && setDeleteTarget(null)}
-        >
-          <div
-            className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-rose-500/15 border border-rose-500/30 flex items-center justify-center shrink-0">
                 <AlertTriangle size={18} className="text-rose-400" />
               </div>
               <div className="flex-1">
                 <h2 className="text-[16px] font-semibold text-gray-100">Excluir conta</h2>
-                <p className="text-[13px] text-gray-500 mt-0.5">Esta ação é permanente e não pode ser desfeita.</p>
+                <p className="text-[13px] text-gray-500 mt-0.5">Esta ação é permanente.</p>
               </div>
-              <button type="button" onClick={() => !deleting && setDeleteTarget(null)} className="text-gray-500 hover:text-gray-300 transition-colors">
-                <X size={18} />
-              </button>
+              <button type="button" onClick={() => !deleting && setDeleteTarget(null)} className="text-gray-500 hover:text-gray-300"><X size={18} /></button>
             </div>
-
             <div className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3">
               <p className="text-[14px] font-medium text-gray-200">{deleteTarget.nome ?? "—"}</p>
               <p className="text-[12px] text-gray-500">{deleteTarget.email}</p>
             </div>
-
-            {deleteError && (
-              <p className="text-[13px] text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{deleteError}</p>
-            )}
-
+            {deleteError && <p className="text-[13px] text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{deleteError}</p>}
             <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-primary-800 border border-primary-700 text-[13px] text-gray-300 hover:text-gray-100 transition-colors disabled:opacity-60"
-              >
+              <button type="button" onClick={() => setDeleteTarget(null)} disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-primary-800 border border-primary-700 text-[13px] text-gray-300 hover:text-gray-100 transition-colors disabled:opacity-60">
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={handleDeleteUser}
-                disabled={deleting}
-                className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-[13px] font-semibold text-white transition-colors disabled:opacity-60"
-              >
+              <button type="button" onClick={handleDeleteUser} disabled={deleting}
+                className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-[13px] font-semibold text-white transition-colors disabled:opacity-60">
                 {deleting ? "Excluindo..." : "Excluir conta"}
               </button>
             </div>
