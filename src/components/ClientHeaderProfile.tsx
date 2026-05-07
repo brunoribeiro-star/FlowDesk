@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
 import { ChevronUp, ChevronDown, Pencil, SlidersHorizontal } from "lucide-react";
+import UserAvatar from "@/components/UserAvatar";
 
 type ClientHeaderProfileProps = {
   user?: any;
@@ -32,7 +32,8 @@ export default function ClientHeaderProfile({ user }: ClientHeaderProfileProps) 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const avatarSrc = currentUser?.user_metadata?.avatar_url || "/perfil.svg";
+  const avatarSrc = currentUser?.user_metadata?.avatar_url || null;
+  const displayName = currentUser?.user_metadata?.nome || currentUser?.email?.split("@")[0] || null;
 
   return (
     <div className="relative" ref={profileRef}>
@@ -41,9 +42,7 @@ export default function ClientHeaderProfile({ user }: ClientHeaderProfileProps) 
         onClick={() => setProfileOpen((v) => !v)}
         className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-700 transition-colors"
       >
-        <div className="w-[35px] h-[35px] rounded-full overflow-hidden border border-primary-600 flex-shrink-0">
-          <Image src={avatarSrc} alt="Perfil" width={35} height={35} className="object-cover" />
-        </div>
+        <UserAvatar src={avatarSrc} name={displayName} size={35} className="border border-primary-600" />
         {profileOpen ? (
           <ChevronUp size={18} className="text-primary-100" />
         ) : (

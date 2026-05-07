@@ -3,9 +3,9 @@
 import { useMemo, useState, useEffect, useRef, KeyboardEvent } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
-import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
 import HeaderProfile from "@/components/HeaderProfile";
+import UserAvatar from "@/components/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonStatCard, SkeletonList } from "@/components/Skeleton";
 
@@ -417,7 +417,7 @@ export default function DashboardHome() {
     },
   ];
 
-  const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
+  const avatarSrc = user?.user_metadata?.avatar_url || null;
   const displayName =
     user?.user_metadata?.nome ||
     user?.email?.split("@")[0] ||
@@ -469,15 +469,7 @@ export default function DashboardHome() {
       <div className="flex flex-col flex-1 gap-6 pr-6 py-6 w-full overflow-hidden">
         <header className="w-full flex items-center gap-8">
           <div className="flex items-center gap-3">
-            <div className="w-[60px] h-[60px] rounded-full overflow-hidden border border-primary-600">
-              <Image
-                src={avatarSrc}
-                alt="Avatar"
-                width={60}
-                height={60}
-                className="object-cover"
-              />
-            </div>
+            <UserAvatar src={avatarSrc} name={displayName} size={60} className="border border-primary-600" />
 
             <div className="flex flex-col gap-1">
               <div className="text-[22px] text-gray-200 font-medium">

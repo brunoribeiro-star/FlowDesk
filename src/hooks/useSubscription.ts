@@ -37,12 +37,18 @@ export function useSubscription(): SubscriptionStatus & { refresh: () => void } 
   const [data, setData] = useState<SubscriptionStatus>(DEFAULT);
 
   const fetch = useCallback(async () => {
-    if (!session?.access_token) return;
+    if (!session?.access_token) {
+      setData((prev) => ({ ...prev, loading: false }));
+      return;
+    }
     try {
       const res = await window.fetch("/api/subscription/status", {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        setData((prev) => ({ ...prev, loading: false }));
+        return;
+      }
       const json = await res.json();
       setData({ ...json, loading: false });
     } catch {

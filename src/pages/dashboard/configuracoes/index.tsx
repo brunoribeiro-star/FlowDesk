@@ -3,7 +3,7 @@
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import Sidebar from "@/components/Sidebar";
-import Image from "next/image";
+import UserAvatar from "@/components/UserAvatar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
@@ -867,14 +867,7 @@ export default function ConfiguracoesPage() {
                 <CardSubtitle>{IMAGE_SPECS.avatar.hint}</CardSubtitle>
 
                 <div className="flex items-center gap-6">
-                  <div className="relative w-[88px] h-[88px] rounded-full border border-primary-600 overflow-hidden shrink-0">
-                    <Image
-                      src={avatarUrl || "/perfil.svg"}
-                      alt="Avatar"
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
+                  <UserAvatar src={avatarUrl} name={nome || null} size={88} className="border border-primary-600 shrink-0" />
 
                   <button
                     type="button"

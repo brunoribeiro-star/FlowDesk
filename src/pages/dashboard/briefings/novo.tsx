@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Sidebar from "@/components/Sidebar";
+import UserAvatar from "@/components/UserAvatar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
 import ColorPicker from "@/components/ui/ColorPicker";
@@ -274,7 +274,8 @@ export default function NovoBriefingPage() {
     return () => document.removeEventListener("mousedown", outside);
   }, []);
 
-  const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
+  const avatarSrc = user?.user_metadata?.avatar_url || null;
+  const avatarName = user?.user_metadata?.nome || user?.email?.split("@")[0] || null;
 
   function createEmptyQuestion(): LocalQuestion {
     return {
@@ -634,15 +635,9 @@ export default function NovoBriefingPage() {
                         <button
                         type="button"
                         onClick={() => setProfileOpen((v) => !v)}
-                        className="w-9 h-9 rounded-full overflow-hidden border border-primary-700 hover:border-primary-500 transition-colors"
+                        className="rounded-full border border-primary-700 hover:border-primary-500 transition-colors"
                         >
-                        <Image
-                            src={avatarSrc}
-                            alt="Perfil"
-                            width={36}
-                            height={36}
-                            className="w-full h-full object-cover"
-                        />
+                          <UserAvatar src={avatarSrc} name={avatarName} size={36} />
                         </button>
                          {profileOpen && (
                             <div className="absolute right-0 mt-3 w-56 bg-primary-900 border border-primary-700 rounded-xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-fade-in-down origin-top-right">
