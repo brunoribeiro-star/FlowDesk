@@ -315,11 +315,6 @@ export default function DashboardHome() {
   );
 
   const pagamentosPendentesTotal = useMemo(() => {
-    const isDoneStatus = (status: string) => {
-      const s = String(status || "").toLowerCase();
-      return s === "concluído" || s === "concluido" || s === "finalizado" || s === "arquivado";
-    };
-
     const projectsWithPayments = new Set(pagamentos.map(p => p.projeto_id).filter(id => id));
 
     const pendentes = pagamentos.filter((p) => {
@@ -335,7 +330,6 @@ export default function DashboardHome() {
 
       const orcamento = Number(p.orcamento) || 0;
       if (orcamento <= 0) return;
-      if (isDoneStatus(p.status)) return;
 
       const fp = p.forma_pagamento;
       if (fp === "pix_2x" || fp === "50/50") {
@@ -359,7 +353,6 @@ export default function DashboardHome() {
       const proj = ms.projetos as any;
       if (!proj) return;
       if (ms.payment_status === "paid") return;
-      if (isDoneStatus(proj.status)) return;
       const orcamento = Number(proj.orcamento ?? 0);
       if (ms.split_type === "percentage") {
         collabFallbackPending += orcamento * (Number(ms.split_value) / 100);

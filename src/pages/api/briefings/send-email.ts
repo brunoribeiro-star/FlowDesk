@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { buildEmailHtml, p, strong } from "@/lib/emailTemplates";
 
 async function sendBriefingEmail(
   to: string,
@@ -13,6 +14,26 @@ async function sendBriefingEmail(
 
   const from = process.env.RESEND_FROM_EMAIL || "FlowDesk <noreply@flowdesk.app>";
 
+  const html = buildEmailHtml({
+    headerSubtitle: "Briefing",
+    heading: "Você recebeu um briefing para responder",
+    body: `
+      <p style="${p}">
+        <strong style="${strong}">${freelancerName}</strong> enviou o briefing
+        <strong style="${strong}">"${briefingTitle}"</strong>
+        referente ao projeto <strong style="${strong}">"${projetoTitle}"</strong>.
+      </p>
+      <p style="${p} margin-bottom:0;">
+        Clique no botão abaixo para acessar e preencher o formulário.
+      </p>
+    `,
+    cta: { label: "Responder briefing", url: briefingLink },
+    footerNote: `
+      Ou copie o link: <a href="${briefingLink}" style="color:#1EB6E8;word-break:break-all;">${briefingLink}</a>
+      <br><br>Se você não esperava este e-mail, pode ignorá-lo.
+    `,
+  });
+
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -24,31 +45,7 @@ async function sendBriefingEmail(
         from,
         to: [to],
         subject: `${freelancerName} enviou um briefing para você responder`,
-        html: `
-          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0f0f10;color:#e5e7eb;border-radius:12px;">
-            <h2 style="color:#a78bfa;margin-bottom:8px;">Briefing para responder</h2>
-            <p style="margin-bottom:8px;color:#9ca3af;">
-              <strong style="color:#e5e7eb;">${freelancerName}</strong> enviou o briefing
-              <strong style="color:#e5e7eb;">"${briefingTitle}"</strong>
-              referente ao projeto <strong style="color:#e5e7eb;">"${projetoTitle}"</strong>.
-            </p>
-            <p style="margin-bottom:24px;color:#9ca3af;">
-              Clique no botão abaixo para acessar e responder o formulário.
-            </p>
-            <a href="${briefingLink}"
-               style="display:inline-block;background:#7c3aed;color:#fff;text-decoration:none;
-                      padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">
-              Responder briefing
-            </a>
-            <p style="margin-top:24px;font-size:13px;color:#6b7280;">
-              Ou copie o link:<br/>
-              <a href="${briefingLink}" style="color:#a78bfa;word-break:break-all;">${briefingLink}</a>
-            </p>
-            <p style="margin-top:32px;font-size:12px;color:#4b5563;">
-              Se você não esperava este e-mail, pode ignorá-lo.
-            </p>
-          </div>
-        `,
+        html,
       }),
     });
 

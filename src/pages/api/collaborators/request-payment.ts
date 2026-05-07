@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { buildEmailHtml, p, strong } from "@/lib/emailTemplates";
 
 async function sendPaymentRequestEmail(
   to: string,
@@ -13,6 +14,23 @@ async function sendPaymentRequestEmail(
 
   const from = process.env.RESEND_FROM_EMAIL || "FlowDesk <noreply@flowdesk.app>";
 
+  const html = buildEmailHtml({
+    headerSubtitle: "Co-working",
+    heading: "Solicitação de pagamento recebida",
+    body: `
+      <p style="${p}">
+        Olá, <strong style="${strong}">${ownerName}</strong>!
+      </p>
+      <p style="${p} margin-bottom:0;">
+        O colaborador <strong style="${strong}">${collaboratorName}</strong> solicitou o pagamento
+        referente à sua participação no projeto <strong style="${strong}">"${projetoTitulo}"</strong>.
+        Acesse o FlowDesk para revisar e efetuar o repasse.
+      </p>
+    `,
+    cta: { label: "Ver projeto", url: projectUrl },
+    footerNote: "Acesse o FlowDesk para revisar os detalhes e efetuar o pagamento ao colaborador.",
+  });
+
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -24,27 +42,7 @@ async function sendPaymentRequestEmail(
         from,
         to: [to],
         subject: `${collaboratorName} solicitou pagamento — ${projetoTitulo}`,
-        html: `
-          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0f0f10;color:#e5e7eb;border-radius:12px;">
-            <h2 style="color:#1EB6E8;margin-bottom:8px;">Solicitação de pagamento</h2>
-            <p style="margin-bottom:24px;color:#9ca3af;">
-              Olá, <strong style="color:#e5e7eb;">${ownerName}</strong>!
-            </p>
-            <p style="margin-bottom:24px;color:#9ca3af;">
-              O colaborador <strong style="color:#e5e7eb;">${collaboratorName}</strong> solicitou o pagamento
-              referente à sua participação no projeto
-              <strong style="color:#e5e7eb;">"${projetoTitulo}"</strong>.
-            </p>
-            <a href="${projectUrl}"
-               style="display:inline-block;background:#1EB6E8;color:#06191F;text-decoration:none;
-                      padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">
-              Ver projeto
-            </a>
-            <p style="margin-top:32px;font-size:12px;color:#4b5563;">
-              Acesse o FlowDesk para revisar e efetuar o pagamento ao colaborador.
-            </p>
-          </div>
-        `,
+        html,
       }),
     });
     if (!res.ok) {

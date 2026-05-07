@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { buildEmailHtml, strong } from "@/lib/emailTemplates";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,11 +23,40 @@ async function sendAccessEmail(
   const from = process.env.RESEND_FROM_EMAIL || "FlowDesk <noreply@flowdesk.app>";
 
   const greeting = clienteName
-    ? `Olá, <strong style="color:#e5e7eb;">${clienteName}</strong>!`
-    : "Olá!";
+    ? `Olá, <strong style="${strong}">${clienteName}</strong>! Use o código abaixo ou clique no botão para entrar.`
+    : "Use o código abaixo ou clique no botão para entrar.";
 
-  // Format OTP with a space in the middle for readability: "123 456"
   const otpFormatted = `${otpCode.slice(0, 3)} ${otpCode.slice(3)}`;
+
+  const html = buildEmailHtml({
+    headerSubtitle: "Portal do cliente",
+    heading: "Acesse o seu portal",
+    body: `
+      <p style="margin:0 0 24px;font-size:15px;color:#9ca3af;line-height:1.65;">${greeting}</p>
+
+      <!-- OTP block -->
+      <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="margin-bottom:24px;">
+        <tr>
+          <td style="background:#0d2a38;border:1px solid #1d4a62;border-radius:12px;padding:24px;text-align:center;">
+            <p style="margin:0 0 8px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Seu código de acesso</p>
+            <p style="margin:0;font-size:42px;font-weight:800;color:#1EB6E8;letter-spacing:12px;font-variant-numeric:tabular-nums;">${otpCode}</p>
+            <p style="margin:10px 0 0;font-size:12px;color:#4b7080;">Válido por 1 hora &middot; Uso único</p>
+          </td>
+        </tr>
+      </table>
+
+      <!-- Divider -->
+      <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="margin-bottom:20px;">
+        <tr>
+          <td style="border-top:1px solid #1f2937;width:50%;"></td>
+          <td style="padding:0 12px;white-space:nowrap;font-size:12px;color:#4b5563;">ou acesse com um clique</td>
+          <td style="border-top:1px solid #1f2937;width:50%;"></td>
+        </tr>
+      </table>
+    `,
+    cta: { label: "Acessar portal agora", url: magicLink },
+    footerNote: "Se você não solicitou este acesso, ignore este e-mail com segurança.",
+  });
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -39,74 +69,7 @@ async function sendAccessEmail(
         from,
         to: [to],
         subject: `${otpFormatted} é seu código de acesso — FlowDesk`,
-        html: `
-          <!DOCTYPE html>
-          <html lang="pt-BR">
-          <body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 16px;">
-              <tr>
-                <td align="center">
-                  <table width="100%" style="max-width:520px;background:#111113;border:1px solid #1f2937;border-radius:14px;overflow:hidden;">
-                    <tr>
-                      <td style="background:linear-gradient(135deg,#0d2a38 0%,#06191F 100%);padding:28px 32px;border-bottom:1px solid #1d3a4a;">
-                        <p style="margin:0;font-size:20px;font-weight:700;color:#1EB6E8;letter-spacing:-0.3px;">FlowDesk</p>
-                        <p style="margin:4px 0 0;font-size:12px;color:#4b7080;">Portal do cliente</p>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding:32px;">
-                        <p style="margin:0 0 6px;font-size:22px;font-weight:700;color:#f3f4f6;">Acesse o seu portal</p>
-                        <p style="margin:0 0 28px;font-size:15px;color:#9ca3af;line-height:1.6;">
-                          ${greeting}<br/>
-                          Use o código abaixo ou clique no botão para entrar.
-                        </p>
-
-                        <!-- OTP Code block -->
-                        <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:28px;">
-                          <tr>
-                            <td style="background:#0d2a38;border:1px solid #1d4a62;border-radius:12px;padding:24px;text-align:center;">
-                              <p style="margin:0 0 6px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;">Seu código de acesso</p>
-                              <p style="margin:0;font-size:42px;font-weight:800;color:#1EB6E8;letter-spacing:12px;font-variant-numeric:tabular-nums;">${otpCode}</p>
-                              <p style="margin:10px 0 0;font-size:12px;color:#4b7080;">Válido por 1 hora · Uso único</p>
-                            </td>
-                          </tr>
-                        </table>
-
-                        <!-- Divider -->
-                        <table cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;">
-                          <tr>
-                            <td style="border-top:1px solid #1f2937;"></td>
-                            <td style="padding:0 12px;white-space:nowrap;font-size:12px;color:#4b5563;">ou acesse com um clique</td>
-                            <td style="border-top:1px solid #1f2937;"></td>
-                          </tr>
-                        </table>
-
-                        <a href="${magicLink}"
-                           style="display:block;text-align:center;background:#1EB6E8;color:#06191F;text-decoration:none;
-                                  padding:14px 36px;border-radius:9px;font-weight:700;font-size:15px;
-                                  letter-spacing:0.1px;">
-                          Acessar portal agora
-                        </a>
-
-                        <p style="margin:24px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">
-                          Se você não solicitou este acesso, ignore este e-mail com segurança.
-                        </p>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td style="padding:16px 32px;border-top:1px solid #1f2937;">
-                        <p style="margin:0;font-size:11px;color:#374151;">
-                          FlowDesk &mdash; Gestão de projetos para freelancers &amp; estúdios
-                        </p>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </body>
-          </html>
-        `,
+        html,
       }),
     });
     if (!res.ok) {

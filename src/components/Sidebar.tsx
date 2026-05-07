@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -22,6 +22,7 @@ import {
   Clock,
   CheckSquare,
   DollarSign,
+  ScrollText,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -31,17 +32,25 @@ interface SidebarProps {
 
 const SIDEBAR_KEY = "sidebar_open";
 
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
 export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarProps) {
-  const [open, setOpen] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(SIDEBAR_KEY);
-      if (stored !== null) return stored === "true";
-    }
-    return defaultOpen;
-  });
+  const [open, setOpen] = useState(false);
+  const [transitionsReady, setTransitionsReady] = useState(false);
 
   const pathname = usePathname();
   const router = useRouter();
+
+  useIsomorphicLayoutEffect(() => {
+    const stored = localStorage.getItem(SIDEBAR_KEY);
+    setOpen(stored !== null ? stored === "true" : defaultOpen);
+
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setTransitionsReady(true));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   useEffect(() => {
     onOpenChange?.(open);
@@ -53,6 +62,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
     { name: "Clientes", href: "/dashboard/clientes", icon: Users },
     { name: "Briefings", href: "/dashboard/briefings", icon: ClipboardList },
     { name: "Propostas", href: "/dashboard/propostas", icon: FileText },
+    { name: "Contratos", href: "/dashboard/contratos", icon: ScrollText },
     { name: "Time Tracker", href: "/dashboard/cronometro", icon: Clock },
     { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare },
     { name: "Pagamentos", href: "/dashboard/pagamentos", icon: DollarSign },
@@ -95,7 +105,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
     <aside
       className={clsx(
         "relative h-screen bg-primary-800 border-r border-primary-600 flex flex-col justify-between",
-        "transition-all duration-300 ease-in-out",
+        transitionsReady && "transition-all duration-300 ease-in-out",
         open ? "w-[230px]" : "w-[68px]"
       )}
     >

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
+import { buildEmailHtml, p, strong } from "@/lib/emailTemplates";
 
 async function sendPortalEmail(
   to: string,
@@ -13,6 +14,25 @@ async function sendPortalEmail(
 
   const from = process.env.RESEND_FROM_EMAIL || "FlowDesk <noreply@flowdesk.app>";
 
+  const html = buildEmailHtml({
+    headerSubtitle: "Portal do cliente",
+    heading: "Você tem acesso ao portal do projeto",
+    body: `
+      <p style="${p}">
+        <strong style="${strong}">${freelancerName}</strong> compartilhou o projeto
+        <strong style="${strong}">"${projectName}"</strong> com você no FlowDesk.
+      </p>
+      <p style="${p} margin-bottom:0;">
+        Acompanhe o andamento, aprove entregas e acesse os arquivos do projeto diretamente pelo portal.
+      </p>
+    `,
+    cta: { label: "Acessar portal", url: magicLink },
+    footerNote: `
+      Ou copie o link: <a href="${magicLink}" style="color:#1EB6E8;word-break:break-all;">${magicLink}</a>
+      <br><br>Este link expira em 7 dias. Se você não esperava este acesso, pode ignorar este e-mail.
+    `,
+  });
+
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -24,30 +44,7 @@ async function sendPortalEmail(
         from,
         to: [to],
         subject: `${freelancerName} compartilhou o projeto "${projectName}" com você`,
-        html: `
-          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0f0f10;color:#e5e7eb;border-radius:12px;">
-            <h2 style="color:#1EB6E8;margin-bottom:8px;">Acesso ao portal do projeto</h2>
-            <p style="margin-bottom:24px;color:#9ca3af;">
-              <strong style="color:#e5e7eb;">${freelancerName}</strong> compartilhou o projeto
-              <strong style="color:#e5e7eb;">"${projectName}"</strong> com você no FlowDesk.
-            </p>
-            <p style="margin-bottom:16px;color:#9ca3af;">
-              Clique no botão abaixo para acessar o portal e acompanhar o andamento do projeto.
-            </p>
-            <a href="${magicLink}"
-               style="display:inline-block;background:#1EB6E8;color:#06191F;text-decoration:none;
-                      padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">
-              Acessar portal
-            </a>
-            <p style="margin-top:24px;font-size:13px;color:#6b7280;">
-              Ou copie o link:<br/>
-              <a href="${magicLink}" style="color:#1EB6E8;word-break:break-all;">${magicLink}</a>
-            </p>
-            <p style="margin-top:32px;font-size:12px;color:#4b5563;">
-              Este link expira em 7 dias. Se você não esperava este acesso, pode ignorar este e-mail.
-            </p>
-          </div>
-        `,
+        html,
       }),
     });
     if (!res.ok) {

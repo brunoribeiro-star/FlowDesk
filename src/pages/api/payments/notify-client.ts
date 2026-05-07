@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { buildEmailHtml, p, strong } from "@/lib/emailTemplates";
 
 async function sendCobrancaEmail(
   to: string,
@@ -18,12 +19,39 @@ async function sendCobrancaEmail(
 
   const pixBlock = pixChave
     ? `
-      <div style="margin:24px 0;padding:16px 20px;background:#0d2a38;border-radius:10px;border:1px solid #1d4a62;">
-        <p style="margin:0 0 6px 0;font-size:13px;color:#6b7280;">Chave PIX para pagamento:</p>
-        <p style="margin:0;font-size:16px;font-weight:700;color:#1EB6E8;word-break:break-all;">${pixChave}</p>
-      </div>
+      <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="margin-top:16px;">
+        <tr>
+          <td style="background:#0d2a38;border:1px solid #1d4a62;border-radius:12px;padding:18px 20px;">
+            <p style="margin:0 0 6px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;">Chave PIX para pagamento</p>
+            <p style="margin:0;font-size:16px;font-weight:700;color:#1EB6E8;word-break:break-all;">${pixChave}</p>
+          </td>
+        </tr>
+      </table>
     `
     : "";
+
+  const html = buildEmailHtml({
+    headerSubtitle: "Cobrança",
+    heading: "Você tem um pagamento pendente",
+    body: `
+      <p style="${p}">
+        Olá, <strong style="${strong}">${clienteName}</strong>!
+        <strong style="${strong}">${freelancerName}</strong> enviou uma cobrança referente ao projeto
+        <strong style="${strong}">"${projetoTitulo}"</strong>.
+      </p>
+      <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="margin-top:8px;">
+        <tr>
+          <td style="background:#0d2a38;border:1px solid #1d4a62;border-radius:12px;padding:20px 24px;">
+            <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;">Valor a pagar</p>
+            <p style="margin:0;font-size:32px;font-weight:800;color:#f3f4f6;">${valorFormatado}</p>
+          </td>
+        </tr>
+      </table>
+      ${pixBlock}
+    `,
+    cta: { label: "Ver no portal", url: portalUrl },
+    footerNote: "Após realizar o pagamento, acesse o portal e marque como pago.",
+  });
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -36,31 +64,7 @@ async function sendCobrancaEmail(
         from,
         to: [to],
         subject: `Lembrete de pagamento — ${projetoTitulo}`,
-        html: `
-          <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0f0f10;color:#e5e7eb;border-radius:12px;">
-            <h2 style="color:#1EB6E8;margin-bottom:8px;">Lembrete de pagamento</h2>
-            <p style="margin-bottom:8px;color:#9ca3af;">
-              Olá, <strong style="color:#e5e7eb;">${clienteName}</strong>!
-            </p>
-            <p style="margin-bottom:24px;color:#9ca3af;">
-              <strong style="color:#e5e7eb;">${freelancerName}</strong> enviou uma cobrança referente ao projeto
-              <strong style="color:#e5e7eb;">"${projetoTitulo}"</strong>.
-            </p>
-            <div style="padding:16px 20px;background:#0d2a38;border-radius:10px;border:1px solid #1d4a62;margin-bottom:24px;">
-              <p style="margin:0 0 4px 0;font-size:13px;color:#6b7280;">Valor a pagar</p>
-              <p style="margin:0;font-size:28px;font-weight:700;color:#e5e7eb;">${valorFormatado}</p>
-            </div>
-            ${pixBlock}
-            <a href="${portalUrl}"
-               style="display:inline-block;background:#1EB6E8;color:#06191F;text-decoration:none;
-                      padding:12px 28px;border-radius:8px;font-weight:600;font-size:15px;">
-              Ver no portal
-            </a>
-            <p style="margin-top:32px;font-size:12px;color:#4b5563;">
-              Após realizar o pagamento, acesse o portal e marque como pago.
-            </p>
-          </div>
-        `,
+        html,
       }),
     });
     if (!res.ok) {
