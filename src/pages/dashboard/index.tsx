@@ -3,7 +3,6 @@
 import { useMemo, useState, useEffect, useRef, KeyboardEvent } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import HeaderProfile from "@/components/HeaderProfile";
 import UserAvatar from "@/components/UserAvatar";
 import { useAuth } from "@/contexts/AuthContext";
@@ -29,7 +28,6 @@ const WEEKS_LABELS = ["Semana 1", "Semana 2", "Semana 3", "Semana 4"];
 export default function DashboardHome() {
   const router = useRouter();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
 
   const [projetos, setProjetos] = useState<any[]>([]);
@@ -361,7 +359,6 @@ export default function DashboardHome() {
       }
     });
 
-    // Subtrai repasses pendentes a colaboradores nos projetos do owner
     const ownedCollabPending = ownedCollabPaySplitsPending.reduce(
       (acc: number, s: any) => acc + Number(s.amount ?? 0),
       0
@@ -439,9 +436,7 @@ export default function DashboardHome() {
 
   if (loading)
     return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-        <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-        <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-hidden">
+      <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-hidden">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full skeleton-shimmer bg-primary-800" />
             <div className="flex flex-col gap-2">
@@ -459,12 +454,10 @@ export default function DashboardHome() {
             <SkeletonList rows={5} cols={3} />
           </div>
         </div>
-      </div>
     );
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-6 w-full overflow-hidden">
         <header className="w-full flex items-center gap-8">
@@ -610,7 +603,6 @@ export default function DashboardHome() {
               </button>
             ))}
 
-            {/* Card de Armazenamento */}
             <button
               type="button"
               onClick={() => router.push("/dashboard/configuracoes?tab=armazenamento")}
@@ -875,7 +867,7 @@ export default function DashboardHome() {
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }
 

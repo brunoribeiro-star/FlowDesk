@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import Sidebar from "@/components/Sidebar";
 import HeaderProfile from "@/components/HeaderProfile";
 import { SkeletonStatCard } from "@/components/Skeleton";
 import OverviewCards, { OverviewData } from "@/components/reports/OverviewCards";
@@ -162,8 +161,7 @@ export default function RelatoriosPage() {
     loadingComparison;
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} />
+    <>
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-y-auto min-w-0">
 
@@ -376,7 +374,7 @@ export default function RelatoriosPage() {
         )}
 
       </div>
-    </div>
+    </>
   );
 }
 

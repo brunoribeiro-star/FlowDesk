@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import DatePicker from "@/components/DatePicker";
@@ -134,7 +133,6 @@ const MenuBar = ({ editor }: { editor: any }) => {
 };
 
 export default function NovaTarefaPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
 
   const [projetos, setProjetos] = useState<Projeto[]>([]);
@@ -293,8 +291,7 @@ export default function NovaTarefaPage() {
   );
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 h-full overflow-hidden relative">
         <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">
@@ -533,6 +530,6 @@ export default function NovaTarefaPage() {
           }
         `}</style>
       </div>
-    </div>
+    </>
   );
 }

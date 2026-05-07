@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
 import HeaderProfile from "@/components/HeaderProfile";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -285,8 +284,7 @@ export default function ContratosPage() {
   );
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={() => {}} />
+    <>
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
@@ -731,6 +729,6 @@ export default function ContratosPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

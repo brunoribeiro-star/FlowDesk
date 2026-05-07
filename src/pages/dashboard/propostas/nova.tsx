@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type KeyboardEvent } from "react";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
 import Template1, { DEFAULT_CONTENT, ProposalContent } from "@/components/proposals/Template1";
@@ -51,7 +50,6 @@ const STATUS_OPTIONS = [
 
 export default function NovaProposta() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
 
   function showToast(message: string, type: ToastType) {
@@ -267,8 +265,7 @@ export default function NovaProposta() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 flex gap-6 overflow-hidden text-gray-100">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
@@ -885,6 +882,6 @@ export default function NovaProposta() {
           onCancel={() => cancelConverter()}
         />
       )}
-    </div>
+    </>
   );
 }

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { validateImageFile, calcularUrgencia, tempoRelativo } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
@@ -1436,8 +1435,7 @@ export default function ProjetoDetalhesPage() {
   const createdLabel = projeto.created_at ? tempoRelativo(projeto.created_at) : "—";
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={() => {}} />
+    <>
 
       <div className="flex flex-col flex-1 pr-6 py-8 w-full overflow-hidden">
         <div className="flex items-center justify-between gap-4">
@@ -2574,7 +2572,7 @@ export default function ProjetoDetalhesPage() {
           />
         );
       })()}
-    </div>
+    </>
   );
 }
 

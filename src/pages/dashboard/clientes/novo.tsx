@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/router";
-import Sidebar from "@/components/Sidebar";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { addCliente } from "@/lib/supabaseQueries/clientes";
@@ -22,7 +21,6 @@ const COUNTRIES = [
 
 export default function NovoClientePage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -192,8 +190,7 @@ export default function NovoClientePage() {
   }
 
   return (
-    <div className="h-screen w-full bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 gap-8 pr-6 py-8 w-full h-screen overflow-hidden">
 
@@ -379,6 +376,6 @@ export default function NovoClientePage() {
           onCancel={() => cancelConverter()}
         />
       )}
-    </div>
+    </>
   );
 }

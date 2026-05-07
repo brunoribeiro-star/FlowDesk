@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import Sidebar from "@/components/Sidebar";
 import HeaderProfile from "@/components/HeaderProfile";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
@@ -102,8 +101,7 @@ export default function RespostasBriefingPage() {
         </title>
       </Head>
 
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-        <Sidebar defaultOpen={false} onOpenChange={() => {}} />
+      <>
 
         <div className="flex flex-col flex-1 min-w-0 pr-6 py-6 gap-6 overflow-hidden">
           <header className="flex items-center justify-between gap-4 flex-shrink-0">
@@ -229,7 +227,7 @@ export default function RespostasBriefingPage() {
             </div>
           )}
         </div>
-      </div>
+      </>
 
       <style jsx global>{`
         .respostas-scroll::-webkit-scrollbar { width: 6px; }

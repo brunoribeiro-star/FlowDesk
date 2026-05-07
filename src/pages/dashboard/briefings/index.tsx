@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import {
@@ -1181,8 +1180,7 @@ export default function BriefingsPage() {
   const algumModeloSelecionado = selectedTemplateIds.length > 0;
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={() => {}} />
+    <>
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-8 overflow-hidden">
         <header className="w-full flex items-center justify-between gap-4 mb-2">
@@ -2368,6 +2366,6 @@ export default function BriefingsPage() {
           }
         `}</style>
       </div>
-    </div>
+    </>
   );
 }

@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/router";
-import Sidebar from "@/components/Sidebar";
 import HeaderProfile from "@/components/HeaderProfile";
 import {
   getClientes,
@@ -44,7 +43,6 @@ export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<Cliente | null>(null);
@@ -409,8 +407,7 @@ export default function ClientesPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
@@ -622,6 +619,6 @@ export default function ClientesPage() {
           onCancel={() => cancelConverter()}
         />
       )}
-    </div>
+    </>
   );
 }

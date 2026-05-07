@@ -7,7 +7,6 @@ import Template1, {
 } from "@/components/proposals/Template1";
 import Template2 from "@/components/proposals/Template2";
 import Template3 from "@/components/proposals/Template3";
-import Sidebar from "@/components/Sidebar";
 import Toast, { ToastType } from "@/components/Toast";
 import HeaderProfile from "@/components/HeaderProfile";
 
@@ -15,7 +14,6 @@ export default function ProposalDetail() {
   const router = useRouter();
   const { id } = router.query;
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [proposal, setProposal] = useState<any>(null);
   const [content, setContent] = useState<ProposalContent>(DEFAULT_CONTENT);
@@ -116,10 +114,6 @@ export default function ProposalDetail() {
 
   return (
     <>
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden no-print-layout">
-        <div className="no-print">
-          <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-        </div>
         {toast && <Toast message={toast.message} type={toast.type} />}
 
         <div className="flex flex-col flex-1 min-w-0 gap-6 pr-6 py-8 overflow-y-auto">
@@ -208,7 +202,6 @@ export default function ProposalDetail() {
             })()}
           </div>
         </div>
-      </div>
 
       <style jsx global>{`
         @media print {

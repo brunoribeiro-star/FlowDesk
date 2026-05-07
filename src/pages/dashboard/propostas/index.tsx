@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { 
@@ -85,7 +84,6 @@ const COLUMNS: { id: ProposalStatus; label: string }[] = [
 
 export default function ProposalsList() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -438,8 +436,7 @@ export default function ProposalsList() {
   );
 
   return (
-    <div className="flex h-screen bg-primary-900 text-gray-100 overflow-hidden">
-      <Sidebar defaultOpen={sidebarOpen} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         <header className="h-16 border-b border-gray-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
@@ -576,6 +573,6 @@ export default function ProposalsList() {
           background-color: var(--primary-400);
         }
       `}</style>
-    </div>
+    </>
   );
 }

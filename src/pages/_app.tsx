@@ -7,14 +7,15 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import { Zap } from "lucide-react";
 import UpgradeModal from "@/components/UpgradeModal";
-import { useSubscription } from "@/hooks/useSubscription";
+import { SubscriptionProvider, useSubscriptionContext } from "@/contexts/SubscriptionContext";
+import DashboardLayout from "@/components/DashboardLayout";
 
 const PROTECTED_ROUTES = ["/dashboard", "/onboarding", "/portal"];
 
 function PageContent({ Component, pageProps, pathname }: { Component: any; pageProps: any; pathname: string }) {
   const { loading, user } = useAuth();
   const router = useRouter();
-  const subscription = useSubscription();
+  const subscription = useSubscriptionContext();
 
   const isProtected = PROTECTED_ROUTES.some((path) => pathname.startsWith(path))
     && pathname !== "/portal/login"
@@ -101,6 +102,14 @@ function PageContent({ Component, pageProps, pathname }: { Component: any; pageP
     );
   }
 
+  if (isDashboard) {
+    return (
+      <DashboardLayout>
+        <Component {...pageProps} />
+      </DashboardLayout>
+    );
+  }
+
   return <Component {...pageProps} />;
 }
 
@@ -175,11 +184,13 @@ export default function App({ Component, pageProps, router }: AppProps) {
       </Head>
 
       <AuthProvider>
-        {progress && (
-          <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] bg-primary-500 page-progress-bar" />
-        )}
-        <PageContent Component={Component} pageProps={pageProps} pathname={router.pathname} />
-        <UpgradeModal />
+        <SubscriptionProvider>
+          {progress && (
+            <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] bg-primary-500 page-progress-bar" />
+          )}
+          <PageContent Component={Component} pageProps={pageProps} pathname={router.pathname} />
+          <UpgradeModal />
+        </SubscriptionProvider>
       </AuthProvider>
     </>
   );

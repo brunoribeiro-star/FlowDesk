@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/router";
-import Sidebar from "@/components/Sidebar";
 import { ArrowLeft, Timer, Zap, Flame, Clock, Coffee } from "lucide-react";
 
 const MODES = [
@@ -98,7 +97,6 @@ function NumericInput({
 
 export default function CronometroPage() {
   const router = useRouter();
-  const [_sidebarOpen, setSidebarOpen] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState(30);
 
@@ -123,11 +121,7 @@ export default function CronometroPage() {
   }
 
   return (
-    <div
-      className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden"
-      style={{ fontFamily: "'DM Sans', sans-serif" }}
-    >
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">
@@ -284,6 +278,6 @@ export default function CronometroPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

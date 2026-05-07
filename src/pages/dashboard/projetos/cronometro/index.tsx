@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { ArrowLeft, Timer, Zap, Flame, Clock } from "lucide-react";
 
 interface Projeto {
@@ -107,7 +106,6 @@ export default function ProjetoCronometroConfigPage() {
   const router = useRouter();
   const { projeto_id } = router.query;
 
-  const [_sidebarOpen, setSidebarOpen] = useState(false);
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<string | null>(null);
@@ -164,8 +162,7 @@ export default function ProjetoCronometroConfigPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden" style={{ fontFamily: "'DM Sans', sans-serif" }}>
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">
@@ -304,6 +301,6 @@ export default function ProjetoCronometroConfigPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

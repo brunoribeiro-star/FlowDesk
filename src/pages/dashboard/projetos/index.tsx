@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useCallback, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/router";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -127,7 +126,6 @@ export default function ProjetosPage() {
   const router = useRouter();
   const { user: authUser } = useAuth();
   const subscription = useSubscription();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [pagamentosByProjeto, setPagamentosByProjeto] = useState<Record<string, Pagamento[]>>({});
@@ -1234,8 +1232,7 @@ export default function ProjetosPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 gap-4 pr-6 py-4 w-full overflow-hidden relative">
         <div className="flex items-center justify-between gap-4 w-full">
@@ -1391,6 +1388,6 @@ export default function ProjetosPage() {
           }
         }
       `}</style>
-    </div>
+    </>
   );
 }

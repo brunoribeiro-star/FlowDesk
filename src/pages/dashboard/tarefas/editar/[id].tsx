@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { updateTask } from "@/lib/supabaseQueries/tasks";
 import { calcularUrgencia } from "@/lib/utils";
@@ -45,7 +44,6 @@ export default function EditarTarefaPage() {
   const router = useRouter();
   const taskId = Array.isArray(id) ? id[0] : (id as string);
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const [task, setTask] = useState<Task | null>(null);
@@ -363,8 +361,7 @@ export default function EditarTarefaPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 pr-6 py-8 gap-8 overflow-hidden">
         <header className="flex items-center justify-between">
@@ -680,7 +677,7 @@ export default function EditarTarefaPage() {
           }
         `}</style>
       </div>
-    </div>
+    </>
   );
 }
 

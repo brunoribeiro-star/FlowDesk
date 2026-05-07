@@ -3,7 +3,6 @@
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import Sidebar from "@/components/Sidebar";
 import { updateTask, deleteTask } from "@/lib/supabaseQueries/tasks";
 import { Clock, ArrowLeft, CheckCircle2, Circle, Calendar } from "lucide-react";
 import { calcularUrgencia, tempoRelativo, formatarData } from "@/lib/utils";
@@ -44,7 +43,6 @@ export default function DetalhesTarefaPage() {
   const id = typeof params.id === "string" ? params.id : "";
   const router = useRouter();
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [task, setTask] = useState<Task | null>(null);
   const [projeto, setProjeto] = useState<Projeto | null>(null);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -158,8 +156,7 @@ export default function DetalhesTarefaPage() {
   const urgencia = calcularUrgencia(task.due_date);
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 h-full overflow-hidden relative">
         <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">
@@ -289,7 +286,7 @@ export default function DetalhesTarefaPage() {
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import UserAvatar from "@/components/UserAvatar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -183,7 +182,6 @@ export default function NovoBriefingPage() {
   const editId = searchParams.get("edit");
   const projetoId = searchParams.get("projeto_id");
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -590,10 +588,7 @@ export default function NovoBriefingPage() {
         </div>
       )}
 
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
-        <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
             <header className="h-16 border-b border-primary-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
                 <div className="flex items-center gap-4">
                     <button
@@ -937,8 +932,7 @@ export default function NovoBriefingPage() {
                 </div>
             </main>
         </div>
-      </div>
-      
+
       <style jsx global>{`
         .novo-briefing-scroll::-webkit-scrollbar {
           width: 8px;

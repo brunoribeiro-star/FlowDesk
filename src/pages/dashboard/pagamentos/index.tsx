@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import HeaderProfile from "@/components/HeaderProfile";
@@ -65,7 +64,6 @@ function classificarPagamento(p: Pagamento): "pago" | "pendente" | "atrasado" {
 
 export default function PagamentosPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { user: authUser } = useAuth();
   const [user, setUser] = useState<any>(null);
@@ -212,8 +210,7 @@ export default function PagamentosPage() {
   const total = pagamentos.length;
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 gap-8 pr-6 py-8 overflow-hidden">
         <header className="w-full flex items-center justify-between gap-4">
@@ -523,6 +520,6 @@ export default function PagamentosPage() {
           }
         `}</style>
       </div>
-    </div>
+    </>
   );
 }

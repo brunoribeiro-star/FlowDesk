@@ -10,7 +10,6 @@ import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
 import { useRouter } from "next/router";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { getClientes, addCliente } from "@/lib/supabaseQueries/clientes";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
@@ -43,7 +42,6 @@ interface ProjetoLink {
 
 export default function NovoProjetoPage() {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [clientes, setClientes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -691,8 +689,7 @@ export default function NovoProjetoPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       {popup.type && (
         <div
@@ -1519,7 +1516,7 @@ export default function NovoProjetoPage() {
           onCancel={() => cancelConverter()}
         />
       )}
-    </div>
+    </>
   );
 }
 

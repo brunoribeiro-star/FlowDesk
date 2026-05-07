@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import UserAvatar from "@/components/UserAvatar";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/router";
@@ -373,7 +372,7 @@ export default function ConfiguracoesPage() {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   const [theme, setTheme] = useState<ThemeSlug>("default");
-  const [sidebarDefault, setSidebarDefault] = useState(true);
+  const [sidebarDefault, setSidebarDefault] = useState(() => typeof window !== "undefined" ? localStorage.getItem("sidebar_open") !== "false" : true);
 
   const [projetosView, setProjetosView] = useState<ViewMode>("list");
   const [tarefasView, setTarefasView] = useState<ViewMode>("list");
@@ -435,9 +434,6 @@ export default function ConfiguracoesPage() {
       if (typeof window !== "undefined") {
         const storedTheme = getStoredTheme();
         setTheme(storedTheme);
-
-        const storedSidebar = localStorage.getItem("sidebar_open");
-        setSidebarDefault(storedSidebar !== "false");
 
         const pv = localStorage.getItem("projetosViewMode");
         if (pv === "list" || pv === "board") setProjetosView(pv);
@@ -660,6 +656,7 @@ export default function ConfiguracoesPage() {
   function handleSidebarToggle(val: boolean) {
     setSidebarDefault(val);
     localStorage.setItem("sidebar_open", String(val));
+    window.dispatchEvent(new CustomEvent("flowdesk:sidebar-default-changed", { detail: val }));
   }
 
   function handleProjetosView(v: ViewMode) {
@@ -804,8 +801,7 @@ export default function ConfiguracoesPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
-      <Sidebar defaultOpen={sidebarDefault} />
+    <>
 
       <div className="flex flex-1 overflow-hidden">
 
@@ -1732,6 +1728,6 @@ export default function ConfiguracoesPage() {
           onCancel={() => cancelConverter()}
         />
       )}
-    </div>
+    </>
   );
 }

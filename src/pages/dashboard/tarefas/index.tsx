@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useCallback, useRef, useState } from "react";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { updateTask, deleteTask } from "@/lib/supabaseQueries/tasks";
 import { useRouter } from "next/navigation";
@@ -44,7 +43,6 @@ const URGENCY_COLUMNS = [
 ];
 
 export default function TarefasPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -467,8 +465,7 @@ export default function TarefasPage() {
   );
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
+    <>
 
       <div className="flex flex-col flex-1 gap-4 pr-6 py-4 overflow-hidden">
         <header className="w-full flex items-center justify-between">
@@ -997,6 +994,6 @@ export default function TarefasPage() {
           }
         `}</style>
       </div>
-    </div>
+    </>
   );
 }

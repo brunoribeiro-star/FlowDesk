@@ -56,6 +56,16 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
     onOpenChange?.(open);
   }, [open, onOpenChange]);
 
+  useEffect(() => {
+    function handleDefaultChanged(e: Event) {
+      const val = (e as CustomEvent<boolean>).detail;
+      setOpen(val);
+      localStorage.setItem(SIDEBAR_KEY, String(val));
+    }
+    window.addEventListener("flowdesk:sidebar-default-changed", handleDefaultChanged);
+    return () => window.removeEventListener("flowdesk:sidebar-default-changed", handleDefaultChanged);
+  }, []);
+
   const mainLinks = [
     { name: "Home", href: "/dashboard", icon: Home },
     { name: "Projetos", href: "/dashboard/projetos", icon: FolderKanban },

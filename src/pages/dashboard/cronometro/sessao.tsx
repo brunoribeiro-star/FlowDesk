@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
-import Sidebar from "@/components/Sidebar";
 import {
   Minus,
   Plus,
@@ -125,7 +124,6 @@ export default function CronometroSessaoPage() {
 
   const [focusMode,   setFocusMode]   = useState(false);
   const [startTime,   setStartTime]   = useState<Date | null>(null);
-  const [_sidebarOpen, setSidebarOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
   const endAtRef      = useRef<number | null>(null);
@@ -321,19 +319,13 @@ export default function CronometroSessaoPage() {
   }
 
   return (
-    <div
-      className="h-screen w-screen overflow-hidden relative flex"
-      style={{ background: "var(--primary-900)", fontFamily: "'DM Sans', sans-serif" }}
-    >
+    <>
       <canvas
         ref={canvasRef}
         className="pointer-events-none fixed inset-0 z-50"
         style={{ display: concluded ? "block" : "none" }}
       />
 
-      {!focusMode && (
-        <Sidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-      )}
       {focusMode && (
         <button
           onClick={() => setFocusMode(false)}
@@ -559,6 +551,6 @@ export default function CronometroSessaoPage() {
         }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
       `}</style>
-    </div>
+    </>
   );
 }

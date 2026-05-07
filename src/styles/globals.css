@@ -64,6 +64,15 @@ select.flow-select {
   animation: skeleton-shimmer 1.4s ease-in-out infinite;
 }
 
+@keyframes page-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.page-content-enter {
+  animation: page-fade-in 0.12s ease-out;
+}
+
 @keyframes page-progress {
   0%   { width: 0%; opacity: 1; }
   80%  { width: 85%; opacity: 1; }
