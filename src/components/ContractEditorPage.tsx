@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useRouter } from "next/router";
-import Sidebar from "@/components/Sidebar";
 import { supabase } from "@/lib/supabaseClient";
 import { Mark, mergeAttributes, Extension } from "@tiptap/core";
 import { Plugin as PMPlugin, PluginKey } from "prosemirror-state";
@@ -526,18 +525,14 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
-        <Sidebar defaultOpen={false} onOpenChange={() => {}} />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-        </div>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
-      <Sidebar defaultOpen={false} onOpenChange={() => {}} />
+    <>
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
@@ -940,6 +935,6 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
