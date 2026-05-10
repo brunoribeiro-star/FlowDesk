@@ -87,3 +87,85 @@ export async function deleteProjeto(id: string) {
 
     if (error) throw error;
 }
+
+export async function duplicateProjeto(id: string): Promise<string> {
+    const {
+        data: { user },
+        error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) throw new Error("Usuário não autenticado.");
+
+    const { data: original, error: fetchError } = await supabase
+        .from("projetos")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+
+    if (fetchError || !original) throw new Error("Projeto não encontrado.");
+
+    const { data: novoProjeto, error: insertError } = await supabase
+        .from("projetos")
+        .insert({
+            user_id: user.id,
+            cliente_id: original.cliente_id,
+            titulo: `${original.titulo} (Cópia)`,
+            descricao: original.descricao,
+            status: "em_andamento",
+            valor: original.valor,
+            prazo_entrega: original.prazo_entrega,
+            forma_pagamento: original.forma_pagamento,
+            data_inicio: original.data_inicio,
+        })
+        .select("id")
+        .single();
+
+    if (insertError || !novoProjeto) throw new Error("Erro ao duplicar projeto.");
+
+    const novoId = novoProjeto.id;
+
+    const { data: tasks } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("projeto_id", id);
+
+    if (tasks && tasks.length > 0) {
+        for (const task of tasks) {
+            const { data: novaTask } = await supabase
+                .from("tasks")
+                .insert({
+                    user_id: user.id,
+                    projeto_id: novoId,
+                    titulo: task.titulo,
+                    descricao: task.descricao,
+                    status: "para_fazer",
+                    due_date: task.due_date,
+                    concluida: false,
+                })
+                .select("id")
+                .single();
+
+            if (!novaTask) continue;
+
+            const { data: subtasks } = await supabase
+                .from("subtasks")
+                .select("*")
+                .eq("task_id", task.id);
+
+            if (subtasks && subtasks.length > 0) {
+                await supabase.from("subtasks").insert(
+                    subtasks.map((s: any) => ({
+                        user_id: user.id,
+                        task_id: novaTask.id,
+                        titulo: s.titulo,
+                        descricao: s.descricao,
+                        concluida: false,
+                    }))
+                );
+            }
+        }
+    }
+
+    return novoId;
+}

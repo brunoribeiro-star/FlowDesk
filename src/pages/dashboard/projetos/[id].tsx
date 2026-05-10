@@ -3203,6 +3203,7 @@ const TaskList = memo(function TaskList({
   toggleTaskCompletion,
   toggleSubtaskCompletion,
 }: TaskListProps) {
+  const router = useRouter();
   const isOwner = user && projeto && user.id === projeto.user_id;
   const ownerEntry = (() => {
     if (isOwner) return { user_id: projeto.user_id, name: `${displayName} (eu)`, avatar: avatarSrc };
@@ -3417,6 +3418,16 @@ const TaskList = memo(function TaskList({
                         <span className="text-[12px] text-gray-500">
                           {new Date(t.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
                         </span>
+                      )}
+                      {(isOwner || t.user_id === user?.id) && (
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/dashboard/tarefas/editar/${t.id}`)}
+                          className="p-1 rounded-lg text-gray-600 hover:text-gray-300 hover:bg-primary-700 transition-colors"
+                          title="Editar tarefa"
+                        >
+                          <Pencil size={13} />
+                        </button>
                       )}
                     </div>
                   </div>

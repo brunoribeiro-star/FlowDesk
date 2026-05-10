@@ -150,7 +150,7 @@ export default function DashboardHome() {
     async function fetchData() {
       setLoading(true);
 
-      const [projRes, atvRes, payRes, tasksRes, memberProjectsRes, collabPayRes, collabSplitRes, pendingInvitesRes] = await Promise.all([
+      const [projRes, atvRes, payRes, tasksRes, memberProjectsRes, collabPayRes, collabSplitRes, pendingInvitesRes, ownedMemberSplitsRes, ownedCollabPendingRes] = await Promise.all([
         supabase
           .from("projetos")
           .select("id, titulo, status, progresso, prazo_entrega, cliente_id, orcamento, cover_url, created_at, forma_pagamento, updated_at")
@@ -187,6 +187,16 @@ export default function DashboardHome() {
           .select("id, token, project_id, invited_by, split_type, split_value, expires_at, projetos:project_id(titulo)")
           .eq("invited_email", (authUser!.email || "").toLowerCase())
           .eq("status", "pending"),
+        supabase
+          .from("project_member_splits")
+          .select("project_id, member_user_id, split_type, split_value, projetos:project_id!inner(user_id)")
+          .eq("projetos.user_id", authUser!.id)
+          .neq("member_user_id", authUser!.id),
+        supabase
+          .from("collaborator_payment_splits")
+          .select("amount, project_id, projetos:project_id!inner(user_id)")
+          .eq("projetos.user_id", authUser!.id)
+          .eq("status", "pendente"),
       ]);
 
       const ownedIds = new Set((projRes.data || []).map((p: any) => p.id));
@@ -206,24 +216,9 @@ export default function DashboardHome() {
       setCollabPaySplits((collabPayRes.data || []) as any[]);
       setCollabMemberSplits((collabSplitRes.data || []) as any[]);
       setPendingInvites((pendingInvitesRes.data || []) as any[]);
+      setOwnedMemberSplits((ownedMemberSplitsRes.data || []) as any[]);
+      setOwnedCollabPaySplitsPending((ownedCollabPendingRes.data || []) as any[]);
       setLoading(false);
-
-      const ownedProjectIds = (projRes.data || []).map((p: any) => p.id);
-      if (ownedProjectIds.length > 0) {
-        supabase
-          .from("project_member_splits")
-          .select("project_id, member_user_id, split_type, split_value")
-          .in("project_id", ownedProjectIds)
-          .neq("member_user_id", authUser!.id)
-          .then(({ data }) => setOwnedMemberSplits(data || []));
-
-        supabase
-          .from("collaborator_payment_splits")
-          .select("amount, project_id")
-          .in("project_id", ownedProjectIds)
-          .eq("status", "pendente")
-          .then(({ data }) => setOwnedCollabPaySplitsPending(data || []));
-      }
     }
 
     fetchData();
@@ -337,35 +332,13 @@ export default function DashboardHome() {
       }
     });
 
-    const collabPending = collabPaySplits
-      .filter((s: any) => {
-        const st = String(s.status || "").toLowerCase();
-        return st !== "pago";
-      })
-      .reduce((acc: number, s: any) => acc + Number(s.amount ?? 0), 0);
-
-    const projectsWithCollabPaySplits = new Set(collabPaySplits.map((s: any) => s.project_id));
-    let collabFallbackPending = 0;
-    collabMemberSplits.forEach((ms: any) => {
-      if (projectsWithCollabPaySplits.has(ms.project_id)) return;
-      const proj = ms.projetos as any;
-      if (!proj) return;
-      if (ms.payment_status === "paid") return;
-      const orcamento = Number(proj.orcamento ?? 0);
-      if (ms.split_type === "percentage") {
-        collabFallbackPending += orcamento * (Number(ms.split_value) / 100);
-      } else {
-        collabFallbackPending += Number(ms.split_value ?? 0);
-      }
-    });
-
     const ownedCollabPending = ownedCollabPaySplitsPending.reduce(
       (acc: number, s: any) => acc + Number(s.amount ?? 0),
       0
     );
 
-    return total + collabPending + collabFallbackPending - ownedCollabPending;
-  }, [pagamentos, projetos, collabPaySplits, collabMemberSplits, ownedCollabPaySplitsPending]);
+    return Math.max(0, total - ownedCollabPending);
+  }, [pagamentos, projetos, ownedCollabPaySplitsPending]);
 
   const tarefasVencendo = useMemo(() => {
     const now = new Date();

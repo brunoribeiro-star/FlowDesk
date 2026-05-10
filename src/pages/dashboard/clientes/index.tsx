@@ -56,6 +56,8 @@ export default function ClientesPage() {
   const { converterState, triggerConverter, cancelConverter } = useImageConverter();
   const [clientStatusMap, setClientStatusMap] = useState<Record<string, string>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const boardStateInitialized = useRef(false);
+  const viewModeInitialized = useRef(false);
 
   const boardColumns = [
     { id: "potencial", label: "Potencial", color: "bg-blue-500" },
@@ -103,10 +105,18 @@ export default function ClientesPage() {
   }, []);
 
   useEffect(() => {
+      if (!viewModeInitialized.current) {
+          viewModeInitialized.current = true;
+          return;
+      }
       localStorage.setItem("clientesParams", JSON.stringify({ viewMode }));
   }, [viewMode]);
 
   useEffect(() => {
+      if (!boardStateInitialized.current) {
+          boardStateInitialized.current = true;
+          return;
+      }
       localStorage.setItem("clientesBoardState", JSON.stringify(clientStatusMap));
   }, [clientStatusMap]);
 
@@ -344,12 +354,12 @@ export default function ClientesPage() {
     });
 
     return (
-      <div className="mt-6 h-full min-h-0 overflow-y-hidden pb-4">
-        <div className="grid grid-cols-4 min-h-0 h-full divide-x divide-primary-700">
+      <div className="mt-6 pb-6">
+        <div className="grid grid-cols-4 divide-x divide-primary-700">
            {boardColumns.map(col => {
                const list = grouped[col.id] || [];
                return (
-                   <div key={col.id} className="min-w-0 px-4 flex flex-col min-h-0 h-full">
+                   <div key={col.id} className="min-w-0 px-4 flex flex-col">
                        <div className="px-2 py-4 flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <span className={`w-2 h-2 rounded-full ${col.color}`} />
@@ -358,8 +368,8 @@ export default function ClientesPage() {
                             </div>
                        </div>
 
-                       <div 
-                           className="flex-1 min-h-0 overflow-y-auto px-2 pb-4 flex flex-col gap-3 custom-scrollbar"
+                       <div
+                           className="px-2 pb-4 flex flex-col gap-3 min-h-[120px]"
                            onDragOver={handleColumnDragOver}
                            onDrop={() => handleColumnDrop(col.id)}
                         >
@@ -369,6 +379,8 @@ export default function ClientesPage() {
                                  draggable
                                  onDragStart={() => handleDragStart(c.id)}
                                  onDragEnd={handleDragEnd}
+                                 onDragOver={(e) => e.preventDefault()}
+                                 onDrop={(e) => { e.stopPropagation(); handleColumnDrop(col.id); }}
                                  className={`bg-primary-800/40 hover:bg-primary-800 border border-primary-700 hover:border-primary-500 rounded-xl p-4 cursor-grab active:cursor-grabbing group transition-all ${
                                      draggingId === c.id ? 'opacity-50 border-dashed border-primary-500 bg-primary-800/20' : ''
                                  }`}
@@ -419,7 +431,7 @@ export default function ClientesPage() {
         />
       )}
 
-      <div className="flex flex-col flex-1 gap-4 pr-6 py-4 w-full overflow-hidden relative">
+      <div className={`flex flex-col flex-1 gap-4 pr-6 py-4 w-full relative ${viewMode === "board" ? "overflow-y-auto" : "overflow-hidden"}`}>
           
           <div className="flex flex-col gap-3 w-full">
             <div className="flex items-center justify-between gap-4 w-full">
@@ -463,7 +475,7 @@ export default function ClientesPage() {
             </div>
           </div>
 
-          <section className="flex-1 h-full min-h-0 overflow-hidden pr-4 flex flex-col">
+          <section className={`flex-1 pr-4 flex flex-col ${viewMode === "list" ? "h-full min-h-0 overflow-hidden" : ""}`}>
             {viewMode === "list" && renderListView()}
             {viewMode === "board" && renderBoardView()}
           </section>

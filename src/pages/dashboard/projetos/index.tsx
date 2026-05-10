@@ -12,6 +12,12 @@ import { jsonToPlainText, calcularUrgencia } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import { useSubscription } from "@/hooks/useSubscription";
 import { triggerUpgradeBanner } from "@/lib/limitGuard";
+import { duplicateProjeto } from "@/lib/supabaseQueries/projetos";
+import DatePicker from "@/components/DatePicker";
+import { useImageConverter } from "@/hooks/useImageConverter";
+import ImageConverterModal from "@/components/ui/ImageConverterModal";
+import { IMAGE_SPECS } from "@/lib/imageSpecs";
+import { checkStorageAvailable } from "@/lib/storageCheck";
 
 type ProjetoStatus = "arquivado" | "para fazer" | "fazendo" | "pausado" | "concluído" | "pgto pendente" | "finalizado";
 
@@ -80,17 +86,17 @@ function isArchivedProject(p: Projeto): boolean {
 }
 
 function normalizeStatus(p: Projeto, pagamentosPendente: boolean): "para fazer" | "fazendo" | "pgto pendente" | "finalizado" | "arquivado" {
+  const s = String(p.status || "").trim().toLowerCase();
+  const isConcluido = s === "concluído" || s === "concluido";
+
+  // Pagamento pendente tem prioridade sobre arquivamento
+  if (isConcluido && pagamentosPendente) return "pgto pendente";
+
   if (isArchivedProject(p)) return "arquivado";
 
-  const s = String(p.status || "")
-    .trim()
-    .toLowerCase();
-
-  if (s === "concluído" || s === "concluido") {
-    return pagamentosPendente ? "pgto pendente" : "finalizado";
-  }
+  if (isConcluido) return "finalizado";
   if (s === "fazendo" || s === "em andamento" || s === "andamento" || s === "doing") return "fazendo";
-  
+
   return "para fazer";
 }
 
@@ -147,6 +153,50 @@ export default function ProjetosPage() {
   const [ownedMemberSplits, setOwnedMemberSplits] = useState<any[]>([]);
 
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  const [editModal, setEditModal] = useState<{
+    open: boolean;
+    step: 1 | 2;
+    projetoId: string | null;
+    loading: boolean;
+    saving: boolean;
+    coverUploading: boolean;
+    coverPreview: string;
+    clientes: { id: string; nome: string; empresa?: string | null }[];
+    form: {
+      titulo: string;
+      cliente_id: string;
+      orcamento: string;
+      data_inicio: string;
+      prazo_entrega: string;
+      forma_pagamento: string;
+      status: string;
+      notas_internas: string;
+    };
+  }>({
+    open: false,
+    step: 1,
+    projetoId: null,
+    loading: false,
+    saving: false,
+    coverUploading: false,
+    coverPreview: "",
+    clientes: [],
+    form: {
+      titulo: "",
+      cliente_id: "",
+      orcamento: "",
+      data_inicio: "",
+      prazo_entrega: "",
+      forma_pagamento: "",
+      status: "",
+      notas_internas: "",
+    },
+  });
+  const editCoverFileRef = useRef<File | null>(null);
+  const editCoverInputRef = useRef<HTMLInputElement | null>(null);
+  const prevUserIdRef = useRef<string | null>(null);
+  const { converterState: editConverterState, triggerConverter: editTriggerConverter, cancelConverter: editCancelConverter } = useImageConverter();
 
   const [confirm, setConfirm] = useState<ConfirmState>({
     open: false,
@@ -321,7 +371,15 @@ export default function ProjetosPage() {
   }, [router.query.q]);
 
   useEffect(() => {
+    const currentId = authUser?.id ?? null;
+    if (currentId === prevUserIdRef.current) return;
+    prevUserIdRef.current = currentId;
+
     fetchProjetos();
+    if (authUser) {
+      const savedId = sessionStorage.getItem("fd_edit_projeto");
+      if (savedId) openEditModal(savedId);
+    }
   }, [authUser]);
 
   useEffect(() => {
@@ -363,6 +421,15 @@ export default function ProjetosPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [authUser]);
+
+  useEffect(() => {
+    if (!editModal.open || !editModal.projetoId || editModal.loading) return;
+    sessionStorage.setItem("fd_edit_form", JSON.stringify({
+      projetoId: editModal.projetoId,
+      form: editModal.form,
+      step: editModal.step,
+    }));
+  }, [editModal.form, editModal.step, editModal.open]);
 
   const closeMenusOnOutside = useCallback((e: MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -435,6 +502,146 @@ export default function ProjetosPage() {
         closeConfirm();
         await deleteProject(projectId);
       },
+    });
+  }
+
+  async function handleDuplicate(projectId: string) {
+    setMenuOpenId(null);
+    try {
+      await duplicateProjeto(projectId);
+      fetchProjetos(true);
+    } catch {
+      fetchProjetos(true);
+    }
+  }
+
+  function formatOrcamento(raw: string): string {
+    const digits = raw.replace(/\D/g, "");
+    if (!digits) return "";
+    return (Number(digits) / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function orcamentoFromNumber(n: number | null | undefined): string {
+    if (n == null) return "";
+    return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function parseOrcamento(formatted: string): number | null {
+    const digits = formatted.replace(/\D/g, "");
+    if (!digits) return null;
+    return Number(digits) / 100;
+  }
+
+  async function openEditModal(projectId: string) {
+    setMenuOpenId(null);
+    editCoverFileRef.current = null;
+    setEditModal((prev) => ({ ...prev, open: true, step: 1, projetoId: projectId, loading: true, coverPreview: "" }));
+    sessionStorage.setItem("fd_edit_projeto", projectId);
+    try {
+      const [{ data: proj }, { data: clientesData }] = await Promise.all([
+        supabase.from("projetos").select("*").eq("id", projectId).single(),
+        supabase.from("clientes").select("id, nome, empresa").eq("user_id", authUser!.id).order("nome"),
+      ]);
+      if (proj) {
+        // Check for in-progress form saved in sessionStorage
+        let restoredForm: typeof editModal.form | null = null;
+        let restoredStep: 1 | 2 = 1;
+        try {
+          const raw = sessionStorage.getItem("fd_edit_form");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed.projetoId === projectId) {
+              restoredForm = parsed.form;
+              restoredStep = parsed.step ?? 1;
+            }
+          }
+        } catch { /* ignore */ }
+
+        setEditModal((prev) => ({
+          ...prev,
+          loading: false,
+          step: restoredStep,
+          coverPreview: proj.cover_url || "",
+          clientes: (clientesData || []) as { id: string; nome: string; empresa?: string | null }[],
+          form: restoredForm ?? {
+            titulo: proj.titulo || "",
+            cliente_id: proj.cliente_id || "",
+            orcamento: orcamentoFromNumber(proj.orcamento),
+            data_inicio: proj.data_inicio || "",
+            prazo_entrega: proj.prazo_entrega || "",
+            forma_pagamento: proj.forma_pagamento || "",
+            status: proj.status || "",
+            notas_internas: proj.notas_internas || "",
+          },
+        }));
+      }
+    } catch {
+      setEditModal((prev) => ({ ...prev, open: false, loading: false }));
+      sessionStorage.removeItem("fd_edit_projeto");
+      sessionStorage.removeItem("fd_edit_form");
+    }
+  }
+
+  function closeEditModal() {
+    setEditModal((prev) => ({ ...prev, open: false }));
+    editCoverFileRef.current = null;
+    sessionStorage.removeItem("fd_edit_projeto");
+    sessionStorage.removeItem("fd_edit_form");
+  }
+
+  async function saveEditModal() {
+    if (!editModal.projetoId) return;
+    setEditModal((prev) => ({ ...prev, saving: true }));
+    try {
+      const { titulo, cliente_id, orcamento, data_inicio, prazo_entrega, forma_pagamento, status, notas_internas } = editModal.form;
+
+      await supabase.from("projetos").update({
+        titulo: titulo.trim() || undefined,
+        cliente_id: cliente_id || null,
+        orcamento: parseOrcamento(orcamento),
+        data_inicio: data_inicio || null,
+        prazo_entrega: prazo_entrega || null,
+        forma_pagamento: forma_pagamento || null,
+        status: status || undefined,
+        notas_internas: notas_internas || null,
+      }).eq("id", editModal.projetoId);
+
+      if (editCoverFileRef.current && authUser) {
+        setEditModal((prev) => ({ ...prev, coverUploading: true }));
+        try {
+          const f = editCoverFileRef.current!;
+          const ext = (f.name.split(".").pop() || "webp").toLowerCase();
+          const uuid = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
+          const filePath = `${authUser.id}/${editModal.projetoId}/${uuid}.${ext}`;
+
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const hasSpace = await checkStorageAvailable(f.size, session.access_token);
+            if (!hasSpace) { triggerUpgradeBanner("storage"); setEditModal((p) => ({ ...p, saving: false, coverUploading: false })); return; }
+          }
+
+          const { error: upErr } = await supabase.storage.from("project-covers").upload(filePath, f, { upsert: false, contentType: f.type });
+          if (!upErr) {
+            const { data: pub } = supabase.storage.from("project-covers").getPublicUrl(filePath);
+            await supabase.from("projetos").update({ cover_url: pub.publicUrl }).eq("id", editModal.projetoId!);
+          }
+        } catch { /* non-blocking: project data already saved */ }
+      }
+
+      setEditModal((prev) => ({ ...prev, open: false, saving: false, coverUploading: false }));
+      editCoverFileRef.current = null;
+      sessionStorage.removeItem("fd_edit_projeto");
+      sessionStorage.removeItem("fd_edit_form");
+      fetchProjetos(true);
+    } catch {
+      setEditModal((prev) => ({ ...prev, saving: false, coverUploading: false }));
+    }
+  }
+
+  function handleEditCoverFile(file: File) {
+    editTriggerConverter(file, IMAGE_SPECS.card, (converted) => {
+      editCoverFileRef.current = converted;
+      setEditModal((prev) => ({ ...prev, coverPreview: URL.createObjectURL(converted) }));
     });
   }
 
@@ -1031,10 +1238,17 @@ export default function ProjetosPage() {
                           <div className="absolute right-0 mt-2 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
-                              onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
+                              onClick={() => openEditModal(p.id)}
                               className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 rounded-t-xl"
                             >
                               Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDuplicate(p.id)}
+                              className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700"
+                            >
+                              Duplicar
                             </button>
                             <button
                               type="button"
@@ -1156,10 +1370,17 @@ export default function ProjetosPage() {
                                   <div className="absolute right-0 top-8 z-30 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl" onClick={(e) => e.stopPropagation()}>
                                     <button
                                       type="button"
-                                      onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
+                                      onClick={() => openEditModal(p.id)}
                                       className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 rounded-t-xl"
                                     >
                                       Editar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDuplicate(p.id)}
+                                      className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700"
+                                    >
+                                      Duplicar
                                     </button>
                                     <button
                                       type="button"
@@ -1320,6 +1541,235 @@ export default function ProjetosPage() {
           >
             <span className="text-2xl">🗑️</span>
           </div>
+        )}
+
+        {editModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+            <div className="w-full max-w-lg rounded-2xl bg-primary-800 border border-primary-700 shadow-[0_24px_60px_rgba(0,0,0,0.5)] flex flex-col max-h-[92vh] overflow-y-auto custom-scrollbar">
+
+              {/* Header sticky */}
+              <div className="sticky top-0 z-10 bg-primary-800 flex items-center justify-between px-6 py-4 border-b border-primary-700">
+                <div className="flex items-center gap-3">
+                  <h2 className="text-[18px] font-semibold text-gray-100">Editar projeto</h2>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditModal((p) => ({ ...p, step: 1 }))}
+                      className={`w-2 h-2 rounded-full transition-colors ${editModal.step === 1 ? "bg-primary-400" : "bg-primary-700"}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEditModal((p) => ({ ...p, step: 2 }))}
+                      className={`w-2 h-2 rounded-full transition-colors ${editModal.step === 2 ? "bg-primary-400" : "bg-primary-700"}`}
+                    />
+                  </div>
+                </div>
+                <button type="button" onClick={closeEditModal} className="text-gray-400 hover:text-gray-200 transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+
+              {editModal.loading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-7 h-7 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : editModal.step === 1 ? (
+                /* ── PASSO 1: Informações ── */
+                <div className="px-6 py-5 flex flex-col gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] text-gray-400 font-medium">Título</label>
+                    <input
+                      type="text"
+                      value={editModal.form.titulo}
+                      onChange={(e) => setEditModal((p) => ({ ...p, form: { ...p.form, titulo: e.target.value } }))}
+                      className="w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500"
+                      placeholder="Nome do projeto"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] text-gray-400 font-medium">Cliente</label>
+                    <div className="relative">
+                      <select
+                        value={editModal.form.cliente_id}
+                        onChange={(e) => setEditModal((p) => ({ ...p, form: { ...p.form, cliente_id: e.target.value } }))}
+                        className="w-full appearance-none bg-primary-900 border border-primary-700 rounded-xl pl-4 pr-10 py-2.5 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500"
+                      >
+                        <option value="">Sem cliente</option>
+                        {editModal.clientes.map((c) => (
+                          <option key={c.id} value={c.id}>{c.nome}{c.empresa ? ` — ${c.empresa}` : ""}</option>
+                        ))}
+                      </select>
+                      <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] text-gray-400 font-medium">Status</label>
+                    <div className="relative">
+                      <select
+                        value={editModal.form.status}
+                        onChange={(e) => setEditModal((p) => ({ ...p, form: { ...p.form, status: e.target.value } }))}
+                        className="w-full appearance-none bg-primary-900 border border-primary-700 rounded-xl pl-4 pr-10 py-2.5 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500"
+                      >
+                        <option value="Para fazer">Para fazer</option>
+                        <option value="Em andamento">Em andamento</option>
+                        <option value="Concluído">Concluído</option>
+                        <option value="Arquivado">Arquivado</option>
+                      </select>
+                      <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[13px] text-gray-400 font-medium">Orçamento (R$)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[13px] text-gray-500 select-none">R$</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={editModal.form.orcamento}
+                          onChange={(e) => setEditModal((p) => ({ ...p, form: { ...p.form, orcamento: formatOrcamento(e.target.value) } }))}
+                          className="w-full bg-primary-900 border border-primary-700 rounded-xl pl-9 pr-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500"
+                          placeholder="0,00"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[13px] text-gray-400 font-medium">Forma de pagamento</label>
+                      <div className="relative">
+                        <select
+                          value={editModal.form.forma_pagamento}
+                          onChange={(e) => setEditModal((p) => ({ ...p, form: { ...p.form, forma_pagamento: e.target.value } }))}
+                          className="w-full appearance-none bg-primary-900 border border-primary-700 rounded-xl pl-4 pr-10 py-2.5 text-[14px] text-gray-100 focus:outline-none focus:border-primary-500"
+                        >
+                          <option value="">Não definido</option>
+                          <option value="pix">Pix</option>
+                          <option value="pix_2x">Pix em 2x</option>
+                          <option value="cartao">Cartão</option>
+                        </select>
+                        <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] text-gray-400 font-medium">Data de início</label>
+                    <DatePicker
+                      value={editModal.form.data_inicio}
+                      onChange={(v) => setEditModal((p) => ({ ...p, form: { ...p.form, data_inicio: v } }))}
+                      placeholder="dd/mm/aaaa"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] text-gray-400 font-medium">Prazo de entrega</label>
+                    <DatePicker
+                      value={editModal.form.prazo_entrega}
+                      onChange={(v) => setEditModal((p) => ({ ...p, form: { ...p.form, prazo_entrega: v } }))}
+                      placeholder="dd/mm/aaaa"
+                    />
+                  </div>
+                </div>
+              ) : (
+                /* ── PASSO 2: Capa e notas ── */
+                <div className="px-6 py-5 flex flex-col gap-5">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[13px] text-gray-400 font-medium">Imagem de capa</label>
+                    {editModal.coverPreview ? (
+                      <div className="relative w-full h-40 rounded-xl overflow-hidden border border-primary-700 group">
+                        <img src={editModal.coverPreview} alt="Capa" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                          <label className="cursor-pointer px-3 py-1.5 rounded-lg bg-primary-700 text-[13px] text-gray-100 hover:bg-primary-600 transition-colors">
+                            Alterar
+                            <input
+                              ref={editCoverInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditCoverFile(f); e.target.value = ""; }}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => { editCoverFileRef.current = null; setEditModal((p) => ({ ...p, coverPreview: "" })); }}
+                            className="px-3 py-1.5 rounded-lg bg-red-500/20 text-[13px] text-red-300 hover:bg-red-500/30 transition-colors"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center w-full h-36 rounded-xl border-2 border-dashed border-primary-700 hover:border-primary-500 transition-colors cursor-pointer bg-primary-900/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 mb-2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <span className="text-[13px] text-gray-500">Clique para adicionar capa</span>
+                        <span className="text-[11px] text-gray-600 mt-1">640×360px · PNG, JPEG ou WebP · máx. 120 KB</span>
+                        <input
+                          ref={editCoverInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleEditCoverFile(f); e.target.value = ""; }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[13px] text-gray-400 font-medium">Notas internas</label>
+                    <textarea
+                      rows={5}
+                      value={editModal.form.notas_internas}
+                      onChange={(e) => setEditModal((p) => ({ ...p, form: { ...p.form, notas_internas: e.target.value } }))}
+                      className="w-full bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 text-[14px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 resize-none"
+                      placeholder="Anotações internas sobre o projeto..."
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Footer sticky */}
+              <div className="sticky bottom-0 bg-primary-800 flex items-center justify-between px-6 py-4 border-t border-primary-700">
+                <div className="flex items-center gap-2">
+                  {editModal.step === 1 ? (
+                    <button type="button" onClick={closeEditModal} className="px-4 py-2 rounded-xl bg-primary-900 border border-primary-700 text-gray-300 text-[14px] hover:bg-primary-700 transition-colors">
+                      Cancelar
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => setEditModal((p) => ({ ...p, step: 1 }))} className="px-4 py-2 rounded-xl bg-primary-900 border border-primary-700 text-gray-300 text-[14px] hover:bg-primary-700 transition-colors">
+                      ← Voltar
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {editModal.step === 1 ? (
+                    <button type="button" onClick={() => setEditModal((p) => ({ ...p, step: 2 }))} className="px-5 py-2 rounded-xl bg-primary-700 hover:bg-primary-600 border border-primary-600 text-gray-200 font-medium text-[14px] transition-colors">
+                      Próximo →
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={saveEditModal}
+                      disabled={editModal.saving || editModal.coverUploading}
+                      className="px-5 py-2 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[14px] transition-colors disabled:opacity-60"
+                    >
+                      {editModal.saving || editModal.coverUploading ? "Salvando..." : "Salvar"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {editConverterState && (
+          <ImageConverterModal
+            file={editConverterState.file}
+            spec={editConverterState.spec}
+            onAccept={editConverterState.onAccept}
+            onCancel={() => editCancelConverter()}
+          />
         )}
 
         {confirm.open && (
