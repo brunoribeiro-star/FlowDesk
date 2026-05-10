@@ -30,9 +30,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!email) return res.status(400).json({ error: "E-mail obrigatório." });
 
-  await supabase
+  const { error } = await supabase
     .from("leads")
     .upsert({ email, nome, telefone, source: "landing_page", status: "pendente" }, { onConflict: "email", ignoreDuplicates: true });
+
+  if (error) {
+    console.error("[leads webhook] upsert error:", error.message, { email, nome, telefone });
+    return res.status(500).json({ error: error.message });
+  }
 
   return res.status(200).json({ ok: true });
 }
