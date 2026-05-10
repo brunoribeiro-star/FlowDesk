@@ -33,6 +33,15 @@ import {
 } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const CLIENTES_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo aos Clientes!", content: "Aqui você cadastra e organiza todos os seus clientes com informações de contato, empresa e foto de perfil." },
+  { target: "#tour-add-btn", placement: "bottom", skipBeacon: true, title: "Adicionar cliente", content: "Clique aqui para cadastrar um novo cliente. Você pode informar nome, empresa, e-mail, telefone e foto." },
+  { target: 'button[title="Quadros"]', placement: "bottom", skipBeacon: true, title: "Visualização em quadros", content: "Alterne para o modo quadro (kanban) e arraste os clientes entre colunas: Potencial, Em Negociação, Cliente e Inativo." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Dica: vincule clientes a projetos", content: "Ao criar ou editar um projeto, você pode associá-lo a um cliente cadastrado aqui. Isso facilita o acompanhamento de quem é cada trabalho." },
+];
 
 type ViewMode = "list" | "board";
 
@@ -420,6 +429,7 @@ export default function ClientesPage() {
 
   return (
     <>
+      <PageTour name="clientes" steps={CLIENTES_TOUR_STEPS} />
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
@@ -465,6 +475,7 @@ export default function ClientesPage() {
                     }
                     router.push("/dashboard/clientes/novo");
                   }}
+                  id="tour-add-btn"
                   className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-2 px-6 text-[15px] font-semibold transition-colors shadow-lg shadow-primary-500/20"
                 >
                   + Cliente

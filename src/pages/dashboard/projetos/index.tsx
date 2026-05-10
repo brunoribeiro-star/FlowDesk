@@ -18,6 +18,16 @@ import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { checkStorageAvailable } from "@/lib/storageCheck";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const PROJETOS_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo aos Projetos!", content: "Aqui você centraliza tudo sobre seus projetos: valor, prazo, cliente, tarefas, arquivos, pagamentos e colaboradores — tudo em um só lugar." },
+  { target: "#tour-add-btn", placement: "bottom", skipBeacon: true, title: "Criar um projeto", content: "Clique aqui para criar seu primeiro projeto. Você define título, valor, prazo de entrega, cliente e muito mais." },
+  { target: 'button[title="Lista"]', placement: "bottom", skipBeacon: true, title: "Modos de visualização", content: "Alterne entre lista e quadro kanban. No kanban, arraste os cards entre as colunas para mudar o status do projeto." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Status dos projetos", content: "Os projetos são organizados em colunas: Para Fazer, Fazendo, Pagamento Pendente e Finalizado. O status avança conforme você completa tarefas e registra pagamentos." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Dentro de cada projeto", content: "Ao abrir um projeto, você encontra tarefas, subtarefas, briefings, arquivos, links, pagamentos e a opção de convidar colaboradores para trabalhar junto." },
+];
 
 type ProjetoStatus = "arquivado" | "para fazer" | "fazendo" | "pausado" | "concluído" | "pgto pendente" | "finalizado";
 
@@ -1454,6 +1464,7 @@ export default function ProjetosPage() {
 
   return (
     <>
+      <PageTour name="projetos" steps={PROJETOS_TOUR_STEPS} />
 
       <div className="flex flex-col flex-1 gap-4 pr-6 py-4 w-full overflow-hidden relative">
         <div className="flex items-center justify-between gap-4 w-full">
@@ -1499,6 +1510,7 @@ export default function ProjetosPage() {
                 }
                 router.push("/dashboard/projetos/novo");
               }}
+              id="tour-add-btn"
               className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-2 px-6 text-[15px] font-semibold transition-colors shadow-lg shadow-primary-500/20"
             >
               + Projeto

@@ -24,6 +24,15 @@ import {
 } from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
 import Image from "next/image";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const PROPOSTAS_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo às Propostas!", content: "Aqui você cria propostas comerciais profissionais para enviar aos seus clientes antes de fechar um contrato." },
+  { target: "#tour-add-btn", placement: "bottom", skipBeacon: true, title: "Nova proposta", content: "Clique aqui para criar uma nova proposta. Você escolhe um template e edita todos os blocos: título, descrição, entregas, preço e muito mais." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Templates e personalização", content: "Existem templates prontos para diferentes tipos de projeto. Cada bloco é editável: textos, valores, cores e imagens. Tudo pode ser personalizado com a sua identidade visual." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Exportação em PDF", content: "Ao finalizar, exporte a proposta em PDF com um clique para enviar ao cliente por e-mail ou WhatsApp. A aparência é totalmente profissional." },
+];
 
 type ProposalStatus = "analisando" | "negociando" | "aceita" | "recusada" | "em_espera";
 
@@ -437,6 +446,7 @@ export default function ProposalsList() {
 
   return (
     <>
+      <PageTour name="propostas" steps={PROPOSTAS_TOUR_STEPS} />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         <header className="h-16 border-b border-gray-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
@@ -500,6 +510,7 @@ export default function ProposalsList() {
                 <div className="w-px h-8 bg-gray-700" />
 
                 <button
+                    id="tour-add-btn"
                     onClick={() => router.push("/dashboard/propostas/nova")}
                     className="px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-primary-900/20 flex items-center gap-2"
                 >

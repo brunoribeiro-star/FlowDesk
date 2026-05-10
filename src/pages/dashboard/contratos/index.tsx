@@ -27,6 +27,15 @@ import {
   Eye,
 } from "lucide-react";
 import Toast, { ToastType } from "@/components/Toast";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const CONTRATOS_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo aos Contratos!", content: "Aqui você cria modelos de contratos comerciais com variáveis dinâmicas. Preencha os dados e exporte um contrato personalizado em PDF." },
+  { target: "#tour-add-btn", placement: "bottom", skipBeacon: true, title: "Criar modelo de contrato", content: "Clique aqui para criar seu primeiro modelo. Use variáveis como {{nome_cliente}}, {{valor}} e {{prazo}} para gerar contratos personalizados automaticamente." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Como funciona", content: "Você cria um modelo uma vez e depois gera quantos contratos quiser a partir dele. Preencha as variáveis para cada cliente e exporte em PDF com um clique." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Dica de proteção", content: "Envie o contrato assinado antes de iniciar qualquer projeto. Isso protege você e o cliente e evita mal-entendidos sobre escopo e pagamento." },
+];
 
 type Template = {
   id: string;
@@ -285,6 +294,7 @@ export default function ContratosPage() {
 
   return (
     <>
+      <PageTour name="contratos" steps={CONTRATOS_TOUR_STEPS} />
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
@@ -307,6 +317,7 @@ export default function ContratosPage() {
           </div>
           <div className="flex items-center gap-3">
             <button
+              id="tour-add-btn"
               onClick={() => router.push("/dashboard/contratos/novo")}
               className="bg-primary-500 hover:bg-primary-400 text-primary-900 rounded-lg py-2.5 px-5 text-[14px] font-semibold transition-colors shadow-lg shadow-primary-500/20 flex items-center gap-2"
             >

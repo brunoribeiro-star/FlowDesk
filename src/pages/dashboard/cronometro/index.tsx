@@ -3,6 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
 import { ArrowLeft, Timer, Zap, Flame, Clock, Coffee } from "lucide-react";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const CRONOMETRO_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo ao Time Tracker!", content: "O cronômetro registra automaticamente o tempo que você trabalha em cada projeto e tarefa para que você saiba exatamente quanto tempo dedicou a cada cliente." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Modos de trabalho", content: "Escolha um modo que combina com seu ritmo: Pomodoro (foco + pausas), Fluxo Livre (sem interrupções), Sprint (foco intenso) ou Presença (jornada completa)." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Vinculando ao projeto", content: "Antes de iniciar, selecione o projeto e (opcionalmente) a tarefa específica. O tempo fica registrado no histórico do projeto para relatórios e cobrança por hora." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Visualizando as sessões", content: "Todos os registros ficam salvos e você pode visualizá-los nos Relatórios → Produtividade, com total de horas por projeto e por período." },
+];
 
 const MODES = [
   {
@@ -122,6 +131,7 @@ export default function CronometroPage() {
 
   return (
     <>
+      <PageTour name="cronometro" steps={CRONOMETRO_TOUR_STEPS} />
 
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">

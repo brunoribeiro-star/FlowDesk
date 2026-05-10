@@ -15,6 +15,15 @@ import type { ReportPeriod } from "@/lib/reportUtils";
 import { BarChart3, RefreshCw, AlertCircle, Lock, Zap } from "lucide-react";
 import { useRouter } from "next/router";
 import { useSubscription } from "@/hooks/useSubscription";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const RELATORIOS_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo aos Relatórios!", content: "Aqui você visualiza o desempenho do seu negócio com gráficos e métricas geradas automaticamente a partir dos seus projetos, tarefas e pagamentos." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Tipos de relatórios", content: "Overview: visão geral do mês. Performance: entregas e prazos. Produtividade: horas trabalhadas por projeto. Comparação: projetos lado a lado. Receita: entradas financeiras." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Dados em tempo real", content: "Os relatórios são atualizados automaticamente conforme você registra pagamentos, conclui tarefas e encerra projetos. Não precisa inserir nada manualmente." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Dica de uso", content: "Acompanhe os relatórios semanalmente para identificar quais tipos de projeto são mais lucrativos, onde você gasta mais tempo e como otimizar sua agenda." },
+];
 
 const RevenueChart = dynamic(() => import("@/components/reports/RevenueChart"), {
   ssr: false,
@@ -162,6 +171,7 @@ export default function RelatoriosPage() {
 
   return (
     <>
+      <PageTour name="relatorios" steps={RELATORIOS_TOUR_STEPS} />
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-y-auto min-w-0">
 

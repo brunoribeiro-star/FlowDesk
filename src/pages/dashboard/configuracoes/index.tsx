@@ -978,9 +978,45 @@ export default function ConfiguracoesPage() {
                 <PrefRow
                   label="Sidebar aberta ao entrar"
                   description="Mantém o menu lateral visível por padrão ao acessar o dashboard."
-                  last
                 >
                   <Toggle value={sidebarDefault} onChange={handleSidebarToggle} />
+                </PrefRow>
+
+                <div className="h-px bg-primary-700 my-1" />
+
+                <PrefRow
+                  label="Tour de boas-vindas"
+                  description="Rever o tutorial guiado que apresenta as funcionalidades do FlowDesk."
+                >
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new Event("flowdesk:start-tour"))}
+                    className="px-4 py-2 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-600 text-gray-100 text-[13px] font-medium transition-colors whitespace-nowrap"
+                  >
+                    Ver tutorial
+                  </button>
+                </PrefRow>
+
+                <div className="h-px bg-primary-700 my-1" />
+
+                <PrefRow
+                  label="Mini-tutoriais por tela"
+                  description="Reativar os mini-tutoriais que aparecem na primeira visita de cada seção."
+                  last
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const keys = Object.keys(localStorage).filter(
+                        (k) => k.startsWith("fd_page_tour_") || k === "fd_page_tours_off"
+                      );
+                      keys.forEach((k) => localStorage.removeItem(k));
+                      window.location.reload();
+                    }}
+                    className="px-4 py-2 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-600 text-gray-100 text-[13px] font-medium transition-colors whitespace-nowrap"
+                  >
+                    Redefinir todos
+                  </button>
                 </PrefRow>
               </Card>
             </div>

@@ -9,6 +9,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList } from "@/components/Skeleton";
 import { formatarData, formatarDataCurta, tempoRelativo } from "@/lib/utils";
 import { Send, X } from "lucide-react";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const PAGAMENTOS_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo aos Pagamentos!", content: "Aqui você acompanha todos os pagamentos dos seus projetos em um só lugar — pendentes, recebidos e parcelas futuras." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Como adicionar pagamentos", content: "Os pagamentos são adicionados diretamente dentro de cada projeto. Vá em Projetos → abra um projeto → aba Pagamentos para registrar o que você vai cobrar." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Notificação de cobrança", content: "Você pode enviar uma notificação de cobrança diretamente ao cliente por e-mail, incluindo a chave PIX para facilitar o pagamento." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Pagamento de colaboradores", content: "Se você trabalha em equipe, também é possível gerenciar o repasse aos colaboradores com split financeiro (% ou valor fixo) dentro de cada projeto." },
+];
 
 
 type Projeto = {
@@ -211,6 +220,7 @@ export default function PagamentosPage() {
 
   return (
     <>
+      <PageTour name="pagamentos" steps={PAGAMENTOS_TOUR_STEPS} />
 
       <div className="flex flex-col flex-1 gap-8 pr-6 py-8 overflow-hidden">
         <header className="w-full flex items-center justify-between gap-4">

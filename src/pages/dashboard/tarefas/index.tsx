@@ -8,6 +8,15 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList } from "@/components/Skeleton";
 import { jsonToPlainText, calcularUrgencia, formatarDataCurta, tempoRelativo } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const TAREFAS_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo às Tarefas!", content: "Esta é a visão global de todas as suas tarefas de todos os projetos. Ideal para saber o que precisa ser feito hoje, independente do projeto." },
+  { target: "#tour-add-btn", placement: "bottom", skipBeacon: true, title: "Criar tarefa avulsa", content: "Crie uma tarefa rapidamente e associe-a a um projeto existente. Você também pode criar tarefas diretamente dentro de cada projeto." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Status e prazos", content: "Cada tarefa tem status (Para Fazer, Em Andamento, Concluída) e pode ter um prazo. Tarefas próximas do vencimento aparecem destacadas no painel principal." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Dica: subtarefas", content: "Dentro de cada tarefa você pode criar subtarefas para dividir o trabalho em etapas menores. Isso facilita o acompanhamento do progresso." },
+];
 
 interface Projeto {
   id: string;
@@ -466,6 +475,7 @@ export default function TarefasPage() {
 
   return (
     <>
+      <PageTour name="tarefas" steps={TAREFAS_TOUR_STEPS} />
 
       <div className="flex flex-col flex-1 gap-4 pr-6 py-4 overflow-hidden">
         <header className="w-full flex items-center justify-between">
@@ -498,6 +508,7 @@ export default function TarefasPage() {
           <div className="flex items-center gap-3">
             {renderViewToggle()}
             <button
+              id="tour-add-btn"
               onClick={() => router.push("/dashboard/tarefas/nova")}
               className="bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg px-6 py-3 text-[15px] flex items-center gap-2"
               type="button"

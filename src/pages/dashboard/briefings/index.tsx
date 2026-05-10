@@ -27,6 +27,15 @@ const ICON_LIST: Record<string, React.ComponentType<{ size?: number; style?: Rea
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import PageTour from "@/components/PageTour";
+import type { Step } from "react-joyride";
+
+const BRIEFINGS_TOUR_STEPS: Step[] = [
+  { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo aos Briefings!", content: "Briefings são formulários personalizados que você envia ao cliente para coletar todas as informações necessárias antes de iniciar um projeto." },
+  { target: "#tour-add-btn", placement: "bottom", skipBeacon: true, title: "Criar um briefing", content: "Clique aqui para criar um novo template de briefing. Você define as perguntas, tipos de campo (texto, múltipla escolha, arquivo etc.) e as envia ao cliente por link." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Fluxo do briefing", content: "1. Você cria um template → 2. Envia ao cliente → 3. O cliente preenche e envia → 4. Você visualiza as respostas na tela do projeto." },
+  { target: "body", placement: "center", skipBeacon: true, title: "Dica", content: "Você pode reutilizar o mesmo template em múltiplos projetos e clientes, economizando tempo na coleta de informações." },
+];
 import { useAuth } from "@/contexts/AuthContext";
 import { formatarDataCurta, tempoRelativo } from "@/lib/utils";
 import { SkeletonList } from "@/components/Skeleton";
@@ -1181,6 +1190,7 @@ export default function BriefingsPage() {
 
   return (
     <>
+      <PageTour name="briefings" steps={BRIEFINGS_TOUR_STEPS} />
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-8 overflow-hidden">
         <header className="w-full flex items-center justify-between gap-4 mb-2">
@@ -1210,6 +1220,7 @@ export default function BriefingsPage() {
 
           <div className="flex items-center gap-3">
             <button
+              id="tour-add-btn"
               onClick={() => router.push("/dashboard/briefings/novo")}
               className="bg-primary-500 hover:bg-primary-400 text-white font-semibold rounded-lg px-5 py-2.5 text-[14px] flex items-center gap-2 shadow-lg shadow-primary-500/20 transition-all"
             >
