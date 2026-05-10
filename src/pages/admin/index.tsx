@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import {
   Users, Zap, Search, X, ChevronDown, LogOut,
   RefreshCw, Mail, Trash2, AlertTriangle, LayoutDashboard,
-  ExternalLink, Camera,
+  ExternalLink, Camera, Phone, CheckCircle2,
 } from "lucide-react";
 import clsx from "clsx";
 import {
@@ -42,7 +42,10 @@ interface Lead {
   id: string;
   nome: string | null;
   email: string;
+  telefone: string | null;
   source: string;
+  status: string;
+  acesso_liberado_em: string | null;
   created_at: string;
 }
 
@@ -632,62 +635,126 @@ function UsersPage({ users, loading, onGrant, onDelete }: UsersPageProps) {
 interface LeadsPageProps {
   leads: Lead[];
   loading: boolean;
+  onGrantEarlyAccess: (lead: Lead) => void;
 }
 
-function LeadsPage({ leads, loading }: LeadsPageProps) {
+function LeadsPage({ leads, loading, onGrantEarlyAccess }: LeadsPageProps) {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pendente" | "acesso_liberado">("all");
 
-  const filtered = leads.filter(l =>
-    !search ||
-    l.email.toLowerCase().includes(search.toLowerCase()) ||
-    (l.nome ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = leads.filter(l => {
+    if (search) {
+      const s = search.toLowerCase();
+      if (!l.email.toLowerCase().includes(s) && !(l.nome ?? "").toLowerCase().includes(s)) return false;
+    }
+    if (statusFilter !== "all" && l.status !== statusFilter) return false;
+    return true;
+  });
+
+  const counts = {
+    all: leads.length,
+    pendente: leads.filter(l => l.status === "pendente").length,
+    acesso_liberado: leads.filter(l => l.status === "acesso_liberado").length,
+  };
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="relative max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-        <input
-          type="text"
-          placeholder="Buscar lead..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full bg-primary-800 border border-primary-700 rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
-        />
-        {search && (
-          <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
-            <X size={13} />
-          </button>
-        )}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar lead..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-primary-800 border border-primary-700 rounded-xl pl-9 pr-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300">
+              <X size={13} />
+            </button>
+          )}
+        </div>
+        <div className="flex items-center bg-primary-800 border border-primary-700 rounded-xl p-1 gap-0.5">
+          {([
+            { label: `Todos (${counts.all})`, value: "all" },
+            { label: `Pendentes (${counts.pendente})`, value: "pendente" },
+            { label: `Liberados (${counts.acesso_liberado})`, value: "acesso_liberado" },
+          ] as { label: string; value: typeof statusFilter }[]).map(f => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setStatusFilter(f.value)}
+              className={clsx(
+                "px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors",
+                statusFilter === f.value ? "bg-primary-500 text-primary-900" : "text-gray-400 hover:text-gray-200"
+              )}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex flex-col gap-2">
         {loading ? (
           Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-[60px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
+            <div key={i} className="h-[68px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
           ))
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-gray-500 text-[14px]">Nenhum lead encontrado.</div>
         ) : (
-          filtered.map(l => (
-            <div key={l.id} className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-4">
-              <div className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-[13px] font-semibold text-primary-300 shrink-0">
-                {initials(l.nome, l.email)}
+          filtered.map(l => {
+            const isLiberated = l.status === "acesso_liberado";
+            return (
+              <div key={l.id} className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-4">
+                <div className="w-9 h-9 rounded-full bg-primary-700 flex items-center justify-center text-[13px] font-semibold text-primary-300 shrink-0">
+                  {initials(l.nome, l.email)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-medium text-gray-100 truncate">{l.nome ?? "—"}</p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <p className="text-[12px] text-gray-500 truncate">{l.email}</p>
+                    {l.telefone && (
+                      <span className="hidden sm:flex items-center gap-1 text-[11px] text-gray-600 shrink-0">
+                        <Phone size={10} />
+                        {l.telefone}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="hidden md:flex flex-col items-end shrink-0 text-[11px] text-gray-500 min-w-[90px]">
+                  <span>{fmt(l.created_at)}</span>
+                  {isLiberated && l.acesso_liberado_em && (
+                    <span className="text-green-400">Liberado {fmt(l.acesso_liberado_em)}</span>
+                  )}
+                </div>
+                {isLiberated ? (
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg text-[12px] text-green-400 shrink-0">
+                    <CheckCircle2 size={12} />
+                    Liberado
+                  </span>
+                ) : (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onGrantEarlyAccess(l)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500/15 hover:bg-primary-500/25 border border-primary-500/40 rounded-lg text-[12px] text-primary-300 transition-colors"
+                    >
+                      <Zap size={12} />
+                      Liberar Acesso
+                    </button>
+                    <a
+                      href={`mailto:${l.email}`}
+                      className="flex items-center justify-center w-8 h-8 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-gray-400 hover:text-gray-200 transition-colors"
+                    >
+                      <Mail size={13} />
+                    </a>
+                  </div>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-medium text-gray-100 truncate">{l.nome ?? "—"}</p>
-                <p className="text-[12px] text-gray-500 truncate">{l.email}</p>
-              </div>
-              <span className="hidden sm:block text-[11px] text-gray-500 shrink-0">{fmt(l.created_at)}</span>
-              <a
-                href={`mailto:${l.email}`}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-200 transition-colors shrink-0"
-              >
-                <Mail size={12} />
-                Contatar
-              </a>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -719,6 +786,14 @@ export default function AdminPage() {
   const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [earlyAccessTarget, setEarlyAccessTarget] = useState<Lead | null>(null);
+  const [eaPlan, setEaPlan] = useState<"essencial" | "profissional">("profissional");
+  const [eaDays, setEaDays] = useState(30);
+  const [eaLifetime, setEaLifetime] = useState(false);
+  const [eaGranting, setEaGranting] = useState(false);
+  const [eaSuccess, setEaSuccess] = useState(false);
+  const [eaError, setEaError] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -808,6 +883,36 @@ export default function AdminPage() {
       setDeleteError(d.error ?? "Erro ao excluir usuário.");
     }
     setDeleting(false);
+  }
+
+  async function handleGrantEarlyAccess() {
+    if (!earlyAccessTarget) return;
+    setEaGranting(true);
+    setEaError(null);
+    const token = await getToken();
+    const res = await fetch("/api/admin/grant-early-access", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ leadId: earlyAccessTarget.id, email: earlyAccessTarget.email, plan: eaPlan, days: eaDays, lifetime: eaLifetime }),
+    });
+    if (res.ok) {
+      setEaSuccess(true);
+      fetchLeads();
+      setTimeout(() => { setEarlyAccessTarget(null); setEaSuccess(false); }, 1400);
+    } else {
+      const d = await res.json();
+      setEaError(d.error ?? "Erro ao liberar acesso.");
+    }
+    setEaGranting(false);
+  }
+
+  function openEarlyAccess(lead: Lead) {
+    setEarlyAccessTarget(lead);
+    setEaPlan("profissional");
+    setEaDays(30);
+    setEaLifetime(false);
+    setEaSuccess(false);
+    setEaError(null);
   }
 
   function openGrant(u: AdminUser) {
@@ -931,6 +1036,7 @@ export default function AdminPage() {
               <LeadsPage
                 leads={leads}
                 loading={loadingLeads}
+                onGrantEarlyAccess={openEarlyAccess}
               />
             )}
           </div>
@@ -993,6 +1099,71 @@ export default function AdminPage() {
               {grantSuccess ? "Plano concedido!" : granting ? "Concedendo..." : grantLifetime
                 ? `Acesso permanente — ${grantPlan === "profissional" ? "Profissional" : "Essencial"}`
                 : `Conceder ${grantDays}d de ${grantPlan === "profissional" ? "Profissional" : "Essencial"}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Early Access modal ── */}
+      {earlyAccessTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => !eaGranting && setEarlyAccessTarget(null)}>
+          <div className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-[16px] font-semibold text-gray-100">Liberar acesso antecipado</h2>
+                <p className="text-[13px] text-gray-500 mt-0.5 truncate max-w-[220px]">{earlyAccessTarget.nome ?? earlyAccessTarget.email}</p>
+              </div>
+              <button type="button" onClick={() => setEarlyAccessTarget(null)} className="text-gray-500 hover:text-gray-300 transition-colors"><X size={18} /></button>
+            </div>
+
+            <div className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-3 text-[12px] text-gray-400">
+              Um e-mail de convite será enviado para <span className="text-gray-200 font-medium">{earlyAccessTarget.email}</span> para que o usuário crie sua senha e acesse o FlowDesk.
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[12px] font-medium text-gray-400">Plano</label>
+              <div className="flex gap-2">
+                {(["essencial", "profissional"] as const).map(p => (
+                  <button key={p} type="button" onClick={() => setEaPlan(p)}
+                    className={clsx("flex-1 py-2 rounded-xl text-[13px] font-medium border transition-colors",
+                      eaPlan === p ? "bg-primary-500/20 border-primary-500 text-primary-300" : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
+                    )}>
+                    {p === "essencial" ? "Essencial" : "Profissional"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button type="button" onClick={() => setEaLifetime(v => !v)}
+              className={clsx("flex items-center justify-between w-full px-4 py-2.5 rounded-xl border text-[13px] transition-colors",
+                eaLifetime ? "bg-green-500/15 border-green-500/40 text-green-300" : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
+              )}>
+              <span>Acesso permanente</span>
+              <div className={clsx("w-8 h-4 rounded-full relative transition-colors", eaLifetime ? "bg-green-500" : "bg-primary-600")}>
+                <div className={clsx("absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform", eaLifetime ? "translate-x-4" : "translate-x-0.5")} />
+              </div>
+            </button>
+
+            {!eaLifetime && (
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12px] font-medium text-gray-400">Duração</label>
+                <div className="relative">
+                  <select value={eaDays} onChange={e => setEaDays(Number(e.target.value))}
+                    className="w-full bg-primary-800 border border-primary-700 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 appearance-none transition-colors">
+                    {DURATION_OPTIONS.map(opt => <option key={opt.days} value={opt.days}>{opt.label}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+            )}
+
+            {eaError && <p className="text-[13px] text-rose-400 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{eaError}</p>}
+
+            <button type="button" onClick={handleGrantEarlyAccess} disabled={eaGranting || eaSuccess}
+              className={clsx("w-full py-3 rounded-xl font-semibold text-[14px] transition-all",
+                eaSuccess ? "bg-green-500/20 text-green-400 border border-green-500/30" : "bg-primary-500 hover:bg-primary-400 text-primary-900 disabled:opacity-60"
+              )}>
+              {eaSuccess ? "Acesso liberado!" : eaGranting ? "Liberando..." : "Enviar convite e liberar acesso"}
             </button>
           </div>
         </div>

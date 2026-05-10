@@ -26,12 +26,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const email = (fields?.email ?? fields?.Email ?? "").trim().toLowerCase();
   const nome = fields?.nome ?? fields?.name ?? fields?.Name ?? fields?.Nome ?? null;
+  const telefone = fields?.telefone ?? fields?.phone ?? fields?.Phone ?? fields?.Telefone ?? null;
 
   if (!email) return res.status(400).json({ error: "E-mail obrigatório." });
 
   await supabase
     .from("leads")
-    .upsert({ email, nome, source: "landing_page" }, { onConflict: "email", ignoreDuplicates: true });
+    .upsert({ email, nome, telefone, source: "landing_page", status: "pendente" }, { onConflict: "email", ignoreDuplicates: true });
 
   return res.status(200).json({ ok: true });
 }
