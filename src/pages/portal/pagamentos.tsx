@@ -32,7 +32,7 @@ export default function PortalPagamentosPage() {
       setPagamentos(data as unknown as Pagamento[]);
       setLoading(false);
     })();
-  }, [router]);
+  }, []);
 
   const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
   const pending = pagamentos.filter((p) => p.status === "pendente");

@@ -55,7 +55,7 @@ export default function PortalAprovacoesPage() {
 
       setLoading(false);
     })();
-  }, [router]);
+  }, []);
 
   async function handleReview(entregavelId: string, status: "aprovado" | "para_alteracao") {
     setSubmitting(true);

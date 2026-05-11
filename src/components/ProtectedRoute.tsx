@@ -28,7 +28,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, []);
 
   if (loading) {
     return (

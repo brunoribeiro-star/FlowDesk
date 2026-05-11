@@ -17,7 +17,8 @@ export function withAuth<P extends JSX.IntrinsicAttributes>(
         }
       }
       checkSession();
-    }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return <Wrapped {...props} />;
   };

@@ -37,7 +37,7 @@ export default function PortalBriefingsPage() {
       setBriefings(data as unknown as BriefingEnvio[]);
       setLoading(false);
     })();
-  }, [router]);
+  }, []);
 
   async function openBriefing(envioId: string, templateId: string) {
     if (activeBriefing === envioId) { setActiveBriefing(null); return; }

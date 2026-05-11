@@ -9,7 +9,7 @@ import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import { applyTheme, getStoredTheme, ThemeSlug } from "@/utils/themeLoader";
-import { User, Palette, LayoutGrid, Shield, Eye, EyeOff, Check, Upload, CreditCard, Zap, HardDrive, ExternalLink, ChevronRight, Trash2, FileText, File, FolderOpen, AlertTriangle } from "lucide-react";
+import { User, Palette, LayoutGrid, Shield, Eye, EyeOff, Check, Upload, CreditCard, Zap, HardDrive, ExternalLink, ChevronRight, Trash2, FileText, File, FolderOpen, AlertTriangle, QrCode } from "lucide-react";
 import clsx from "clsx";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PLAN_PRICES, TRIAL_DAYS, type BillingPeriod } from "@/lib/stripeConfig";
@@ -368,6 +368,13 @@ export default function ConfiguracoesPage() {
   const [telefone, setTelefone] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [profileDirty, setProfileDirty] = useState(false);
+
+  type PixTipo = "" | "email" | "telefone" | "cpf_cnpj" | "aleatoria";
+  const [pixTipo, setPixTipo] = useState<PixTipo>("");
+  const [pixValor, setPixValor] = useState("");
+  const [pixPaisCode, setPixPaisCode] = useState("55");
+  const [pixPaisOpen, setPixPaisOpen] = useState(false);
+  const pixPaisRef = useRef<HTMLDivElement>(null);
   const [saving, setSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
@@ -430,6 +437,9 @@ export default function ConfiguracoesPage() {
       setEmail(user.email || "");
       setTelefone(user.user_metadata?.telefone || "");
       setAvatarUrl(user.user_metadata?.avatar_url || null);
+      setPixTipo((user.user_metadata?.pix_chave_tipo as PixTipo) || "");
+      setPixValor(user.user_metadata?.pix_chave_valor || "");
+      setPixPaisCode(user.user_metadata?.pix_chave_pais || "55");
 
       if (typeof window !== "undefined") {
         const storedTheme = getStoredTheme();
@@ -590,6 +600,82 @@ export default function ConfiguracoesPage() {
     return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
   }
 
+  function formatCpfCnpj(value: string): string {
+    const d = value.replace(/\D/g, "");
+    if (d.length <= 11) {
+      const s = d.slice(0, 11);
+      const a = s.slice(0, 3), b = s.slice(3, 6), c = s.slice(6, 9), e = s.slice(9, 11);
+      if (s.length <= 3) return a;
+      if (s.length <= 6) return `${a}.${b}`;
+      if (s.length <= 9) return `${a}.${b}.${c}`;
+      return `${a}.${b}.${c}-${e}`;
+    }
+    const s = d.slice(0, 14);
+    const a = s.slice(0, 2), b = s.slice(2, 5), c = s.slice(5, 8), x = s.slice(8, 12), e = s.slice(12, 14);
+    if (s.length <= 2) return a;
+    if (s.length <= 5) return `${a}.${b}`;
+    if (s.length <= 8) return `${a}.${b}.${c}`;
+    if (s.length <= 12) return `${a}.${b}.${c}/${x}`;
+    return `${a}.${b}.${c}/${x}-${e}`;
+  }
+
+  function formatPixPhone(value: string, pais: string): string {
+    const d = value.replace(/\D/g, "");
+    if (pais === "55") {
+      const s = d.slice(0, 11);
+      const ddd = s.slice(0, 2), n1 = s.slice(2, 7), n2 = s.slice(7, 11);
+      if (s.length <= 2) return s.length ? `(${ddd}` : "";
+      if (s.length <= 6) return `(${ddd}) ${n1}`;
+      if (s.length <= 7) return `(${ddd}) ${s.slice(2, 7)}`;
+      return `(${ddd}) ${n1}-${n2}`;
+    }
+    if (pais === "1") {
+      const s = d.slice(0, 10);
+      const a = s.slice(0, 3), b = s.slice(3, 6), c = s.slice(6, 10);
+      if (s.length <= 3) return s.length ? `(${a}` : "";
+      if (s.length <= 6) return `(${a}) ${b}`;
+      return `(${a}) ${b}-${c}`;
+    }
+    if (pais === "351") {
+      const s = d.slice(0, 9);
+      const a = s.slice(0, 3), b = s.slice(3, 6), c = s.slice(6, 9);
+      if (s.length <= 3) return a;
+      if (s.length <= 6) return `${a} ${b}`;
+      return `${a} ${b} ${c}`;
+    }
+    return d.slice(0, 15);
+  }
+
+  function pixPhonePlaceholder(pais: string): string {
+    if (pais === "55") return "(11) 99999-9999";
+    if (pais === "1") return "(555) 555-5555";
+    if (pais === "351") return "912 345 678";
+    return "999999999";
+  }
+
+  function pixPhoneMaxLen(pais: string): number {
+    if (pais === "55") return 16;
+    if (pais === "1") return 14;
+    if (pais === "351") return 11;
+    return 15;
+  }
+
+  const PAISES_PIX = [
+    { code: "55",  flag: "🇧🇷", label: "Brasil",   dial: "+55" },
+    { code: "1",   flag: "🇺🇸", label: "EUA",      dial: "+1" },
+    { code: "351", flag: "🇵🇹", label: "Portugal", dial: "+351" },
+  ];
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (pixPaisRef.current && !pixPaisRef.current.contains(e.target as Node)) {
+        setPixPaisOpen(false);
+      }
+    }
+    if (pixPaisOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [pixPaisOpen]);
+
   async function doAvatarUpload(file: File) {
     if (!userData) return;
     try {
@@ -616,7 +702,7 @@ export default function ConfiguracoesPage() {
     if (!userData) return;
     try {
       setSaving(true);
-      const updates: any = { data: { nome, telefone, avatar_url: avatarUrl } };
+      const updates: any = { data: { nome, telefone, avatar_url: avatarUrl, pix_chave_tipo: pixTipo || null, pix_chave_valor: pixValor || null, pix_chave_pais: pixTipo === "telefone" ? pixPaisCode : null } };
       if (email && email !== userData.email) updates.email = email;
       const { error } = await supabase.auth.updateUser(updates);
       if (error) throw error;
@@ -626,7 +712,7 @@ export default function ConfiguracoesPage() {
           ? {
               ...prev,
               email: updates.email || prev.email,
-              user_metadata: { ...(prev.user_metadata || {}), nome, telefone, avatar_url: avatarUrl },
+              user_metadata: { ...(prev.user_metadata || {}), nome, telefone, avatar_url: avatarUrl, pix_chave_tipo: pixTipo || null, pix_chave_valor: pixValor || null, pix_chave_pais: pixTipo === "telefone" ? pixPaisCode : null },
             }
           : prev
       );
@@ -914,6 +1000,132 @@ export default function ConfiguracoesPage() {
                       />
                     </div>
                   </Field>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-1">
+                  <QrCode size={16} className="text-primary-400" />
+                  <CardTitle>Chave PIX para recebimento</CardTitle>
+                </div>
+                <CardSubtitle>Pré-preenchida automaticamente ao solicitar adiantamentos ao cliente.</CardSubtitle>
+                <div className="h-px bg-primary-700 mb-5" />
+                <div className="flex flex-col gap-4">
+                  <Field label="Tipo de chave">
+                    <div className="relative">
+                      <select
+                        value={pixTipo}
+                        onChange={(e) => { setPixTipo(e.target.value as PixTipo); setPixValor(""); setProfileDirty(true); }}
+                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 appearance-none focus:outline-none focus:border-primary-400"
+                      >
+                        <option value="">Selecione o tipo de chave</option>
+                        <option value="email">E-mail</option>
+                        <option value="telefone">Telefone</option>
+                        <option value="cpf_cnpj">CPF / CNPJ</option>
+                        <option value="aleatoria">Chave aleatória</option>
+                      </select>
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
+                    </div>
+                  </Field>
+
+                  {pixTipo === "email" && (
+                    <Field label="E-mail da chave PIX">
+                      <input
+                        type="email"
+                        value={pixValor}
+                        onChange={(e) => { setPixValor(e.target.value); setProfileDirty(true); }}
+                        placeholder="seupix@email.com"
+                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                      />
+                    </Field>
+                  )}
+
+                  {pixTipo === "telefone" && (
+                    <Field label="Telefone da chave PIX">
+                      <div className="flex gap-2">
+                        <div ref={pixPaisRef} className="relative shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setPixPaisOpen((o) => !o)}
+                            className="flex items-center gap-2 bg-primary-900 border border-primary-700 rounded-lg px-3 py-2.5 text-[14px] text-gray-100 hover:border-primary-500 focus:outline-none focus:border-primary-400 transition-colors"
+                          >
+                            <span className="text-[18px] leading-none">
+                              {PAISES_PIX.find((p) => p.code === pixPaisCode)?.flag}
+                            </span>
+                            <span className="text-gray-400 text-[13px]">
+                              {PAISES_PIX.find((p) => p.code === pixPaisCode)?.dial}
+                            </span>
+                            <span className="text-gray-600 text-[10px]">▼</span>
+                          </button>
+
+                          {pixPaisOpen && (
+                            <div className="absolute top-full left-0 mt-1.5 z-50 bg-primary-800 border border-primary-700 rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                              {PAISES_PIX.map((p) => (
+                                <button
+                                  key={p.code}
+                                  type="button"
+                                  onClick={() => {
+                                    setPixPaisCode(p.code);
+                                    setPixValor("");
+                                    setPixPaisOpen(false);
+                                    setProfileDirty(true);
+                                  }}
+                                  className={clsx(
+                                    "w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-left hover:bg-primary-700 transition-colors",
+                                    p.code === pixPaisCode ? "text-primary-300 bg-primary-700/50" : "text-gray-200"
+                                  )}
+                                >
+                                  <span className="text-[20px] leading-none">{p.flag}</span>
+                                  <span className="flex-1">{p.label}</span>
+                                  <span className="text-gray-500 text-[13px]">{p.dial}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="tel"
+                          value={pixValor}
+                          onChange={(e) => { setPixValor(formatPixPhone(e.target.value, pixPaisCode)); setProfileDirty(true); }}
+                          placeholder={pixPhonePlaceholder(pixPaisCode)}
+                          maxLength={pixPhoneMaxLen(pixPaisCode)}
+                          className="flex-1 bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                        />
+                      </div>
+                    </Field>
+                  )}
+
+                  {pixTipo === "cpf_cnpj" && (
+                    <Field label="CPF ou CNPJ">
+                      <input
+                        type="text"
+                        value={pixValor}
+                        onChange={(e) => { setPixValor(formatCpfCnpj(e.target.value)); setProfileDirty(true); }}
+                        placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                        maxLength={18}
+                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                      />
+                    </Field>
+                  )}
+
+                  {pixTipo === "aleatoria" && (
+                    <Field label="Chave aleatória">
+                      <input
+                        type="text"
+                        value={pixValor}
+                        onChange={(e) => { setPixValor(e.target.value); setProfileDirty(true); }}
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                      />
+                    </Field>
+                  )}
+
+                  {pixTipo && pixValor && (
+                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary-900/60 border border-primary-700">
+                      <QrCode size={14} className="text-primary-400 shrink-0" />
+                      <span className="text-[13px] text-primary-300 font-medium truncate">{pixValor}</span>
+                    </div>
+                  )}
                 </div>
               </Card>
             </div>

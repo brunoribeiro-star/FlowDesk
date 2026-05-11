@@ -16,7 +16,7 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe, Send, Plus, Lock, Zap } from "lucide-react";
+import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe, Send, Plus, Lock, Zap, Copy, Check, X, AlertCircle } from "lucide-react";
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -110,6 +110,23 @@ type BriefingEnvioComRespostas = BriefingEnvio & {
 };
 
 type TabId = "descricao" | "etapas" | "arquivos" | "links" | "briefing" | "entregaveis";
+
+type AdiantamentoStatus = "solicitado" | "aprovado" | "recusado" | "pago" | "cancelado";
+type Adiantamento = {
+  id: string;
+  projeto_id: string;
+  user_id: string;
+  valor: number;
+  motivo: string;
+  status: AdiantamentoStatus;
+  feedback_cliente: string | null;
+  pix_chave: string | null;
+  pix_tipo: string | null;
+  solicitado_em: string;
+  respondido_em: string | null;
+  pago_em: string | null;
+  created_at: string;
+};
 
 type EntregavelArquivo = { url: string; tipo: string; nome: string };
 
@@ -300,6 +317,20 @@ export default function ProjetoDetalhesPage() {
   const [addingTask, setAddingTask] = useState(false);
   const [ownerProfile, setOwnerProfile] = useState<{ nome: string | null; avatar_url: string | null } | null>(null);
 
+  const [adiantamentos, setAdiantamentos] = useState<Adiantamento[]>([]);
+  const [adiantamentoModal, setAdiantamentoModal] = useState(false);
+  const [adiantamentoValor, setAdiantamentoValor] = useState("");
+  const [adiantamentoMotivo, setAdiantamentoMotivo] = useState("");
+  const [adiantamentoPixTipo, setAdiantamentoPixTipo] = useState("");
+  const [adiantamentoPixValor, setAdiantamentoPixValor] = useState("");
+  const [adiantamentoPixPais, setAdiantamentoPixPais] = useState("55");
+  const [adiantamentoPixPaisOpen, setAdiantamentoPixPaisOpen] = useState(false);
+  const adiantamentoPixPaisRef = useRef<HTMLDivElement>(null);
+  const [adiantamentoLoading, setAdiantamentoLoading] = useState(false);
+  const [adiantamentoFeedback, setAdiantamentoFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [confirmandoRecebId, setConfirmandoRecebId] = useState<string | null>(null);
+  const [cancelandoAdiantId, setCancelandoAdiantId] = useState<string | null>(null);
+
   const taskIdsRef = useRef<Set<string>>(new Set());
 
   const editor = useEditor({
@@ -351,6 +382,7 @@ export default function ProjetoDetalhesPage() {
           { data: ownerCollabSplitsData },
           { data: entregaveisData },
           { data: projetoEnvsData },
+          { data: adiantamentosData },
         ] = await Promise.all([
           supabase
             .from("projetos")
@@ -370,6 +402,7 @@ export default function ProjetoDetalhesPage() {
           supabase.from("collaborator_payment_splits").select("id, pagamento_id, member_user_id, amount, status, paid_at").eq("project_id", id),
           supabase.from("entregaveis").select("id, titulo, descricao, url, arquivo_url, arquivo_tipo, arquivos, status, feedback_cliente, feedback_imagem_url, feedback_pins, feedback_imagens, reviewed_at, created_at").eq("project_id", id).order("created_at", { ascending: false }),
           supabase.from("briefings_envios").select("id, user_id, template_id, projeto_id, status, prazo_resposta, respondido_em, created_at, template:template_id(id, titulo), briefings_respostas(id, pergunta, resposta)").eq("projeto_id", id).order("created_at", { ascending: false }),
+          supabase.from("adiantamentos").select("id, projeto_id, user_id, valor, motivo, status, feedback_cliente, pix_chave, pix_tipo, solicitado_em, respondido_em, pago_em, created_at").eq("projeto_id", id).order("created_at", { ascending: false }),
         ]);
 
         if (projetoErr) throw projetoErr;
@@ -395,6 +428,7 @@ export default function ProjetoDetalhesPage() {
         setOwnerCollabSplits((ownerCollabSplitsData || []) as any[]);
         setEntregaveis((entregaveisData || []) as Entregavel[]);
         setProjetoBriefingEnvios((projetoEnvsData || []) as unknown as BriefingEnvioComRespostas[]);
+        setAdiantamentos((adiantamentosData || []) as Adiantamento[]);
 
         setError(null);
 
@@ -499,6 +533,15 @@ export default function ProjetoDetalhesPage() {
         .then(({ data }) => { if (data) setProjetoBriefingEnvios(data as unknown as BriefingEnvioComRespostas[]); });
     };
 
+    const refetchAdiantamentos = () => {
+      supabase
+        .from("adiantamentos")
+        .select("id, projeto_id, user_id, valor, motivo, status, feedback_cliente, pix_chave, pix_tipo, solicitado_em, respondido_em, pago_em, created_at")
+        .eq("projeto_id", id)
+        .order("created_at", { ascending: false })
+        .then(({ data }) => { if (data) setAdiantamentos(data as Adiantamento[]); });
+    };
+
     const channel = supabase
       .channel(`project-detail-realtime-${id}`)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "collaborator_payment_splits", filter: `project_id=eq.${id}` }, refetchSplits)
@@ -513,6 +556,7 @@ export default function ProjetoDetalhesPage() {
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "links_projeto", filter: `projeto_id=eq.${id}` }, refetchLinks)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "briefings_envios", filter: `projeto_id=eq.${id}` }, refetchProjetoBriefingEnvios)
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "briefings_respostas", filter: `projeto_id=eq.${id}` }, refetchProjetoBriefingEnvios)
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "adiantamentos", filter: `projeto_id=eq.${id}` }, refetchAdiantamentos)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -521,6 +565,16 @@ export default function ProjetoDetalhesPage() {
   useEffect(() => {
     taskIdsRef.current = new Set(tasks.map((t) => t.id));
   }, [tasks]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (adiantamentoPixPaisRef.current && !adiantamentoPixPaisRef.current.contains(e.target as Node)) {
+        setAdiantamentoPixPaisOpen(false);
+      }
+    }
+    if (adiantamentoPixPaisOpen) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [adiantamentoPixPaisOpen]);
 
 
   const pct = useMemo(() => {
@@ -1097,6 +1151,145 @@ export default function ProjetoDetalhesPage() {
       setNotify({ open: true, msg: "Link atualizado." });
     } catch (err: any) {
       setNotify({ open: true, msg: "Erro ao atualizar link: " + (err.message || "Erro desconhecido") });
+    }
+  }
+
+  const PAISES_PIX = [
+    { code: "55",  flag: "🇧🇷", label: "Brasil",   dial: "+55" },
+    { code: "1",   flag: "🇺🇸", label: "EUA",      dial: "+1" },
+    { code: "351", flag: "🇵🇹", label: "Portugal", dial: "+351" },
+  ];
+
+  function formatCpfCnpjAd(value: string): string {
+    const d = value.replace(/\D/g, "");
+    if (d.length <= 11) {
+      const s = d.slice(0, 11);
+      const a = s.slice(0, 3), b = s.slice(3, 6), c = s.slice(6, 9), e = s.slice(9, 11);
+      if (s.length <= 3) return a;
+      if (s.length <= 6) return `${a}.${b}`;
+      if (s.length <= 9) return `${a}.${b}.${c}`;
+      return `${a}.${b}.${c}-${e}`;
+    }
+    const s = d.slice(0, 14);
+    const a = s.slice(0, 2), b = s.slice(2, 5), c = s.slice(5, 8), x = s.slice(8, 12), e = s.slice(12, 14);
+    if (s.length <= 2) return a;
+    if (s.length <= 5) return `${a}.${b}`;
+    if (s.length <= 8) return `${a}.${b}.${c}`;
+    if (s.length <= 12) return `${a}.${b}.${c}/${x}`;
+    return `${a}.${b}.${c}/${x}-${e}`;
+  }
+
+  function formatPixPhoneAd(value: string, pais: string): string {
+    const d = value.replace(/\D/g, "");
+    if (pais === "55") {
+      const s = d.slice(0, 11);
+      const ddd = s.slice(0, 2), n1 = s.slice(2, 7), n2 = s.slice(7, 11);
+      if (s.length <= 2) return s.length ? `(${ddd}` : "";
+      if (s.length <= 7) return `(${ddd}) ${n1}`;
+      return `(${ddd}) ${n1}-${n2}`;
+    }
+    if (pais === "1") {
+      const s = d.slice(0, 10);
+      const a = s.slice(0, 3), b = s.slice(3, 6), c = s.slice(6, 10);
+      if (s.length <= 3) return s.length ? `(${a}` : "";
+      if (s.length <= 6) return `(${a}) ${b}`;
+      return `(${a}) ${b}-${c}`;
+    }
+    if (pais === "351") {
+      const s = d.slice(0, 9);
+      const a = s.slice(0, 3), b = s.slice(3, 6), c = s.slice(6, 9);
+      if (s.length <= 3) return a;
+      if (s.length <= 6) return `${a} ${b}`;
+      return `${a} ${b} ${c}`;
+    }
+    return d.slice(0, 15);
+  }
+
+  function pixPhonePlaceholderAd(pais: string): string {
+    if (pais === "55") return "(11) 99999-9999";
+    if (pais === "1") return "(555) 555-5555";
+    if (pais === "351") return "912 345 678";
+    return "999999999";
+  }
+
+  function pixPhoneMaxLenAd(pais: string): number {
+    if (pais === "55") return 16;
+    if (pais === "1") return 14;
+    if (pais === "351") return 11;
+    return 15;
+  }
+
+  async function handleSolicitarAdiantamento() {
+    if (!projeto) return;
+    const valor = Number(adiantamentoValor.replace(",", "."));
+    if (!valor || valor <= 0) { setAdiantamentoFeedback({ ok: false, msg: "Informe um valor válido." }); return; }
+    if (!adiantamentoMotivo.trim()) { setAdiantamentoFeedback({ ok: false, msg: "Informe o motivo." }); return; }
+    if (!adiantamentoPixValor.trim()) { setAdiantamentoFeedback({ ok: false, msg: "Informe a chave PIX." }); return; }
+
+    setAdiantamentoLoading(true);
+    setAdiantamentoFeedback(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sessão inválida.");
+      const resp = await fetch("/api/adiantamentos/solicitar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          projeto_id: projeto.id,
+          valor,
+          motivo: adiantamentoMotivo.trim(),
+          pix_chave: adiantamentoPixValor.trim(),
+          pix_tipo: adiantamentoPixTipo || null,
+        }),
+      });
+      const json = await resp.json();
+      if (!resp.ok) throw new Error(json.error || "Erro ao solicitar adiantamento.");
+      setAdiantamentoModal(false);
+      setAdiantamentoValor("");
+      setAdiantamentoMotivo("");
+      setAdiantamentoFeedback(null);
+    } catch (err: any) {
+      setAdiantamentoFeedback({ ok: false, msg: err.message });
+    } finally {
+      setAdiantamentoLoading(false);
+    }
+  }
+
+  async function handleConfirmarRecebimento(adiantamentoId: string) {
+    setConfirmandoRecebId(adiantamentoId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+      const resp = await fetch("/api/adiantamentos/confirmar-recebimento", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ adiantamento_id: adiantamentoId }),
+      });
+      if (!resp.ok) {
+        const json = await resp.json();
+        setNotify({ open: true, msg: json.error || "Erro ao confirmar recebimento." });
+      }
+    } finally {
+      setConfirmandoRecebId(null);
+    }
+  }
+
+  async function handleCancelarAdiantamento(adiantamentoId: string) {
+    if (!confirm("Cancelar esta solicitação de adiantamento?")) return;
+    setCancelandoAdiantId(adiantamentoId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+      await fetch("/api/adiantamentos/cancelar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ adiantamento_id: adiantamentoId }),
+      });
+    } finally {
+      setCancelandoAdiantId(null);
     }
   }
 
@@ -1686,6 +1879,52 @@ export default function ProjetoDetalhesPage() {
                 </div>
               </div>
             </div>
+
+            {user && projeto.user_id === user.id && (
+              <div className="mt-6 bg-primary-800 border border-primary-700 rounded-2xl overflow-hidden">
+                <div className="flex items-center justify-between px-5 py-4 border-b border-primary-700">
+                  <div>
+                    <div className="text-[15px] font-semibold text-gray-200">Adiantamentos</div>
+                    <div className="text-[12px] text-gray-500 mt-0.5">Solicitações de adiantamento ao cliente</div>
+                  </div>
+                  {!adiantamentos.some((a) => a.status === "solicitado") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const meta = user?.user_metadata;
+                        setAdiantamentoPixTipo(meta?.pix_chave_tipo || "");
+                        setAdiantamentoPixValor(meta?.pix_chave_valor || "");
+                        setAdiantamentoPixPais(meta?.pix_chave_pais || "55");
+                        setAdiantamentoFeedback(null);
+                        setAdiantamentoModal(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-700 hover:bg-primary-600 border border-primary-600 text-[13px] text-gray-100 transition-colors"
+                    >
+                      <Plus size={14} />
+                      Solicitar adiantamento
+                    </button>
+                  )}
+                </div>
+
+                {adiantamentos.length === 0 ? (
+                  <div className="px-5 py-8 text-center text-[13px] text-gray-500">Nenhum adiantamento solicitado.</div>
+                ) : (
+                  <div className="flex flex-col divide-y divide-primary-700">
+                    {adiantamentos.map((ad) => (
+                      <AdiantamentoItem
+                        key={ad.id}
+                        adiantamento={ad}
+                        isOwner
+                        onConfirmarRecebimento={handleConfirmarRecebimento}
+                        onCancelar={handleCancelarAdiantamento}
+                        confirmandoId={confirmandoRecebId}
+                        cancelandoId={cancelandoAdiantId}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <CollaboratorsSection
               user={user}
@@ -2480,6 +2719,183 @@ export default function ProjetoDetalhesPage() {
         </div>
       )}
 
+      {adiantamentoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-primary-800 border border-primary-700 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-primary-700">
+              <div>
+                <div className="text-[16px] font-semibold text-gray-100">Solicitar adiantamento</div>
+                <div className="text-[12px] text-gray-400 mt-0.5">O cliente receberá uma notificação por e-mail e no portal.</div>
+              </div>
+              <button onClick={() => setAdiantamentoModal(false)} className="p-2 rounded-lg hover:bg-primary-700 text-gray-400">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 flex flex-col gap-4">
+              <div>
+                <label className="block text-[13px] text-gray-300 mb-1.5">Valor do adiantamento (R$)</label>
+                <input
+                  type="number"
+                  value={adiantamentoValor}
+                  onChange={(e) => setAdiantamentoValor(e.target.value)}
+                  placeholder="0,00"
+                  min="0.01"
+                  max={projeto?.orcamento ?? undefined}
+                  step="0.01"
+                  className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+                />
+                {projeto?.orcamento && (
+                  <p className="text-[11px] text-gray-500 mt-1">Máximo: {Number(projeto.orcamento).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-[13px] text-gray-300 mb-1.5">Motivo do adiantamento</label>
+                <textarea
+                  value={adiantamentoMotivo}
+                  onChange={(e) => setAdiantamentoMotivo(e.target.value)}
+                  placeholder="Explique ao cliente por que você precisa desse adiantamento..."
+                  rows={3}
+                  className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[13px] text-gray-300 mb-1.5">Tipo da chave PIX</label>
+                <div className="relative">
+                  <select
+                    value={adiantamentoPixTipo}
+                    onChange={(e) => { setAdiantamentoPixTipo(e.target.value); setAdiantamentoPixValor(""); }}
+                    className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 appearance-none outline-none"
+                  >
+                    <option value="">Selecione o tipo</option>
+                    <option value="email">E-mail</option>
+                    <option value="telefone">Telefone</option>
+                    <option value="cpf_cnpj">CPF / CNPJ</option>
+                    <option value="aleatoria">Chave aleatória</option>
+                  </select>
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
+                </div>
+              </div>
+
+              {adiantamentoPixTipo === "email" && (
+                <div>
+                  <label className="block text-[13px] text-gray-300 mb-1.5">E-mail da chave PIX</label>
+                  <input
+                    type="email"
+                    value={adiantamentoPixValor}
+                    onChange={(e) => setAdiantamentoPixValor(e.target.value)}
+                    placeholder="seupix@email.com"
+                    className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+                  />
+                </div>
+              )}
+
+              {adiantamentoPixTipo === "cpf_cnpj" && (
+                <div>
+                  <label className="block text-[13px] text-gray-300 mb-1.5">CPF ou CNPJ</label>
+                  <input
+                    type="text"
+                    value={adiantamentoPixValor}
+                    onChange={(e) => setAdiantamentoPixValor(formatCpfCnpjAd(e.target.value))}
+                    placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                    maxLength={18}
+                    className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+                  />
+                </div>
+              )}
+
+              {adiantamentoPixTipo === "telefone" && (
+                <div>
+                  <label className="block text-[13px] text-gray-300 mb-1.5">Telefone da chave PIX</label>
+                  <div className="flex gap-2">
+                    <div ref={adiantamentoPixPaisRef} className="relative shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAdiantamentoPixPaisOpen((o) => !o)}
+                        className="flex items-center gap-2 bg-primary-900 border border-primary-700 rounded-xl px-3 py-2.5 text-[14px] text-gray-100 hover:border-primary-500 focus:outline-none transition-colors"
+                      >
+                        <span className="text-[18px] leading-none">
+                          {PAISES_PIX.find((p) => p.code === adiantamentoPixPais)?.flag}
+                        </span>
+                        <span className="text-gray-400 text-[13px]">
+                          {PAISES_PIX.find((p) => p.code === adiantamentoPixPais)?.dial}
+                        </span>
+                        <span className="text-gray-600 text-[10px]">▼</span>
+                      </button>
+
+                      {adiantamentoPixPaisOpen && (
+                        <div className="absolute top-full left-0 mt-1.5 z-50 bg-primary-800 border border-primary-700 rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                          {PAISES_PIX.map((p) => (
+                            <button
+                              key={p.code}
+                              type="button"
+                              onClick={() => {
+                                setAdiantamentoPixPais(p.code);
+                                setAdiantamentoPixValor("");
+                                setAdiantamentoPixPaisOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-left hover:bg-primary-700 transition-colors ${p.code === adiantamentoPixPais ? "text-primary-300 bg-primary-700/50" : "text-gray-200"}`}
+                            >
+                              <span className="text-[20px] leading-none">{p.flag}</span>
+                              <span className="flex-1">{p.label}</span>
+                              <span className="text-gray-500 text-[13px]">{p.dial}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <input
+                      type="tel"
+                      value={adiantamentoPixValor}
+                      onChange={(e) => setAdiantamentoPixValor(formatPixPhoneAd(e.target.value, adiantamentoPixPais))}
+                      placeholder={pixPhonePlaceholderAd(adiantamentoPixPais)}
+                      maxLength={pixPhoneMaxLenAd(adiantamentoPixPais)}
+                      className="flex-1 bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {adiantamentoPixTipo === "aleatoria" && (
+                <div>
+                  <label className="block text-[13px] text-gray-300 mb-1.5">Chave aleatória</label>
+                  <input
+                    type="text"
+                    value={adiantamentoPixValor}
+                    onChange={(e) => setAdiantamentoPixValor(e.target.value)}
+                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                    className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+                  />
+                </div>
+              )}
+
+              {adiantamentoFeedback && (
+                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-[13px] ${adiantamentoFeedback.ok ? "bg-third-500/10 text-third-400 border border-third-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                  <AlertCircle size={14} />
+                  {adiantamentoFeedback.msg}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setAdiantamentoModal(false)} className="flex-1 py-2.5 rounded-xl border border-primary-600 text-[14px] text-gray-300 hover:bg-primary-700 transition-colors">
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSolicitarAdiantamento}
+                  disabled={adiantamentoLoading}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-400 disabled:opacity-60 text-[14px] font-semibold text-primary-900 transition-colors"
+                >
+                  <Send size={14} />
+                  {adiantamentoLoading ? "Enviando..." : "Solicitar adiantamento"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 10px;
@@ -2791,6 +3207,107 @@ function FeedbackImageViewer({ entregavel: ent, onClose }: {
             />
           ))}
         </div>
+      )}
+    </div>
+  );
+}
+
+function AdiantamentoStatusBadge({ status }: { status: AdiantamentoStatus }) {
+  const map: Record<AdiantamentoStatus, { label: string; cls: string }> = {
+    solicitado: { label: "Aguardando resposta", cls: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20" },
+    aprovado:   { label: "Aprovado — aguardando pagamento", cls: "text-blue-400 bg-blue-400/10 border-blue-400/20" },
+    recusado:   { label: "Recusado", cls: "text-red-400 bg-red-400/10 border-red-400/20" },
+    pago:       { label: "Recebido", cls: "text-third-400 bg-third-400/10 border-third-400/20" },
+    cancelado:  { label: "Cancelado", cls: "text-gray-400 bg-gray-400/10 border-gray-400/20" },
+  };
+  const { label, cls } = map[status] ?? map.cancelado;
+  return <span className={`text-[11px] px-2.5 py-1 rounded-full border ${cls}`}>{label}</span>;
+}
+
+function AdiantamentoItem({
+  adiantamento: ad,
+  isOwner,
+  onConfirmarRecebimento,
+  onCancelar,
+  confirmandoId,
+  cancelandoId,
+}: {
+  adiantamento: Adiantamento;
+  isOwner: boolean;
+  onConfirmarRecebimento: (id: string) => void;
+  onCancelar: (id: string) => void;
+  confirmandoId: string | null;
+  cancelandoId: string | null;
+}) {
+  const [copied, setCopied] = useState(false);
+  const fmtCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  function copiarPix() {
+    if (!ad.pix_chave) return;
+    navigator.clipboard.writeText(ad.pix_chave);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="flex flex-col gap-3 px-5 py-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <AdiantamentoStatusBadge status={ad.status} />
+            <span className="text-[12px] text-gray-500">{fmtDate(ad.solicitado_em)}</span>
+          </div>
+          <div className="text-[17px] text-gray-100 font-semibold">{fmtCurrency(Number(ad.valor))}</div>
+          <div className="text-[13px] text-gray-400 mt-1 leading-relaxed">{ad.motivo}</div>
+        </div>
+      </div>
+
+      {ad.pix_chave && (ad.status === "aprovado" || ad.status === "solicitado") && (
+        <div className="flex items-center gap-3 bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] text-gray-500 mb-0.5">Chave PIX</p>
+            <p className="text-[13px] text-primary-300 font-medium truncate">{ad.pix_chave}</p>
+          </div>
+          <button
+            onClick={copiarPix}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 text-[12px] text-gray-200 transition-colors flex-shrink-0"
+          >
+            {copied ? <Check size={13} className="text-third-400" /> : <Copy size={13} />}
+            {copied ? "Copiado!" : "Copiar"}
+          </button>
+        </div>
+      )}
+
+      {ad.status === "recusado" && ad.feedback_cliente && (
+        <div className="flex items-start gap-2 px-4 py-3 bg-red-500/5 border border-red-500/20 rounded-xl">
+          <AlertCircle size={13} className="text-red-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-[11px] text-gray-500 mb-0.5">Motivo do cliente</p>
+            <p className="text-[13px] text-red-300">{ad.feedback_cliente}</p>
+          </div>
+        </div>
+      )}
+
+      {isOwner && ad.status === "aprovado" && (
+        <button
+          onClick={() => onConfirmarRecebimento(ad.id)}
+          disabled={confirmandoId === ad.id}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-third-500/15 hover:bg-third-500/25 border border-third-500/30 text-[13px] font-medium text-third-400 transition-colors disabled:opacity-60"
+        >
+          <Check size={15} />
+          {confirmandoId === ad.id ? "Confirmando..." : "Confirmar recebimento"}
+        </button>
+      )}
+
+      {isOwner && ad.status === "solicitado" && (
+        <button
+          onClick={() => onCancelar(ad.id)}
+          disabled={cancelandoId === ad.id}
+          className="text-[12px] text-gray-500 hover:text-red-400 transition-colors text-left"
+        >
+          {cancelandoId === ad.id ? "Cancelando..." : "Cancelar solicitação"}
+        </button>
       )}
     </div>
   );

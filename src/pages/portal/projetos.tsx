@@ -75,7 +75,7 @@ export default function PortalProjetosPage() {
       setProjects(built);
       setLoading(false);
     })();
-  }, [router]);
+  }, []);
 
   const changeView = (v: ViewMode) => {
     setViewMode(v);

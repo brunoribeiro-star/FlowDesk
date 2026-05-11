@@ -20,7 +20,7 @@ export default function HomeRedirect() {
     }
 
     checkSession();
-  }, [router]);
+  }, []);
 
   return (
     <div className="h-screen flex items-center justify-center bg-primary-900 text-gray-300">

@@ -3,9 +3,10 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { getClientProjects, getClientDashboardStats, getClientActivities, getClientAllPagamentos } from "@/lib/supabaseQueries/clientPortal";
+import { getAdiantamentosPendentesCliente } from "@/lib/supabaseQueries/adiantamentos";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
-import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock, BellRing } from "lucide-react";
+import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock, BellRing, Copy, Check, X, AlertCircle } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 type DashboardProject = {
@@ -48,6 +49,43 @@ type PagamentoCobranca = {
   projeto_id: string;
 };
 
+type AdiantamentoPendente = {
+  id: string;
+  projeto_id: string;
+  user_id: string;
+  valor: number;
+  motivo: string;
+  status: string;
+  pix_chave: string | null;
+  pix_tipo: string | null;
+  solicitado_em: string;
+  projetos: { titulo: string } | null;
+};
+
+function AdiantamentoPixCard({ pixChave }: { pixChave: string }) {
+  const [copied, setCopied] = useState(false);
+  function copiar() {
+    navigator.clipboard.writeText(pixChave);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <div className="flex items-center gap-3 bg-primary-900/60 border border-primary-700 rounded-xl px-4 py-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] text-gray-500 mb-0.5">Chave PIX para transferência</p>
+        <p className="text-[13px] text-primary-300 font-medium truncate">{pixChave}</p>
+      </div>
+      <button
+        onClick={copiar}
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 text-[12px] text-gray-200 transition-colors flex-shrink-0"
+      >
+        {copied ? <Check size={13} className="text-third-400" /> : <Copy size={13} />}
+        {copied ? "Copiado!" : "Copiar"}
+      </button>
+    </div>
+  );
+}
+
 export default function PortalDashboardPage() {
   const router = useRouter();
   const [_sidebarOpen, setSidebarOpen] = useState(false);
@@ -57,6 +95,11 @@ export default function PortalDashboardPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [rawStats, setRawStats] = useState<RawStats>({ entregaveis: [], briefings: [], pagamentos: [], tasks: [] });
   const [cobrancasPendentes, setCobrancasPendentes] = useState<PagamentoCobranca[]>([]);
+  const [adiantamentosPendentes, setAdiantamentosPendentes] = useState<AdiantamentoPendente[]>([]);
+  const [recusandoId, setRecusandoId] = useState<string | null>(null);
+  const [recusaFeedback, setRecusaFeedback] = useState<Record<string, string>>({});
+  const [recusandoConfirmId, setRecusandoConfirmId] = useState<string | null>(null);
+  const [aprovandoId, setAprovandoId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -68,16 +111,18 @@ export default function PortalDashboardPage() {
       if (!memberRows.length) { setLoading(false); return; }
 
       const projectIds = memberRows.map((r: any) => r.project_id);
-      const [stats, { data: actData }, { data: pagData }] = await Promise.all([
+      const [stats, { data: actData }, { data: pagData }, adiantamentosData] = await Promise.all([
         getClientDashboardStats(projectIds),
         getClientActivities(projectIds),
         getClientAllPagamentos(projectIds),
+        getAdiantamentosPendentesCliente(projectIds),
       ]);
 
       const cobrancas = (pagData ?? []).filter(
         (p: any) => p.status === "pendente" && p.notificado_em
       ) as PagamentoCobranca[];
       setCobrancasPendentes(cobrancas);
+      setAdiantamentosPendentes(adiantamentosData as AdiantamentoPendente[]);
 
       const built: DashboardProject[] = memberRows.map((row: any) => {
         const proj = row.projetos as any;
@@ -97,8 +142,56 @@ export default function PortalDashboardPage() {
       setRawStats(stats);
       setActivities((actData ?? []) as unknown as Activity[]);
       setLoading(false);
+
+      const channel = supabase
+        .channel(`portal-adiantamentos-${session.user.id}`)
+        .on("postgres_changes" as any, { event: "*", schema: "public", table: "adiantamentos" }, async () => {
+          const fresh = await getAdiantamentosPendentesCliente(projectIds);
+          setAdiantamentosPendentes(fresh as AdiantamentoPendente[]);
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     })();
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleAprovarAdiantamento(adiantamentoId: string) {
+    setAprovandoId(adiantamentoId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+      await fetch("/api/adiantamentos/aprovar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ adiantamento_id: adiantamentoId }),
+      });
+      setAdiantamentosPendentes((prev) => prev.filter((a) => a.id !== adiantamentoId));
+    } finally {
+      setAprovandoId(null);
+    }
+  }
+
+  async function handleRecusarAdiantamento(adiantamentoId: string) {
+    const feedback = recusaFeedback[adiantamentoId]?.trim();
+    if (!feedback) { setRecusandoConfirmId(adiantamentoId); return; }
+    setRecusandoId(adiantamentoId);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) return;
+      await fetch("/api/adiantamentos/recusar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ adiantamento_id: adiantamentoId, feedback }),
+      });
+      setAdiantamentosPendentes((prev) => prev.filter((a) => a.id !== adiantamentoId));
+      setRecusandoConfirmId(null);
+    } finally {
+      setRecusandoId(null);
+    }
+  }
 
   const displayName = user?.user_metadata?.nome || user?.email?.split("@")[0] || "Cliente";
   const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
@@ -216,6 +309,77 @@ export default function PortalDashboardPage() {
               <span className="text-yellow-400/60 text-[13px] flex-shrink-0">Ver pagamentos →</span>
             </button>
           )}
+
+          {adiantamentosPendentes.map((ad) => {
+            const fmtValor = Number(ad.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+            const projetoTitulo = ad.projetos?.titulo ?? "Projeto";
+            const isRecusando = recusandoConfirmId === ad.id;
+            return (
+              <div key={ad.id} className="w-full flex flex-col gap-3 px-5 py-4 rounded-xl bg-primary-700/40 border border-primary-600 transition-colors">
+                <div className="flex items-start gap-3">
+                  <BellRing size={18} className="text-primary-300 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14px] font-semibold text-gray-100">
+                      Solicitação de adiantamento — {projetoTitulo}
+                    </div>
+                    <div className="text-[13px] text-gray-400 mt-0.5">
+                      Valor: <span className="text-primary-300 font-medium">{fmtValor}</span>
+                    </div>
+                    <div className="text-[13px] text-gray-400 mt-1 leading-relaxed">{ad.motivo}</div>
+                  </div>
+                </div>
+
+                {ad.pix_chave && (
+                  <AdiantamentoPixCard pixChave={ad.pix_chave} />
+                )}
+
+                {!isRecusando ? (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAprovarAdiantamento(ad.id)}
+                      disabled={aprovandoId === ad.id}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-third-500/15 hover:bg-third-500/25 border border-third-500/30 text-[13px] font-medium text-third-400 transition-colors disabled:opacity-60"
+                    >
+                      <Check size={14} />
+                      {aprovandoId === ad.id ? "Aprovando..." : "Aprovar e transferir"}
+                    </button>
+                    <button
+                      onClick={() => setRecusandoConfirmId(ad.id)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-[13px] font-medium text-red-400 transition-colors"
+                    >
+                      <X size={14} />
+                      Recusar
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      value={recusaFeedback[ad.id] ?? ""}
+                      onChange={(e) => setRecusaFeedback((prev) => ({ ...prev, [ad.id]: e.target.value }))}
+                      placeholder="Informe o motivo da recusa para o freelancer..."
+                      rows={2}
+                      className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-500 outline-none resize-none"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setRecusandoConfirmId(null)}
+                        className="flex-1 py-2 rounded-xl border border-primary-600 text-[13px] text-gray-400 hover:bg-primary-700 transition-colors"
+                      >
+                        Voltar
+                      </button>
+                      <button
+                        onClick={() => handleRecusarAdiantamento(ad.id)}
+                        disabled={recusandoId === ad.id || !recusaFeedback[ad.id]?.trim()}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-[13px] font-medium text-red-400 transition-colors disabled:opacity-60"
+                      >
+                        {recusandoId === ad.id ? "Enviando..." : "Confirmar recusa"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           <div className="w-full grid grid-cols-3 gap-4">
             {METRICS.map((m) => (
