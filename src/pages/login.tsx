@@ -23,8 +23,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  const redirectTo =
-    typeof router.query.redirect === "string" ? router.query.redirect : "/dashboard";
+  const rawRedirect = typeof router.query.redirect === "string" ? router.query.redirect : null;
+  const redirectTo = rawRedirect && rawRedirect !== "/onboarding" ? rawRedirect : "/dashboard";
 
   async function handleLogin(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -39,8 +39,8 @@ export default function LoginPage() {
 
     if (error) {
       setError(traduzirErroSupabase(error.message));
-    } else if (typeof router.query.redirect === "string") {
-      router.push(router.query.redirect);
+    } else if (redirectTo !== "/dashboard") {
+      router.push(redirectTo);
     }
     setLoading(false);
   }

@@ -120,6 +120,12 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (user?.user_metadata?.onboarding_completed) {
+      router.replace("/dashboard");
+    }
+  }, [user]);
+
+  useEffect(() => {
     function handlePaste(e: ClipboardEvent) {
       const items = e.clipboardData?.items;
       if (!items) return;
@@ -173,7 +179,8 @@ export default function OnboardingPage() {
     applyThemePreview(value);
   }
 
-  function handleSkip() {
+  async function handleSkip() {
+    await supabase.auth.updateUser({ data: { onboarding_completed: true } });
     router.push("/dashboard");
   }
 
@@ -196,7 +203,7 @@ export default function OnboardingPage() {
     }
 
     const { error: updateError } = await supabase.auth.updateUser({
-      data: { nome: nome.trim(), avatar_url: finalAvatarUrl },
+      data: { nome: nome.trim(), avatar_url: finalAvatarUrl, onboarding_completed: true },
     });
 
     if (updateError) {
