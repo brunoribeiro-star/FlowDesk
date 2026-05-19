@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import type { EventData, Step } from "react-joyride";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
 
 const Joyride = dynamic(
   () => import("react-joyride").then((mod) => ({ default: mod.Joyride })),
@@ -160,13 +162,10 @@ import React from "react";
 export default function OnboardingTour() {
   const [run, setRun] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     setMounted(true);
-    const done = localStorage.getItem(TOUR_KEY);
-    if (!done) {
-      setTimeout(() => setRun(true), 800);
-    }
 
     function handleStart() {
       localStorage.removeItem(TOUR_KEY);
@@ -178,11 +177,30 @@ export default function OnboardingTour() {
     return () => window.removeEventListener("flowdesk:start-tour", handleStart);
   }, []);
 
-  function handleEvent(data: EventData) {
+  useEffect(() => {
+    if (!mounted || loading) return;
+
+    const doneLocal = localStorage.getItem(TOUR_KEY);
+    if (doneLocal) return;
+
+    const doneMeta = user?.user_metadata?.tour_done;
+    if (doneMeta) {
+      localStorage.setItem(TOUR_KEY, "true");
+      return;
+    }
+
+    const timer = setTimeout(() => setRun(true), 800);
+    return () => clearTimeout(timer);
+  }, [mounted, loading, user]);
+
+  async function handleEvent(data: EventData) {
     const { status } = data;
     if (status === "finished" || status === "skipped") {
       localStorage.setItem(TOUR_KEY, "true");
       setRun(false);
+      if (user) {
+        await supabase.auth.updateUser({ data: { tour_done: true } });
+      }
     }
   }
 
