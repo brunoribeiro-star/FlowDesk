@@ -922,26 +922,6 @@ export default function ConfiguracoesPage() {
               <SectionHeader
                 title="Perfil"
                 description="Informações exibidas no FlowDesk e nos recursos de colaboração."
-                action={
-                  <button
-                    type="button"
-                    onClick={salvarPerfil}
-                    disabled={saving || !profileDirty}
-                    className={clsx(
-                      "bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-5 py-2 text-[14px] font-semibold transition-colors flex items-center gap-2 shrink-0",
-                      (saving || !profileDirty) && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {saving ? (
-                      <>
-                        <span className="h-4 w-4 border-2 border-primary-900 border-t-transparent rounded-full animate-spin" />
-                        Salvando...
-                      </>
-                    ) : (
-                      "Salvar alterações"
-                    )}
-                  </button>
-                }
               />
 
               <Card>
@@ -1128,6 +1108,29 @@ export default function ConfiguracoesPage() {
                   )}
                 </div>
               </Card>
+
+              {profileDirty && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={salvarPerfil}
+                    disabled={saving}
+                    className={clsx(
+                      "bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-5 py-2 text-[14px] font-semibold transition-colors flex items-center gap-2 shrink-0",
+                      saving && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {saving ? (
+                      <>
+                        <span className="h-4 w-4 border-2 border-primary-900 border-t-transparent rounded-full animate-spin" />
+                        Salvando...
+                      </>
+                    ) : (
+                      "Salvar alterações"
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
