@@ -35,14 +35,28 @@ export default function LoginPage() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { error } = await Promise.race([
+        supabase.auth.signInWithPassword({ email, password }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("TIMEOUT")), 15000)
+        ),
+      ]);
 
-    if (error) {
-      setError(traduzirErroSupabase(error.message));
-    } else if (redirectTo !== "/dashboard") {
-      router.push(redirectTo);
+      if (error) {
+        setError(traduzirErroSupabase(error.message));
+      } else {
+        router.push(redirectTo);
+      }
+    } catch (err: any) {
+      setError(
+        err?.message === "TIMEOUT"
+          ? "A conexão demorou muito. Verifique sua internet e tente novamente."
+          : "Erro de conexão. Tente novamente."
+      );
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleGoogleAuth() {

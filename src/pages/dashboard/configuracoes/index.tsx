@@ -361,6 +361,9 @@ export default function ConfiguracoesPage() {
     return subscription.billingInterval === billingPeriod;
   }
   const [portalLoading, setPortalLoading] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [reactivateLoading, setReactivateLoading] = useState(false);
 
   const [userData, setUserData] = useState<any>(null);
   const [nome, setNome] = useState("");
@@ -855,6 +858,55 @@ export default function ConfiguracoesPage() {
       showToast("error", "Erro ao abrir portal. Tente novamente.");
     } finally {
       setPortalLoading(false);
+    }
+  }
+
+  async function cancelSubscription() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return;
+    setCancelLoading(true);
+    try {
+      const res = await fetch("/api/stripe/cancel", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setShowCancelModal(false);
+        showToast("success", "Assinatura cancelada. Você mantém o acesso até o fim do período.");
+        await subscription.refresh();
+      } else {
+        const json = await res.json();
+        showToast("error", json.error || "Erro ao cancelar. Tente novamente.");
+      }
+    } catch {
+      showToast("error", "Erro ao cancelar. Tente novamente.");
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
+  async function reactivateSubscription() {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) return;
+    setReactivateLoading(true);
+    try {
+      const res = await fetch("/api/stripe/reactivate", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        showToast("success", "Assinatura reativada com sucesso.");
+        await subscription.refresh();
+      } else {
+        const json = await res.json();
+        showToast("error", json.error || "Erro ao reativar. Tente novamente.");
+      }
+    } catch {
+      showToast("error", "Erro ao reativar. Tente novamente.");
+    } finally {
+      setReactivateLoading(false);
     }
   }
 
@@ -1398,17 +1450,39 @@ export default function ConfiguracoesPage() {
                         <p className="text-[13px] text-gray-400">Plano Essencial — sem assinatura ativa.</p>
                       )}
                     </div>
-                    {subscription.currentPeriodEnd && (
-                      <button
-                        type="button"
-                        onClick={openPortal}
-                        disabled={portalLoading}
-                        className="flex items-center gap-2 bg-primary-700 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[13px] hover:bg-primary-600 transition-colors shrink-0"
-                      >
-                        <ExternalLink size={14} />
-                        {portalLoading ? "Abrindo..." : "Gerenciar faturamento"}
-                      </button>
-                    )}
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      {subscription.currentPeriodEnd && (
+                        <button
+                          type="button"
+                          onClick={openPortal}
+                          disabled={portalLoading}
+                          className="flex items-center gap-2 bg-primary-700 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[13px] hover:bg-primary-600 transition-colors"
+                        >
+                          <ExternalLink size={14} />
+                          {portalLoading ? "Abrindo..." : "Gerenciar faturamento"}
+                        </button>
+                      )}
+                      {subscription.currentPeriodEnd && !subscription.isLifetime && !subscription.isTrialActive && (
+                        subscription.cancelAtPeriodEnd ? (
+                          <button
+                            type="button"
+                            onClick={reactivateSubscription}
+                            disabled={reactivateLoading}
+                            className="text-[12px] text-primary-300 hover:text-primary-200 transition-colors disabled:opacity-60"
+                          >
+                            {reactivateLoading ? "Reativando..." : "Reativar assinatura"}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setShowCancelModal(true)}
+                            className="text-[12px] text-gray-500 hover:text-red-400 transition-colors"
+                          >
+                            Cancelar assinatura
+                          </button>
+                        )
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-5 pt-5 border-t border-primary-700 grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1904,6 +1978,41 @@ export default function ConfiguracoesPage() {
             </div>
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        open={showCancelModal}
+        title="Cancelar assinatura"
+        onClose={() => setShowCancelModal(false)}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => setShowCancelModal(false)}
+              className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[14px] hover:bg-primary-700"
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              onClick={cancelSubscription}
+              disabled={cancelLoading}
+              className="bg-red-600 hover:bg-red-500 text-white rounded-lg px-5 py-2 text-[14px] font-semibold disabled:opacity-60 transition-colors"
+            >
+              {cancelLoading ? "Cancelando..." : "Confirmar cancelamento"}
+            </button>
+          </>
+        }
+      >
+        <p className="text-[14px] text-gray-300 leading-relaxed">
+          Sua assinatura continuará ativa até{" "}
+          {subscription.currentPeriodEnd && (
+            <span className="text-gray-100 font-medium">
+              {new Date(subscription.currentPeriodEnd).toLocaleDateString("pt-BR")}
+            </span>
+          )}
+          . Após essa data, o plano voltará automaticamente para o Essencial e você perderá acesso aos recursos premium.
+        </p>
       </Modal>
 
       <Modal

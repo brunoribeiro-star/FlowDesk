@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }){
         const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
             setSession(sess ?? null);
             setUser(sess?.user ?? null);
-            
+
             if (_event === 'SIGNED_IN' && router.pathname === '/login') {
                 const hasRedirectParam = typeof router.query.redirect === 'string';
                 if (!hasRedirectParam && sess) {
@@ -57,9 +57,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }){
             }
         });
 
+        async function handleVisibilityChange() {
+            if (document.visibilityState !== 'visible') return;
+            const { data } = await supabase.auth.getSession();
+            if (!mounted) return;
+            setSession(data.session ?? null);
+            setUser(data.session?.user ?? null);
+        }
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
         return () => {
             mounted = false;
             sub?.subscription.unsubscribe();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, []);
 
