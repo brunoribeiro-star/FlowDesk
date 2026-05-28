@@ -9,6 +9,7 @@ import {
   Users, Zap, Search, X, ChevronDown, LogOut,
   RefreshCw, Mail, Trash2, AlertTriangle, LayoutDashboard,
   ExternalLink, Camera, Phone, CheckCircle2,
+  FolderOpen, Clock, UserRound,
 } from "lucide-react";
 import clsx from "clsx";
 import {
@@ -19,14 +20,13 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
-// ─── Types ──────────────────────────────────────────────────────────────────
-
 interface AdminUser {
   id: string;
   email: string;
   nome: string | null;
   avatar_url: string | null;
   created_at: string;
+  last_sign_in_at: string | null;
   plan: string;
   status: string;
   isTrialActive: boolean;
@@ -36,6 +36,9 @@ interface AdminUser {
   trialEnd: string | null;
   currentPeriodEnd: string | null;
   trialUsed: boolean;
+  projetos_ativos: number;
+  clientes_count: number;
+  horas_rastreadas: number;
 }
 
 interface Lead {
@@ -84,8 +87,6 @@ type Page = "dashboard" | "usuarios" | "leads";
 type Period = "7d" | "30d" | "90d" | "180d" | "365d" | "all";
 type FilterType = "all" | "trial" | "pagantes";
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const SNAP_PERIODS: { label: string; value: Period }[] = [
   { label: "30 dias", value: "30d" },
   { label: "3 meses", value: "90d" },
@@ -113,8 +114,6 @@ const DURATION_OPTIONS = [
 
 const PIE_COLORS = ["var(--primary-500)", "#60a5fa", "#34d399", "#f59e0b"];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function planBadge(user: AdminUser) {
   if (user.isLifetime) return { label: "Permanente", cls: "bg-green-500/15 text-green-400 border border-green-500/30" };
   if (user.isTrialActive) return { label: "Trial ativo", cls: "bg-amber-500/15 text-amber-300 border border-amber-500/30" };
@@ -137,6 +136,23 @@ function daysLeft(date: string | null) {
   if (!date) return null;
   const diff = Math.ceil((new Date(date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   return diff > 0 ? diff : null;
+}
+
+function fmtLastAccess(date: string | null): string {
+  if (!date) return "nunca";
+  const diffMs = Date.now() - new Date(date).getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "hoje";
+  if (diffDays === 1) return "ontem";
+  if (diffDays < 7) return `${diffDays}d atrás`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}sem atrás`;
+  return fmt(date);
+}
+
+function fmtHours(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  if (h === 0) return "<1h";
+  return `${h}h`;
 }
 
 function fmtCurrency(value: number) {
@@ -190,8 +206,6 @@ function PeriodPills({ options, value, onChange }: {
     </div>
   );
 }
-
-// ─── DashboardPage ───────────────────────────────────────────────────────────
 
 interface DashboardPageProps {
   revenueData: RevenueData | null;
@@ -247,7 +261,6 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
   return (
     <div className="flex flex-col gap-5">
 
-      {/* ── Stats row ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         {[
           { label: "MRR", value: fmtCurrency(revenueData?.mrr ?? 0), sub: "mensal recorrente", color: "text-primary-300" },
@@ -264,10 +277,8 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
         ))}
       </div>
 
-      {/* ── Revenue + Plan distribution ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-        {/* MRR + Assinantes (ComposedChart) — 2/3 width */}
         <div className="lg:col-span-2 bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <h3 className="text-[14px] font-semibold text-gray-200">MRR & Assinantes ativos</h3>
@@ -338,7 +349,6 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
           )}
         </div>
 
-        {/* Plan distribution — 1/3 width */}
         <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
           <h3 className="text-[14px] font-semibold text-gray-200">Distribuição de planos</h3>
           {loadingRevenue ? (
@@ -397,7 +407,6 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
         </div>
       </div>
 
-      {/* ── ARR ao longo do tempo ── */}
       {!noSnap && snapData && snapData.snapshots.length > 0 && (
         <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -424,7 +433,6 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
         </div>
       )}
 
-      {/* ── Total de usuários acumulado ── */}
       {!noSnap && snapData && snapData.snapshots.length > 0 && (
         <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
@@ -451,7 +459,6 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
         </div>
       )}
 
-      {/* ── Novos usuários por período ── */}
       <div className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -481,7 +488,6 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
         )}
       </div>
 
-      {/* ── Gravar snapshot manual ── */}
       <div className="flex justify-end">
         <button
           type="button"
@@ -496,8 +502,6 @@ function DashboardPage({ revenueData, loadingRevenue, totalUsers, trialCount, ge
     </div>
   );
 }
-
-// ─── UsersPage ───────────────────────────────────────────────────────────────
 
 interface UsersPageProps {
   users: AdminUser[];
@@ -569,7 +573,7 @@ function UsersPage({ users, loading, onGrant, onDelete }: UsersPageProps) {
       <div className="flex flex-col gap-2">
         {loading ? (
           Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-[68px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
+            <div key={i} className="h-[84px] bg-primary-800 border border-primary-700 rounded-xl animate-pulse" />
           ))
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-gray-500 text-[14px]">Nenhum usuário encontrado.</div>
@@ -588,12 +592,29 @@ function UsersPage({ users, loading, onGrant, onDelete }: UsersPageProps) {
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-medium text-gray-100 truncate">{u.nome ?? "—"}</p>
                   <p className="text-[12px] text-gray-500 truncate">{u.email}</p>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <span className="flex items-center gap-1 text-[11px] text-gray-600">
+                      <FolderOpen size={10} />
+                      {u.projetos_ativos} {u.projetos_ativos === 1 ? "projeto" : "projetos"}
+                    </span>
+                    <span className="flex items-center gap-1 text-[11px] text-gray-600">
+                      <UserRound size={10} />
+                      {u.clientes_count} {u.clientes_count === 1 ? "cliente" : "clientes"}
+                    </span>
+                    {u.horas_rastreadas > 0 && (
+                      <span className="flex items-center gap-1 text-[11px] text-gray-600">
+                        <Clock size={10} />
+                        {fmtHours(u.horas_rastreadas)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className={clsx("hidden sm:inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0", badge.cls)}>
                   {badge.label}
                 </span>
-                <div className="hidden md:flex flex-col items-end shrink-0 text-[11px] text-gray-500 min-w-[110px]">
+                <div className="hidden md:flex flex-col items-end shrink-0 text-[11px] text-gray-500 min-w-[120px]">
                   <span>Cadastro: {fmt(u.created_at)}</span>
+                  <span className="text-gray-600">Acesso: {fmtLastAccess(u.last_sign_in_at)}</span>
                   {u.isLifetime && <span className="text-green-400">Acesso permanente</span>}
                   {!u.isLifetime && remaining !== null && (
                     <span className={remaining <= 3 ? "text-rose-400" : "text-gray-500"}>
@@ -629,8 +650,6 @@ function UsersPage({ users, loading, onGrant, onDelete }: UsersPageProps) {
     </div>
   );
 }
-
-// ─── LeadsPage ───────────────────────────────────────────────────────────────
 
 interface LeadsPageProps {
   leads: Lead[];
@@ -760,8 +779,6 @@ function LeadsPage({ leads, loading, onGrantEarlyAccess }: LeadsPageProps) {
     </div>
   );
 }
-
-// ─── AdminPage ───────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
@@ -946,7 +963,6 @@ export default function AdminPage() {
 
       <div className="flex h-screen bg-primary-900 overflow-hidden">
 
-        {/* ── Sidebar ── */}
         <aside className="w-[220px] shrink-0 bg-primary-800 border-r border-primary-700 flex flex-col h-full">
           <div className="px-4 py-5 border-b border-primary-700">
             <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={100} height={24} priority />
@@ -996,7 +1012,6 @@ export default function AdminPage() {
           </div>
         </aside>
 
-        {/* ── Main content ── */}
         <main className="flex-1 overflow-y-auto">
           <div className="flex items-center justify-between px-8 py-5 border-b border-primary-800">
             <h1 className="text-[16px] font-semibold text-gray-100">
@@ -1043,7 +1058,6 @@ export default function AdminPage() {
         </main>
       </div>
 
-      {/* ── Grant modal ── */}
       {grantTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => !granting && setGrantTarget(null)}>
           <div className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -1104,7 +1118,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ── Early Access modal ── */}
       {earlyAccessTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => !eaGranting && setEarlyAccessTarget(null)}>
           <div className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl" onClick={e => e.stopPropagation()}>
@@ -1169,7 +1182,6 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* ── Delete modal ── */}
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center px-4" onClick={() => !deleting && setDeleteTarget(null)}>
           <div className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-sm p-6 flex flex-col gap-5 shadow-2xl" onClick={e => e.stopPropagation()}>
