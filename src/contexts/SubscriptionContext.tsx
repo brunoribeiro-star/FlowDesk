@@ -11,6 +11,7 @@ export interface SubscriptionStatus {
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   billingInterval: "mensal" | "anual" | null;
+  hasStripeSubscription: boolean;
   limits: PlanLimits & { storageGB: number };
   extraStorageAddons: number;
   trialUsed: boolean;
@@ -29,6 +30,7 @@ const DEFAULT_DATA: SubscriptionData = {
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   billingInterval: null,
+  hasStripeSubscription: false,
   limits: { projetos: 10, clientes: 10, storageGB: 5, coworkingMembros: 1, portalClienteCompleto: false, relatoriosCompletos: false },
   extraStorageAddons: 0,
   trialUsed: false,

@@ -1451,7 +1451,7 @@ export default function ConfiguracoesPage() {
                       )}
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
-                      {subscription.currentPeriodEnd && (
+                      {subscription.hasStripeSubscription && (
                         <button
                           type="button"
                           onClick={openPortal}
@@ -1462,7 +1462,7 @@ export default function ConfiguracoesPage() {
                           {portalLoading ? "Abrindo..." : "Gerenciar faturamento"}
                         </button>
                       )}
-                      {subscription.currentPeriodEnd && !subscription.isLifetime && !subscription.isTrialActive && (
+                      {subscription.hasStripeSubscription && !subscription.isLifetime && !subscription.isTrialActive && (
                         subscription.cancelAtPeriodEnd ? (
                           <button
                             type="button"
@@ -1476,7 +1476,7 @@ export default function ConfiguracoesPage() {
                           <button
                             type="button"
                             onClick={() => setShowCancelModal(true)}
-                            className="text-[12px] text-gray-500 hover:text-red-400 transition-colors"
+                            className="text-[12px] text-red-400 hover:text-red-300 transition-colors"
                           >
                             Cancelar assinatura
                           </button>
