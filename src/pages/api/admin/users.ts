@@ -29,7 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   ] = await Promise.all([
     supabase.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from("subscriptions").select("*"),
-    supabase.from("users").select("id, nome, avatar_url"),
+    supabase.from("users").select("id, nome, avatar_url, role"),
     supabase.from("projetos").select("user_id, status").range(0, 9999),
     supabase.from("clientes").select("user_id").range(0, 9999),
     supabase.from("time_entries").select("user_id, duration_seconds").range(0, 49999),
@@ -60,7 +60,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const now = new Date();
 
-  const users = authUsers.map((authUser) => {
+  const clientUserIds = new Set(
+    (profiles ?? []).filter((p: any) => p.role === "cliente").map((p: any) => p.id)
+  );
+
+  const users = authUsers.filter((authUser) => !clientUserIds.has(authUser.id)).map((authUser) => {
     const sub = subMap.get(authUser.id) as any;
     const profile = profileMap.get(authUser.id) as any;
 
