@@ -52,7 +52,7 @@ export default function HeaderProfile({ user }: HeaderProfileProps) {
       </button>
 
       {profileOpen && (
-        <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in z-50">
+        <div className="absolute right-0 mt-3 w-56 bg-primary-800 border border-primary-600 rounded-2xl shadow-xl p-4 flex flex-col gap-3 animate-fade-in z-[9999]">
           <button
             className="flex items-center gap-3 text-gray-200 hover:text-primary-100"
             onClick={() => {
