@@ -377,7 +377,7 @@ export default function DashboardHome() {
           className="pointer-events-none absolute rounded-full z-0"
           style={{
             width: "480px", height: "480px", right: "-160px", bottom: "-200px",
-            background: "radial-gradient(circle, rgba(16,66,83,0.5), transparent 70%)",
+            background: "radial-gradient(circle, var(--primary-700), transparent 70%)",
             filter: "blur(100px)",
           }}
         />
@@ -391,7 +391,7 @@ export default function DashboardHome() {
               className="border-2 border-primary-600"
             />
             <div>
-              <h1 className="m-0 text-[24px] font-semibold tracking-tight text-white leading-tight">
+              <h1 className="m-0 text-[24px] font-semibold tracking-tight text-gray-100 leading-tight">
                 Olá, {displayName}
               </h1>
               <p className="m-0 mt-0.5 text-[15px] text-gray-400">
@@ -403,7 +403,7 @@ export default function DashboardHome() {
           <div ref={searchRef} className="flex-1 relative">
             <div
               className="flex items-center gap-3 h-[52px] px-[18px] rounded-[14px] border border-gray-700 text-gray-400 transition-colors focus-within:border-primary-600"
-              style={{ background: "linear-gradient(180deg, rgba(20,40,48,0.5), rgba(8,34,42,0.3))" }}
+              style={{ background: "var(--primary-800)" }}
             >
               <Search size={20} className="shrink-0" />
               <input
@@ -487,7 +487,7 @@ export default function DashboardHome() {
                 : "";
               return (
                 <div key={inv.id} className="flex items-center justify-between gap-4 px-4 py-3 rounded-[14px] border border-primary-600"
-                     style={{ background: "linear-gradient(180deg, rgba(20,40,48,0.5), rgba(8,34,42,0.3))" }}>
+                     style={{ background: "var(--primary-800)" }}>
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-2 h-2 rounded-full bg-primary-400 shrink-0" style={{ boxShadow: "0 0 10px -1px var(--primary-500)" }} />
                     <span className="text-[14px] text-gray-200 truncate">
@@ -523,7 +523,7 @@ export default function DashboardHome() {
               type="button"
               onClick={m.onClick}
               className="relative overflow-hidden flex flex-col p-[22px_24px_24px] rounded-[20px] border border-gray-700 transition-all duration-200 hover:-translate-y-[3px] hover:border-primary-400 cursor-pointer text-left"
-              style={{ background: "linear-gradient(180deg, rgba(20,40,48,0.5), rgba(8,34,42,0.3))" }}
+              style={{ background: "var(--primary-800)" }}
             >
               <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-[20px] opacity-80"
                    style={{ background: m.accent.top }} />
@@ -536,13 +536,13 @@ export default function DashboardHome() {
                 </div>
                 <span
                   className="text-[12.5px] font-medium text-gray-400 px-[10px] py-1 rounded-full"
-                  style={{ background: "rgba(148,169,173,0.08)" }}
+                  style={{ background: "var(--primary-700)" }}
                 >
                   {m.trend}
                 </span>
               </div>
               <p className="m-0 text-[14px] text-gray-400">{m.label}</p>
-              <p className={`m-0 mt-0.5 text-[28px] font-bold tracking-tight tabular-nums leading-tight ${m.calm ? "text-success-medium" : "text-white"}`}>
+              <p className={`m-0 mt-0.5 text-[28px] font-bold tracking-tight tabular-nums leading-tight ${m.calm ? "text-success-medium" : "text-gray-100"}`}>
                 {m.value}
               </p>
             </button>
@@ -552,7 +552,7 @@ export default function DashboardHome() {
             type="button"
             onClick={() => router.push("/dashboard/configuracoes?tab=armazenamento")}
             className="relative overflow-hidden flex flex-col p-[22px_24px_24px] rounded-[20px] border border-gray-700 transition-all duration-200 hover:-translate-y-[3px] hover:border-primary-400 cursor-pointer text-left"
-            style={{ background: "linear-gradient(180deg, rgba(20,40,48,0.5), rgba(8,34,42,0.3))" }}
+            style={{ background: "var(--primary-800)" }}
           >
             <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-[20px] opacity-80"
                  style={{ background: "linear-gradient(90deg, var(--primary-400), transparent 60%)" }} />
@@ -567,12 +567,12 @@ export default function DashboardHome() {
             <p className="m-0 text-[14px] text-gray-400">Armazenamento</p>
             {storageUsedGB !== null ? (
               <>
-                <p className="m-0 mt-0.5 text-[28px] font-bold tracking-tight text-white leading-tight">
+                <p className="m-0 mt-0.5 text-[28px] font-bold tracking-tight text-gray-100 leading-tight">
                   {storageUsedGB < 1 ? `${(storageUsedGB * 1024).toFixed(0)} MB` : `${storageUsedGB.toFixed(2)} GB`}
                 </p>
                 <div
                   className="mt-3.5 h-[7px] rounded-full overflow-hidden"
-                  style={{ background: "rgba(148,169,173,0.12)" }}
+                  style={{ background: "var(--primary-700)" }}
                 >
                   <div
                     className="h-full rounded-full transition-all"
@@ -590,7 +590,7 @@ export default function DashboardHome() {
                 <p className="m-0 mt-2 text-[12.5px] text-gray-500">de {storageLimitGB} GB usados</p>
               </>
             ) : (
-              <p className="m-0 mt-0.5 text-[28px] font-bold tracking-tight text-white leading-tight">–</p>
+              <p className="m-0 mt-0.5 text-[28px] font-bold tracking-tight text-gray-100 leading-tight">–</p>
             )}
           </button>
         </section>
@@ -601,7 +601,7 @@ export default function DashboardHome() {
         >
           <div
             className="flex flex-col rounded-[22px] border border-gray-700 p-[26px_28px]"
-            style={{ background: "linear-gradient(180deg, rgba(20,40,48,0.5), rgba(8,34,42,0.28))" }}
+            style={{ background: "var(--primary-800)" }}
           >
             <div className="flex items-start justify-between">
               <div>
@@ -609,7 +609,7 @@ export default function DashboardHome() {
                   Faturamento · mês atual vs. anterior
                 </p>
                 <div className="flex items-baseline gap-3 flex-wrap">
-                  <span className="text-[38px] font-bold text-white tracking-tight tabular-nums leading-none">
+                  <span className="text-[38px] font-bold text-gray-100 tracking-tight tabular-nums leading-none">
                     {faturamentoPrincipal}
                     <span className="text-[22px] font-semibold text-gray-300">,{faturamentoCentavos}</span>
                   </span>
@@ -643,7 +643,7 @@ export default function DashboardHome() {
               <div className="flex-1 min-h-0 relative overflow-visible">
                 <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
                   {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="w-full h-px" style={{ background: "rgba(148,169,173,0.07)" }} />
+                    <div key={i} className="w-full h-px" style={{ background: "var(--primary-700)" }} />
                   ))}
                 </div>
 
@@ -664,9 +664,9 @@ export default function DashboardHome() {
                             style={{
                               height: heightsLast[idx] > 0 ? `${heightsLast[idx] * 100}%` : "4px",
                               background: heightsLast[idx] > 0
-                                ? isHovered ? "rgba(148,169,173,0.22)" : "rgba(148,169,173,0.12)"
+                                ? isHovered ? "var(--primary-600)" : "var(--primary-700)"
                                 : "transparent",
-                              border: heightsLast[idx] === 0 ? "1px solid rgba(148,169,173,0.12)" : "none",
+                              border: heightsLast[idx] === 0 ? "1px solid var(--primary-600)" : "none",
                               transition: "height 700ms ease-out, background 200ms ease",
                             }}
                           />
@@ -680,7 +680,7 @@ export default function DashboardHome() {
                                 : heightsCurrent[idx] > 0
                                 ? "var(--primary-500)"
                                 : "transparent",
-                              border: heightsCurrent[idx] === 0 ? "1px solid rgba(30,182,232,0.25)" : "none",
+                              border: heightsCurrent[idx] === 0 ? "1px solid var(--primary-600)" : "none",
                               boxShadow: isPeak
                                 ? isHovered
                                   ? "0 0 40px -2px rgba(30,182,232,0.8), inset 0 1px 0 rgba(255,255,255,0.25)"
@@ -697,7 +697,7 @@ export default function DashboardHome() {
                               <div
                                 className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 whitespace-nowrap text-[12px] font-semibold px-2.5 py-1 rounded-[8px] z-20"
                                 style={{
-                                  color: "#04141a",
+                                  color: "var(--primary-900)",
                                   background: "var(--primary-300)",
                                   boxShadow: "0 8px 20px -8px rgba(30,182,232,0.8)",
                                   animation: "fadeIn 0.1s ease-out",
@@ -753,7 +753,7 @@ export default function DashboardHome() {
                 onClick={() => router.push("/dashboard/projetos/novo")}
                 className="flex flex-1 items-center justify-center gap-2 h-[54px] text-[16px] font-semibold rounded-[14px] border-0 cursor-pointer transition-transform duration-200 hover:-translate-y-0.5"
                 style={{
-                  color: "#04141a",
+                  color: "var(--primary-900)",
                   background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
                   boxShadow: "0 14px 32px -14px rgba(30,182,232,0.8)",
                   fontFamily: "inherit",
@@ -764,8 +764,8 @@ export default function DashboardHome() {
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/briefings/novo")}
-                className="flex flex-1 items-center justify-center gap-2 h-[54px] text-[16px] font-semibold text-gray-100 rounded-[14px] border border-gray-600 cursor-pointer transition-colors duration-200 hover:border-primary-600 hover:text-white"
-                style={{ background: "rgba(20,40,48,0.4)", fontFamily: "inherit" }}
+                className="flex flex-1 items-center justify-center gap-2 h-[54px] text-[16px] font-semibold text-gray-100 rounded-[14px] border border-gray-600 cursor-pointer transition-colors duration-200 hover:border-primary-600 hover:text-gray-100"
+                style={{ background: "var(--primary-800)", fontFamily: "inherit" }}
               >
                 <FileText size={18} /> Novo briefing
               </button>
@@ -774,9 +774,9 @@ export default function DashboardHome() {
 
           <div
             className="flex flex-col rounded-[22px] border border-gray-700 p-[26px_28px] overflow-hidden"
-            style={{ background: "linear-gradient(180deg, rgba(20,40,48,0.5), rgba(8,34,42,0.28))" }}
+            style={{ background: "var(--primary-800)" }}
           >
-            <p className="m-0 text-[19px] font-semibold text-white">Atividades recentes</p>
+            <p className="m-0 text-[19px] font-semibold text-gray-100">Atividades recentes</p>
 
             <ul className="list-none m-0 p-0 mt-5 flex flex-col gap-1.5 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0">
               {atividades.length > 0 ? (
