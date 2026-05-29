@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { ArrowLeft, Timer, Zap, Flame, Clock, Coffee } from "lucide-react";
+import { ArrowLeft, Timer, Zap, Flame, Clock, ArrowRight, Check } from "lucide-react";
 import PageTour from "@/components/PageTour";
 import type { Step } from "react-joyride";
 
@@ -15,88 +15,43 @@ const CRONOMETRO_TOUR_STEPS: Step[] = [
 
 const MODES = [
   {
-    id: "pomodoro",
-    label: "Pomodoro",
-    minutes: 25,
-    icon: Timer,
-    description: "Ciclos de foco com pausas",
-    color: "from-primary-600/20 to-primary-700/10",
-    border: "border-primary-600",
-    accent: "text-primary-400",
-    dot: "bg-primary-500",
+    id: "pomodoro", label: "Pomodoro", minutes: 25, Icon: Timer,
+    desc: "Ciclos de foco com pausas curtas",
+    acc: { color: "var(--primary-400)", soft: "rgba(79,197,235,0.14)", line: "rgba(79,197,235,0.45)", shadow: "rgba(79,197,235,0.65)" },
   },
   {
-    id: "foco",
-    label: "Foco",
-    minutes: 50,
-    icon: Zap,
-    description: "Sessão profunda e produtiva",
-    color: "from-secondary-600/20 to-secondary-700/10",
-    border: "border-secondary-600",
-    accent: "text-secondary-400",
-    dot: "bg-secondary-500",
+    id: "foco", label: "Foco", minutes: 50, Icon: Zap,
+    desc: "Sessão profunda e produtiva",
+    acc: { color: "var(--secondary-400)", soft: "rgba(140,119,211,0.14)", line: "rgba(140,119,211,0.45)", shadow: "rgba(140,119,211,0.65)" },
   },
   {
-    id: "sprint",
-    label: "Sprint",
-    minutes: 90,
-    icon: Flame,
-    description: "Imersão total no projeto",
-    color: "from-third-600/20 to-third-700/10",
-    border: "border-third-600",
-    accent: "text-third-400",
-    dot: "bg-third-500",
+    id: "sprint", label: "Sprint", minutes: 90, Icon: Flame,
+    desc: "Imersão total no projeto",
+    acc: { color: "var(--third-400)", soft: "rgba(40,185,148,0.14)", line: "rgba(40,185,148,0.45)", shadow: "rgba(40,185,148,0.65)" },
   },
   {
-    id: "personalizado",
-    label: "Personalizado",
-    minutes: 0,
-    icon: Clock,
-    description: "Defina seu próprio tempo",
-    color: "from-gray-600/20 to-gray-700/10",
-    border: "border-gray-600",
-    accent: "text-gray-400",
-    dot: "bg-gray-400",
+    id: "personalizado", label: "Personalizado", minutes: 0, Icon: Clock,
+    desc: "Defina seu próprio tempo",
+    acc: { color: "var(--gray-300)", soft: "rgba(148,169,173,0.12)", line: "rgba(148,169,173,0.35)", shadow: "rgba(148,169,173,0.45)" },
   },
 ];
 
-function NumericInput({
-  value,
-  onChange,
-  min = 1,
-  max = 480,
-  label,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  label: string;
+function NumericInput({ value, onChange, min = 1, max = 480, label }: {
+  value: number; onChange: (v: number) => void; min?: number; max?: number; label: string;
 }) {
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</span>
+      <span className="text-[10px] text-gray-500 uppercase tracking-wider">{label}</span>
       <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => onChange(Math.max(min, value - 1))}
-          className="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-xs"
-        >
+        <button type="button" onClick={() => onChange(Math.max(min, value - 1))}
+          className="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-xs">
           −
         </button>
-        <input
-          type="number"
-          min={min}
-          max={max}
-          value={value}
-          onChange={(e) => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))}
-          className="w-12 text-center bg-primary-800 border border-primary-600 rounded-lg px-1 py-0.5 text-gray-100 text-sm font-medium focus:outline-none focus:border-primary-400"
-        />
-        <button
-          type="button"
-          onClick={() => onChange(Math.min(max, value + 1))}
-          className="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-xs"
-        >
+        <input type="number" min={min} max={max} value={value}
+          onChange={e => onChange(Math.max(min, Math.min(max, parseInt(e.target.value) || min)))}
+          className="w-12 text-center bg-primary-900 border border-primary-700 rounded-lg px-1 py-0.5 text-gray-100 text-sm font-medium focus:outline-none focus:border-primary-400" />
+        <button type="button" onClick={() => onChange(Math.min(max, value + 1))}
+          className="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-xs">
           +
         </button>
       </div>
@@ -108,185 +63,178 @@ export default function CronometroPage() {
   const router = useRouter();
   const [selected, setSelected] = useState<string | null>(null);
   const [customMinutes, setCustomMinutes] = useState(30);
-
   const [pomodoroWork, setPomodoroWork] = useState(25);
   const [pomodoroBreak, setPomodoroBreak] = useState(5);
   const [pomodoroCycles, setPomodoroCycles] = useState(4);
 
   function handleStart() {
     if (!selected) return;
-    const mode = MODES.find((m) => m.id === selected);
+    const mode = MODES.find(m => m.id === selected);
     if (!mode) return;
-
     if (selected === "pomodoro") {
-      router.push(
-        `/dashboard/cronometro/sessao?mode=pomodoro&minutes=${pomodoroWork}&breakMinutes=${pomodoroBreak}&cycles=${pomodoroCycles}`
-      );
+      router.push(`/dashboard/cronometro/sessao?mode=pomodoro&minutes=${pomodoroWork}&breakMinutes=${pomodoroBreak}&cycles=${pomodoroCycles}`);
       return;
     }
-
     const minutes = selected === "personalizado" ? customMinutes : mode.minutes;
     router.push(`/dashboard/cronometro/sessao?mode=${selected}&minutes=${minutes}`);
+  }
+
+  const selectedMode = MODES.find(m => m.id === selected);
+
+  function modeValueText(mode: typeof MODES[number]) {
+    if (mode.id === "pomodoro") return `${pomodoroWork}min foco · ${pomodoroBreak}min pausa · ${pomodoroCycles}x`;
+    if (mode.id === "personalizado") return "Tempo livre";
+    return `${mode.minutes} minutos`;
   }
 
   return (
     <>
       <PageTour name="cronometro" steps={CRONOMETRO_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 h-full overflow-hidden">
-        <header className="flex items-center justify-between px-8 py-6 border-b border-primary-800 bg-primary-900 z-10">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 group text-gray-400 hover:text-white transition-colors"
-          >
-            <div className="p-2 rounded-full border border-primary-700 group-hover:bg-primary-800 transition-colors">
-              <ArrowLeft size={18} />
-            </div>
-            <span className="text-sm font-medium">Voltar</span>
-          </button>
+      <div className="relative flex flex-col h-full overflow-hidden"
+        style={{ background: "var(--primary-900)" }}>
+\
+        <div className="pointer-events-none absolute z-0" style={{
+          width: 460, height: 460, right: 0, top: -120, borderRadius: "50%",
+          filter: "blur(110px)",
+          background: "radial-gradient(circle, rgba(113,87,197,0.11), transparent 70%)",
+        }} />
 
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <Timer size={16} className="text-primary-400" />
+        {/* Header */}
+        <header className="relative z-10 flex items-center justify-between px-8 xl:px-11 py-6">
+          <button type="button" onClick={() => router.push("/dashboard")}
+            className="group flex items-center gap-4 bg-transparent border-0 p-0 cursor-pointer">
+            <span className="flex items-center justify-center w-11 h-11 rounded-full border border-gray-600 text-gray-300 transition-all duration-200 group-hover:border-primary-500 group-hover:text-primary-300">
+              <ArrowLeft size={18} />
+            </span>
+            <span className="text-[19px] font-medium text-gray-200">Voltar</span>
+          </button>
+          <div className="flex items-center gap-2.5 text-primary-400 text-[18px] font-medium">
+            <Timer size={18} />
             <span>Time Tracker</span>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto flex items-center justify-center px-8 py-12">
-          <div className="w-full max-w-2xl flex flex-col gap-8">
+        <div className="relative z-10 h-px" style={{
+          background: "linear-gradient(90deg, transparent, rgba(148,169,173,0.18) 30%, rgba(148,169,173,0.18) 70%, transparent)",
+        }} />
 
-            <div className="text-center">
-              <p className="text-sm text-gray-500 uppercase tracking-widest font-medium mb-2">
-                Modo livre
-              </p>
-              <h1 className="text-2xl font-medium text-gray-100 leading-snug">
-                Escolha uma duração
-              </h1>
-            </div>
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 py-6 gap-10 overflow-y-auto">
 
-            <div className="grid grid-cols-2 gap-4">
-              {MODES.map((mode) => {
-                const Icon = mode.icon;
-                const isSelected = selected === mode.id;
-                return (
-                  <button
-                    key={mode.id}
-                    onClick={() => setSelected(mode.id)}
-                    className={`
-                      relative flex flex-col gap-3 p-6 rounded-2xl border text-left transition-all
-                      bg-gradient-to-br ${mode.color}
-                      ${isSelected
-                        ? `${mode.border} ring-2 ring-offset-2 ring-offset-primary-900 ring-primary-500/60 scale-[1.01]`
-                        : "border-primary-800 hover:border-primary-700 hover:scale-[1.005]"}
-                    `}
-                  >
-                    {isSelected && (
-                      <span className={`absolute top-4 right-4 w-2.5 h-2.5 rounded-full ${mode.dot} shadow-lg`} />
-                    )}
+          <div className="text-center">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.32em] text-gray-500 mb-3">Modo livre</p>
+            <h1 className="text-[38px] xl:text-[44px] font-semibold tracking-tight leading-tight text-gray-100">
+              Escolha uma duração
+            </h1>
+            <p className="mt-3 text-[16px] xl:text-[17px] text-gray-500">
+              Como você quer cronometrar essa sessão de trabalho.
+            </p>
+          </div>
 
-                    <div className={`w-10 h-10 rounded-xl bg-primary-800/60 flex items-center justify-center ${mode.accent}`}>
-                      <Icon size={20} />
-                    </div>
+          <div className="grid grid-cols-2 gap-5 w-full max-w-[780px]">
+            {MODES.map(mode => {
+              const isSelected = selected === mode.id;
+              const { Icon } = mode;
+              return (
+                <button key={mode.id} type="button"
+                  onClick={() => setSelected(mode.id)}
+                  className={`group relative overflow-hidden text-left flex gap-5 p-7 rounded-[22px] border transition-all duration-200 cursor-pointer hover:-translate-y-1 ${isSelected ? "-translate-y-1" : ""}`}
+                  style={{
+                    background: "linear-gradient(180deg, var(--primary-800), var(--primary-900))",
+                    borderColor: isSelected ? mode.acc.color : "var(--gray-700)",
+                    boxShadow: isSelected
+                      ? `0 0 0 1px ${mode.acc.color}, 0 22px 50px -22px ${mode.acc.shadow}, 0 0 60px -20px ${mode.acc.shadow}`
+                      : undefined,
+                  }}>
 
-                    <div>
-                      <div className="font-medium text-gray-100 text-lg">{mode.label}</div>
-                      <div className={`text-sm font-medium ${mode.accent}`}>
-                        {mode.id === "personalizado"
-                          ? "Tempo livre"
-                          : mode.id === "pomodoro"
-                          ? `${pomodoroWork}min foco · ${pomodoroBreak}min pausa · ${pomodoroCycles}x`
-                          : `${mode.minutes} minutos`}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">{mode.description}</div>
-                    </div>
+                  <span className={`absolute inset-0 rounded-[22px] pointer-events-none transition-opacity duration-300 group-hover:opacity-100 ${isSelected ? "opacity-100" : "opacity-0"}`}
+                    style={{ background: `radial-gradient(120% 90% at 0% 0%, ${mode.acc.soft}, transparent 60%)` }}
+                    aria-hidden="true" />
+
+                  <span className="relative flex-none flex items-center justify-center w-14 h-14 rounded-2xl border transition-all duration-200"
+                    style={{
+                      color: mode.acc.color,
+                      background: mode.acc.soft,
+                      borderColor: mode.acc.line,
+                      boxShadow: isSelected ? `0 0 24px -6px ${mode.acc.color}` : undefined,
+                    }}>
+                    <Icon size={24} />
+                  </span>
+
+                  <span className="relative flex flex-col gap-1.5 flex-1 min-w-0">
+                    <span className="text-[22px] font-semibold text-gray-100 tracking-tight leading-tight">
+                      {mode.label}
+                    </span>
+                    <span className="text-[15px] font-semibold" style={{ color: mode.acc.color }}>
+                      {modeValueText(mode)}
+                    </span>
+                    <span className="text-[14px] text-gray-500 leading-snug">{mode.desc}</span>
 
                     {mode.id === "pomodoro" && isSelected && (
-                      <div
-                        className="flex flex-wrap items-end gap-4 mt-2 pt-3 border-t border-primary-700"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <NumericInput
-                          label="Foco (min)"
-                          value={pomodoroWork}
-                          onChange={setPomodoroWork}
-                          min={1}
-                          max={120}
-                        />
-                        <NumericInput
-                          label="Pausa (min)"
-                          value={pomodoroBreak}
-                          onChange={setPomodoroBreak}
-                          min={1}
-                          max={60}
-                        />
-                        <NumericInput
-                          label="Ciclos"
-                          value={pomodoroCycles}
-                          onChange={setPomodoroCycles}
-                          min={1}
-                          max={20}
-                        />
+                      <div className="flex flex-wrap items-end gap-4 mt-2 pt-3 border-t border-gray-700"
+                        onClick={e => e.stopPropagation()}>
+                        <NumericInput label="Foco (min)" value={pomodoroWork} onChange={setPomodoroWork} min={1} max={120} />
+                        <NumericInput label="Pausa (min)" value={pomodoroBreak} onChange={setPomodoroBreak} min={1} max={60} />
+                        <NumericInput label="Ciclos" value={pomodoroCycles} onChange={setPomodoroCycles} min={1} max={20} />
                         <div className="flex flex-col items-center gap-1">
-                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">Total</span>
+                          <span className="text-[10px] text-gray-500 uppercase tracking-wider">Total</span>
                           <span className="text-sm text-gray-300 font-medium">
-                            {Math.round((pomodoroWork * pomodoroCycles + pomodoroBreak * (pomodoroCycles - 1)))}min
+                            {Math.round(pomodoroWork * pomodoroCycles + pomodoroBreak * (pomodoroCycles - 1))}min
                           </span>
                         </div>
                       </div>
                     )}
 
                     {mode.id === "personalizado" && isSelected && (
-                      <div
-                        className="flex items-center gap-3 mt-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setCustomMinutes((v) => Math.max(1, v - 5))}
-                          className="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-sm"
-                        >
+                      <div className="flex items-center gap-3 mt-1" onClick={e => e.stopPropagation()}>
+                        <button type="button" onClick={() => setCustomMinutes(v => Math.max(1, v - 5))}
+                          className="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-sm">
                           −
                         </button>
                         <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min={1}
-                            max={480}
-                            value={customMinutes}
-                            onChange={(e) =>
-                              setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))
-                            }
-                            className="w-16 text-center bg-primary-800 border border-primary-600 rounded-lg px-2 py-1 text-gray-100 text-lg font-medium focus:outline-none focus:border-primary-400"
-                          />
-                          <span className="text-sm text-gray-400">min</span>
+                          <input type="number" min={1} max={480} value={customMinutes}
+                            onChange={e => setCustomMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                            className="w-16 text-center bg-primary-900 border border-primary-700 rounded-lg px-2 py-1 text-gray-100 text-lg font-medium focus:outline-none focus:border-primary-400" />
+                          <span className="text-sm text-gray-500">min</span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setCustomMinutes((v) => Math.min(480, v + 5))}
-                          className="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-sm"
-                        >
+                        <button type="button" onClick={() => setCustomMinutes(v => Math.min(480, v + 5))}
+                          className="w-8 h-8 rounded-full border border-gray-600 flex items-center justify-center text-gray-300 hover:bg-primary-700 transition-colors text-sm">
                           +
                         </button>
                       </div>
                     )}
-                  </button>
-                );
-              })}
-            </div>
+                  </span>
 
-            <button
-              onClick={handleStart}
-              disabled={!selected}
-              className={`
-                w-full py-4 rounded-2xl font-medium text-lg transition-all
-                ${selected
-                  ? "bg-primary-500 hover:bg-primary-400 text-primary-900 shadow-lg shadow-primary-500/30 hover:shadow-primary-500/50 hover:scale-[1.01]"
-                  : "bg-primary-800/50 text-gray-600 cursor-not-allowed"}
-              `}
-            >
-              {selected ? "Iniciar cronômetro →" : "Selecione um modo para continuar"}
+                  <span className="absolute top-5 right-5 flex items-center justify-center w-7 h-7 rounded-full transition-all duration-200 pointer-events-none"
+                    style={{
+                      color: mode.acc.color,
+                      opacity: isSelected ? 1 : 0,
+                      transform: isSelected ? "scale(1)" : "scale(0.7)",
+                    }}>
+                    <Check size={20} />
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-7 flex-wrap justify-center">
+            <span className="flex items-center gap-2.5 text-[15px] text-gray-300">
+              <span className="w-2 h-2 rounded-full animate-pulse shrink-0"
+                style={{ background: "var(--primary-400)", boxShadow: "0 0 12px 1px var(--primary-400)" }} />
+              {selectedMode ? `${selectedMode.label} selecionado` : "Selecione um modo para continuar"}
+            </span>
+            <button type="button" onClick={handleStart} disabled={!selected}
+              className="flex items-center gap-2.5 text-[16px] font-semibold px-7 py-3.5 rounded-full border-0 transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none"
+              style={{
+                color: "var(--primary-900)",
+                background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 60%, var(--third-400))",
+                boxShadow: selected ? "0 14px 34px -12px rgba(30,182,232,0.7)" : undefined,
+              }}>
+              Continuar <ArrowRight size={18} />
             </button>
           </div>
-        </div>
+        </main>
       </div>
     </>
   );
