@@ -93,7 +93,6 @@ export default function CronometroPage() {
 
       <div className="relative flex flex-col h-full overflow-hidden"
         style={{ background: "var(--primary-900)" }}>
-\
         <div className="pointer-events-none absolute z-0" style={{
           width: 460, height: 460, right: 0, top: -120, borderRadius: "50%",
           filter: "blur(110px)",
