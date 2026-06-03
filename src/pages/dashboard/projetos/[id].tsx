@@ -4,7 +4,7 @@ import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
-import { validateImageFile, calcularUrgencia, tempoRelativo } from "@/lib/utils";
+import { calcularUrgencia, tempoRelativo } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
@@ -16,11 +16,10 @@ import Link from "@tiptap/extension-link";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
 import Heading from "@tiptap/extension-heading";
-import { Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Link2, ClipboardList, Timer, Globe, Send, Plus, Lock, Zap, Copy, Check, X, AlertCircle } from "lucide-react";
+import { Pencil, ClipboardList, Timer, Globe, Send, Plus, Lock, Zap, Copy, Check, X, AlertCircle } from "lucide-react";
 import DatePicker from "@/components/DatePicker";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
-import { SkeletonList, SkeletonStatCard } from "@/components/Skeleton";
 import { useSubscription } from "@/hooks/useSubscription";
 import { triggerUpgradeBanner } from "@/lib/limitGuard";
 import { checkStorageAvailable } from "@/lib/storageCheck";
@@ -160,15 +159,25 @@ function safeParseJSON(value: any) {
 
 
 
-function statusLabel(status: ProjetoStatus) {
-  if (status === "Em andamento") return "Para fazer";
-  return status;
-}
 
-function statusPillClass(status: ProjetoStatus) {
-  if (status === "Concluído") return "bg-third-400/15 text-third-300 border-third-400";
-  if (status === "Arquivado") return "bg-gray-500/15 text-gray-200 border-gray-600";
-  return "bg-primary-500/15 text-primary-200 border-primary-500";
+function renderStatusBadgeDetail(status: ProjetoStatus | string) {
+  const s = String(status || "").trim().toLowerCase();
+  let cfg: { color: string; bg: string; border: string; label: string };
+  if (s === "concluído" || s === "concluido" || s === "finalizado" || s === "concluído") {
+    cfg = { color: "var(--success-medium)", bg: "rgba(102,187,106,0.10)", border: "rgba(102,187,106,0.35)", label: "Concluído" };
+  } else if (s === "arquivado" || s === "cancelado") {
+    cfg = { color: "var(--gray-400)", bg: "rgba(148,169,173,0.08)", border: "rgba(148,169,173,0.35)", label: "Arquivado" };
+  } else if (s === "fazendo" || s === "em andamento" || s === "em_andamento" || s === "andamento" || s === "doing" || s === "in progress") {
+    cfg = { color: "var(--alert-medium)", bg: "rgba(255,167,38,0.10)", border: "rgba(255,167,38,0.35)", label: "Fazendo" };
+  } else {
+    cfg = { color: "var(--primary-300)", bg: "rgba(30,182,232,0.10)", border: "rgba(30,182,232,0.35)", label: "Para fazer" };
+  }
+  return (
+    <span style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: "999px", display: "inline-flex", alignItems: "center", gap: "7px", fontSize: "13px", fontWeight: 600, padding: "5px 12px", whiteSpace: "nowrap" }}>
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: "currentColor", boxShadow: "0 0 8px currentColor", flexShrink: 0, display: "inline-block" }} />
+      {cfg.label}
+    </span>
+  );
 }
 
 function Modal({
@@ -238,6 +247,18 @@ export default function ProjetoDetalhesPage() {
   const [linkUrl, setLinkUrl] = useState("");
 
   const [activeTab, setActiveTab] = useState<TabId>("descricao");
+
+  useEffect(() => {
+    if (!id) return;
+    const saved = typeof window !== "undefined" ? sessionStorage.getItem(`proj_tab_${id}`) : null;
+    const valid: TabId[] = ["descricao", "etapas", "arquivos", "links", "briefing", "entregaveis"];
+    if (saved && valid.includes(saved as TabId)) setActiveTab(saved as TabId);
+  }, [id]);
+
+  const changeTab = useCallback((tab: TabId) => {
+    setActiveTab(tab);
+    if (id && typeof window !== "undefined") sessionStorage.setItem(`proj_tab_${id}`, tab);
+  }, [id]);
 
   const { user: authUser } = useAuth();
   const subscription = useSubscription();
@@ -1631,24 +1652,31 @@ export default function ProjetoDetalhesPage() {
     <>
 
       <div className="flex flex-col flex-1 pr-6 py-8 w-full overflow-hidden">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 pb-3">
           <button
             onClick={() => router.push("/dashboard/projetos")}
-            className="inline-flex items-center gap-2 bg-primary-800 border border-primary-700 text-gray-100 rounded-xl px-4 py-2 text-[15px] hover:bg-primary-700 transition-colors"
+            className="inline-flex items-center gap-2 text-gray-100 text-[16px] font-medium transition-colors dt-back-btn"
           >
-            ← Voltar
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+            Voltar
           </button>
 
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push(`/dashboard/projetos/cronometro?projeto_id=${id}`)}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-primary-500 hover:bg-primary-600 text-white transition-all shadow-lg shadow-primary-500/20"
+              className="dt-timer-btn"
               title="Iniciar cronômetro do projeto"
             >
-              <Timer size={18} />
+              <Timer size={20} />
             </button>
-            <label className="w-10 h-10 rounded-full bg-primary-800 border border-primary-700 hover:bg-primary-700 transition-colors cursor-pointer flex items-center justify-center">
-              <span className="text-[18px]">{coverUploading ? "…" : "⤴"}</span>
+            <label
+              className="dt-upload-btn cursor-pointer"
+              title={coverUploading ? "Enviando capa…" : "Alterar capa do projeto"}
+            >
+              {coverUploading
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg>
+              }
               <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleCoverUpload} disabled={coverUploading} />
             </label>
 
@@ -1658,7 +1686,7 @@ export default function ProjetoDetalhesPage() {
 
         <div className="mt-6 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
           <div className="w-full max-w-[980px] mx-auto">
-            <div className="bg-primary-800 border border-primary-700 rounded-3xl p-6">
+            <div className="dt-card-new" style={{ padding: "30px 34px" }}>
               {isEditingHeader ? (
                 <div className="flex flex-col gap-4">
                   <div className="flex items-center justify-between mb-1">
@@ -1743,48 +1771,37 @@ export default function ProjetoDetalhesPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-                  <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className="w-[160px] h-[72px] rounded-[28px] overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
-                      <Image src={coverSrc} alt="Capa do projeto" width={320} height={144} className="w-full h-full object-cover" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-3">
-                        <h1 className="text-[22px] md:text-[24px] text-gray-100 font-semibold leading-tight truncate">{projeto.titulo}</h1>
-                        <span className={`hidden md:inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
-                          {statusLabel(projeto.status)}
-                        </span>
+                <div className="flex flex-col gap-6">
+                  <div className="flex items-start justify-between gap-6">
+                    <div className="flex items-center gap-5 min-w-0 flex-1">
+                      <div className="w-[92px] h-[92px] rounded-[20px] overflow-hidden shrink-0" style={{ border: "1px solid rgba(255,255,255,0.06)", background: "var(--primary-700)" }}>
+                        <Image src={coverSrc} alt="Capa do projeto" width={92} height={92} className="w-full h-full object-cover" />
                       </div>
 
-                      <div className="mt-1 flex items-center gap-3 text-[14px] text-gray-300">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-7 h-7 rounded-full overflow-hidden border border-primary-700 bg-primary-900">
-                            <Image src={clienteFoto} alt={clienteNome} width={28} height={28} className="w-full h-full object-cover" />
-                          </div>
-                          <span className="truncate">
-                            <span className="text-gray-300">Cliente: </span>
-                            <span className="text-primary-100 font-medium">{clienteNome}</span>
-                            {clienteEmpresa ? <span className="text-gray-400"> · {clienteEmpresa}</span> : null}
-                          </span>
+                      <div className="min-w-0 flex flex-col gap-3">
+                        <div className="flex items-center gap-4 flex-wrap">
+                          <h1 className="text-[30px] font-bold text-gray-100 leading-tight tracking-tight">{projeto.titulo}</h1>
+                          {renderStatusBadgeDetail(projeto.status)}
                         </div>
 
-                        <span className={`md:hidden inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClass(projeto.status)}`}>
-                          {statusLabel(projeto.status)}
-                        </span>
+                        <div className="flex items-center gap-2 text-[15px] text-gray-300">
+                          <div className="w-[30px] h-[30px] rounded-full overflow-hidden shrink-0" style={{ border: "1px solid var(--gray-600)" }}>
+                            <Image src={clienteFoto} alt={clienteNome} width={30} height={30} className="w-full h-full object-cover" />
+                          </div>
+                          <span>Cliente: <strong className="text-gray-100 font-semibold">{clienteNome}</strong></span>
+                          {clienteEmpresa && <><span style={{ color: "var(--gray-500)" }}>·</span><a href="#" className="text-primary-400 hover:text-primary-300 transition-colors">{clienteEmpresa}</a></>}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-col items-start md:items-end gap-2 flex-shrink-0">
                     {user && projeto.user_id === user.id && (
-                      <div className="flex items-center gap-2 flex-wrap justify-end">
+                      <div className="flex items-center gap-3 flex-none flex-wrap justify-end">
                         <button
                           type="button"
                           onClick={openEditHeader}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
+                          className="dt-ghost-btn flex items-center gap-2"
                         >
-                          <Pencil size={14} />
+                          <Pencil size={15} />
                           Editar projeto
                         </button>
                         {(projeto as any).clientes?.email && (
@@ -1793,13 +1810,13 @@ export default function ProjetoDetalhesPage() {
                               type="button"
                               disabled={portalLoading}
                               onClick={handleSendPortalAccess}
-                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors disabled:opacity-60"
+                              className="dt-primary-btn flex items-center gap-2 disabled:opacity-60"
                             >
-                              <Globe size={14} />
+                              <Globe size={16} />
                               {portalLoading ? "Enviando..." : "Enviar portal ao cliente"}
                             </button>
                             {portalMsg && (
-                              <span className={`text-[12px] ${portalMsg.startsWith("✓") ? "text-third-400" : "text-yellow-400"}`}>
+                              <span className={`text-[12px] ${portalMsg.startsWith("✓") ? "text-success-medium" : "text-alert-medium"}`}>
                                 {portalMsg}
                               </span>
                             )}
@@ -1819,73 +1836,71 @@ export default function ProjetoDetalhesPage() {
                         )}
                       </div>
                     )}
-                    <div className="w-full md:w-[360px]">
-                      <div className="w-full h-2.5 bg-primary-900/60 border border-primary-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary-400 transition-[width] duration-300" style={{ width: `${pct}%` }} />
+                  </div>
+
+                  <div className="flex items-center gap-4" style={{ margin: "0" }}>
+                    <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "rgba(148,169,173,0.12)" }}>
+                      <div
+                        className="h-full rounded-full transition-[width] duration-300"
+                        style={{ width: `${pct}%`, background: "linear-gradient(90deg, var(--primary-400), var(--primary-500))", boxShadow: "0 0 10px -1px var(--primary-500)" }}
+                      />
+                    </div>
+                    <span className="text-[14px] font-semibold text-gray-300 flex-none" style={{ fontVariantNumeric: "tabular-nums" }}>{pct}% concluído</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 overflow-hidden" style={{ border: "1px solid var(--primary-700)", borderRadius: 16, background: "var(--primary-900)" }}>
+                    <div className="dt-meta-cell">
+                      <span className="dt-meta-label">{user && projeto.user_id === user.id ? "Valor total" : "Seu valor"}</span>
+                      <span className="dt-meta-value">
+                        {user && projeto.user_id === user.id
+                          ? (projeto.orcamento ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
+                          : mySplit && projeto.orcamento
+                            ? (mySplit.split_type === "percentage"
+                                ? (projeto.orcamento * mySplit.split_value / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                                : Number(mySplit.split_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }))
+                            : (projeto.orcamento ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
+                        }
+                      </span>
+                      {user && projeto.user_id === user.id && memberSplits.length > 0 && projeto.orcamento && (() => {
+                        const totalSplits = memberSplits.reduce((acc, s) => {
+                          const val = s.split_type === "percentage" ? projeto.orcamento! * s.split_value / 100 : s.split_value;
+                          return acc + val;
+                        }, 0);
+                        const net = projeto.orcamento - totalSplits;
+                        return <span className="text-[12px] text-gray-400">Líquido: <span className="text-success-medium font-medium">{net.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></span>;
+                      })()}
+                    </div>
+
+                    <div className="dt-meta-cell" style={{ borderLeft: "1px solid var(--primary-700)" }}>
+                      <span className="dt-meta-label">Entrega</span>
+                      <span className="dt-meta-value">
+                        {projeto.prazo_entrega ? new Date(projeto.prazo_entrega + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+                      </span>
+                    </div>
+
+                    <div className="dt-meta-cell" style={{ borderLeft: "1px solid var(--primary-700)" }}>
+                      <span className="dt-meta-label">Urgência</span>
+                      <div className="dt-meta-value flex items-center gap-2 !text-[17px]">
+                        <UrgenciaIndicator nivel={urgProjeto} />
+                        <span>{urgProjeto}</span>
                       </div>
-                      <div className="mt-2 text-[13px] text-gray-300">{pct}% concluído</div>
+                    </div>
+
+                    <div className="dt-meta-cell" style={{ borderLeft: "1px solid var(--primary-700)" }}>
+                      <span className="dt-meta-label">Criação</span>
+                      <span className="dt-meta-value">{createdLabel}</span>
                     </div>
                   </div>
                 </div>
               )}
-
-              <div className="mt-6 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden">
-                <div className="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-primary-700">
-                  <div className="px-5 py-4">
-                    <div className="text-[12px] text-gray-400">{user && projeto.user_id === user.id ? "Valor total" : "Seu valor"}</div>
-                    <div className="mt-1 text-[16px] text-gray-100 font-medium">
-                      {user && projeto.user_id === user.id
-                        ? (projeto.orcamento ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
-                        : mySplit && projeto.orcamento
-                          ? (mySplit.split_type === "percentage"
-                              ? (projeto.orcamento * mySplit.split_value / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-                              : Number(mySplit.split_value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }))
-                          : (projeto.orcamento ? projeto.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
-                      }
-                    </div>
-                    {user && projeto.user_id === user.id && memberSplits.length > 0 && projeto.orcamento && (() => {
-                      const totalSplits = memberSplits.reduce((acc, s) => {
-                        const val = s.split_type === "percentage" ? projeto.orcamento! * s.split_value / 100 : s.split_value;
-                        return acc + val;
-                      }, 0);
-                      const net = projeto.orcamento - totalSplits;
-                      return (
-                        <div className="mt-1 text-[12px] text-gray-400">
-                          Líquido: <span className="text-emerald-400 font-medium">{net.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  <div className="px-5 py-4">
-                    <div className="text-[12px] text-gray-400">Entrega</div>
-                    <div className="mt-1 text-[16px] text-gray-100 font-medium">
-                      {projeto.prazo_entrega ? new Date(projeto.prazo_entrega + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
-                    </div>
-                  </div>
-
-                  <div className="px-5 py-4">
-                    <div className="text-[12px] text-gray-400">Urgência</div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <UrgenciaIndicator nivel={urgProjeto} />
-                      <span className="text-[14px] text-gray-100">{urgProjeto}</span>
-                    </div>
-                  </div>
-
-                  <div className="px-5 py-4">
-                    <div className="text-[12px] text-gray-400">Criação</div>
-                    <div className="mt-1 text-[16px] text-gray-100 font-medium">{createdLabel}</div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {user && projeto.user_id === user.id && (
-              <div className="mt-6 bg-primary-800 border border-primary-700 rounded-2xl overflow-hidden">
-                <div className="flex items-center justify-between px-5 py-4 border-b border-primary-700">
+              <div className="dt-card-new mt-6" style={{ padding: "26px 30px 30px" }}>
+                <div className="flex items-start justify-between gap-4 mb-6">
                   <div>
-                    <div className="text-[15px] font-semibold text-gray-200">Adiantamentos</div>
-                    <div className="text-[12px] text-gray-500 mt-0.5">Solicitações de adiantamento ao cliente</div>
+                    <h2 className="dt-section-title">Adiantamentos</h2>
+                    <p className="dt-section-sub">Solicitações de adiantamento ao cliente</p>
                   </div>
                   {!adiantamentos.some((a) => a.status === "solicitado") && (
                     <button
@@ -1898,16 +1913,21 @@ export default function ProjetoDetalhesPage() {
                         setAdiantamentoFeedback(null);
                         setAdiantamentoModal(true);
                       }}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-700 hover:bg-primary-600 border border-primary-600 text-[13px] text-gray-100 transition-colors"
+                      className="dt-ghost-btn flex items-center gap-2 flex-none"
                     >
-                      <Plus size={14} />
+                      <Plus size={15} />
                       Solicitar adiantamento
                     </button>
                   )}
                 </div>
 
                 {adiantamentos.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-[13px] text-gray-500">Nenhum adiantamento solicitado.</div>
+                  <div className="dt-empty-state">
+                    <span className="dt-empty-icon">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 13h4l1.5 3h7L17 13h4"/><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
+                    </span>
+                    <p>Nenhum adiantamento solicitado.</p>
+                  </div>
                 ) : (
                   <div className="flex flex-col divide-y divide-primary-700">
                     {adiantamentos.map((ad) => (
@@ -1966,8 +1986,8 @@ export default function ProjetoDetalhesPage() {
               setNotify={setNotify}
             />
 
-            <section className="mt-6 bg-primary-800 border border-primary-700 rounded-3xl p-5 flex flex-col overflow-hidden min-h-[560px]">
-              <div className="flex flex-wrap gap-2 border-b border-primary-700 pb-3 mb-4">
+            <section className="dt-card-new mt-6 flex flex-col overflow-hidden min-h-[560px]" style={{ padding: "8px 30px 30px" }}>
+              <nav className="dt-tabs-nav">
                 {([
                   ["descricao", "Descrição"],
                   ["etapas", "Etapas"],
@@ -1979,38 +1999,35 @@ export default function ProjetoDetalhesPage() {
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setActiveTab(key)}
-                    className={`px-4 py-2 rounded-full text-[14px] font-medium transition-colors ${
-                      activeTab === key ? "bg-primary-500 text-primary-900" : "bg-primary-900 text-gray-200 border border-primary-700 hover:bg-primary-700"
-                    }`}
+                    onClick={() => changeTab(key)}
+                    className={`dt-tab-btn${activeTab === key ? " is-on" : ""}`}
                   >
                     {label}
                   </button>
                 ))}
-              </div>
+              </nav>
 
               <div className="flex-1 min-h-0 overflow-hidden">
                 {activeTab === "descricao" && (
-                  <div className="flex flex-col h-full">
-                    <h2 className="text-[20px] text-primary-100 font-semibold mb-4">Descrição do projeto</h2>
+                  <div className="flex flex-col h-full dt-panel">
+                    <h2 className="dt-panel-title">Descrição do projeto</h2>
 
-                    <div className="bg-primary-900 border border-primary-700 rounded-2xl overflow-hidden flex-1 flex flex-col min-h-[220px]">
+                    <div className="mt-[18px] dt-editor-wrap flex-1 flex flex-col min-h-[220px]">
                       {editor && <EditorToolbar editor={editor} onOpenLinkModal={openLinkModal} onRemoveLink={handleRemoveLink} />}
-
-                      <div className="border-t border-primary-700 flex-1 min-h-0">
+                      <div className="flex-1 min-h-0" style={{ borderTop: "1px solid var(--primary-700)" }}>
                         <EditorContent
                           editor={editor}
-                          className="tiptap px-4 py-3 text-[15px] text-gray-100 max-h-full h-full overflow-y-auto custom-scrollbar"
+                          className="tiptap px-5 py-4 text-[15px] text-gray-100 max-h-full h-full overflow-y-auto custom-scrollbar"
                         />
                       </div>
                     </div>
 
-                    <div className="mt-3 flex justify-end">
+                    <div className="mt-4 flex justify-end">
                       <button
                         type="button"
                         onClick={salvarDescricao}
                         disabled={saving}
-                        className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[15px] font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="dt-primary-btn disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {saving ? "Salvando..." : "Salvar descrição"}
                       </button>
@@ -2042,31 +2059,35 @@ export default function ProjetoDetalhesPage() {
 
 
                 {activeTab === "arquivos" && (
-                  <div className="flex flex-col h-full">
-                    <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Arquivos</h3>
+                  <div className="flex flex-col h-full dt-panel">
+                    <h3 className="dt-panel-title">Arquivos</h3>
 
-                    <label className="w-full rounded-2xl border border-dashed border-primary-600 bg-primary-900 px-4 py-6 text-center cursor-pointer hover:bg-primary-800 transition">
-                      <span className="text-[16px] text-gray-300">
-                        Arraste aqui ou <span className="text-primary-300">clique para enviar</span>
+                    <label className="dt-dropzone-new mt-[18px]">
+                      <span className="dt-dropzone-icon-wrap">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg>
                       </span>
+                      <span className="text-[16px] text-gray-300">Arraste aqui ou <strong className="text-primary-300 font-semibold">clique para enviar</strong></span>
+                      <span className="text-[13px] text-gray-500">PNG, JPG, PDF, ZIP · até 50 MB</span>
                       <input type="file" className="hidden" onChange={handleUpload} />
                     </label>
 
                     <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
                       {files.length === 0 ? (
-                        <div className="text-gray-400">Nenhum arquivo enviado.</div>
+                        <p className="text-[15px] text-gray-500">Nenhum arquivo enviado.</p>
                       ) : (
-                        <ul className="flex flex-col gap-3">
+                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {files.map((f) => (
-                            <li key={f.id} className="flex items-center justify-between bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">
-                              <div className="flex flex-col">
-                                <a href={f.url} target="_blank" rel="noreferrer" className="text-[16px] text-primary-100 hover:underline">
+                            <li key={f.id} className="dt-file-item flex items-center gap-3">
+                              <span className="dt-file-icon-wrap dt-file-icon-primary">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6"/><path d="M9 17h4"/></svg>
+                              </span>
+                              <div className="flex flex-col flex-1 min-w-0">
+                                <a href={f.url} target="_blank" rel="noreferrer" className="text-[15px] font-semibold text-gray-100 hover:text-primary-300 transition-colors truncate">
                                   {f.nome}
                                 </a>
-                                <span className="text-[12px] text-gray-400">{new Date(f.created_at).toLocaleString("pt-BR")}</span>
+                                <span className="text-[12px] text-gray-500">{new Date(f.created_at).toLocaleString("pt-BR")}</span>
                               </div>
-
-                              <span className={`px-3 py-1 rounded-full text-[12px] ${f.status === "aprovado" ? "bg-third-400 text-primary-900" : "bg-primary-500 text-primary-100"}`}>
+                              <span className={`text-[12px] px-2 py-0.5 rounded-full font-medium flex-none ${f.status === "aprovado" ? "bg-success-medium/15 text-success-medium" : "bg-primary-500/15 text-primary-300"}`}>
                                 {f.status}
                               </span>
                             </li>
@@ -2078,110 +2099,65 @@ export default function ProjetoDetalhesPage() {
                 )}
 
                 {activeTab === "links" && (
-                  <div className="flex flex-col h-full">
-                    <h3 className="text-[20px] text-primary-100 font-semibold mb-3">Links</h3>
+                  <div className="flex flex-col h-full dt-panel">
+                    <h3 className="dt-panel-title">Links</h3>
 
-                    <form onSubmit={addLink} className="flex flex-col md:flex-row items-center gap-3">
+                    <form onSubmit={addLink} className="flex flex-col md:flex-row items-center gap-3 mt-[18px]">
                       <input
                         type="text"
                         placeholder="Título (opcional)"
                         value={newLink.titulo}
                         onChange={(e) => setNewLink((p) => ({ ...p, titulo: e.target.value }))}
-                        className="flex-1 rounded-xl bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
+                        className="dt-input-field w-[220px]"
                       />
-
                       <input
                         type="url"
-                        placeholder="https://..."
+                        placeholder="https://…"
                         required
                         value={newLink.url}
                         onChange={(e) => setNewLink((p) => ({ ...p, url: e.target.value }))}
-                        className="flex-[1.4] rounded-xl bg-primary-900 border border-primary-700 px-4 py-2 text-gray-100 placeholder-gray-400"
+                        className="dt-input-field flex-1"
                       />
-
-                      <button type="submit" className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-xl px-4 py-2 text-[15px] font-semibold transition-colors">
-                        Adicionar
-                      </button>
+                      <button type="submit" className="dt-primary-btn flex-none">Adicionar</button>
                     </form>
 
                     <div className="mt-4 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
                       {links.length === 0 ? (
-                        <div className="text-gray-400">Nenhum link adicionado.</div>
+                        <p className="text-[15px] text-gray-500">Nenhum link adicionado.</p>
                       ) : (
-                        <ul className="flex flex-col gap-2">
+                        <ul className="flex flex-col gap-3">
                           {links.map((l) => (
-                            <li key={l.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl px-4 py-3">
+                            <li key={l.id} className="dt-link-item">
                               {editingLinkId === l.id ? (
-                                <div className="flex flex-col gap-2">
-                                  <input
-                                    type="text"
-                                    placeholder="Título (opcional)"
-                                    value={editingLinkData.titulo}
-                                    onChange={(e) => setEditingLinkData((p) => ({ ...p, titulo: e.target.value }))}
-                                    className="w-full bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
-                                  />
-                                  <input
-                                    type="url"
-                                    placeholder="https://..."
-                                    value={editingLinkData.url}
-                                    onChange={(e) => setEditingLinkData((p) => ({ ...p, url: e.target.value }))}
-                                    className="w-full bg-primary-800 border border-primary-700 rounded-lg px-3 py-1.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500"
-                                  />
+                                <div className="flex flex-col gap-2 flex-1">
+                                  <input type="text" placeholder="Título (opcional)" value={editingLinkData.titulo} onChange={(e) => setEditingLinkData((p) => ({ ...p, titulo: e.target.value }))} className="dt-input-field" />
+                                  <input type="url" placeholder="https://..." value={editingLinkData.url} onChange={(e) => setEditingLinkData((p) => ({ ...p, url: e.target.value }))} className="dt-input-field" />
                                   <div className="flex items-center gap-2 justify-end">
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditingLinkId(null)}
-                                      className="px-3 py-1 rounded-lg bg-primary-800 border border-primary-700 text-gray-200 text-[13px] hover:bg-primary-700"
-                                    >
-                                      Cancelar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={saveEditingLink}
-                                      className="px-3 py-1 rounded-lg bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold text-[13px]"
-                                    >
-                                      Salvar
-                                    </button>
+                                    <button type="button" onClick={() => setEditingLinkId(null)} className="dt-ghost-btn text-[13px] py-1.5 px-3">Cancelar</button>
+                                    <button type="button" onClick={saveEditingLink} className="dt-primary-btn text-[13px] py-1.5 px-3">Salvar</button>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex flex-col min-w-0">
-                                    <a href={l.url} target="_blank" rel="noreferrer" className="text-[15px] text-primary-100 hover:underline truncate">
+                                <>
+                                  <span className="dt-link-icon-wrap">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.5 14.5 14.5 9.5"/><path d="M8 12 6 14a3.5 3.5 0 0 0 5 5l2-2"/><path d="M16 12l2-2a3.5 3.5 0 0 0-5-5l-2 2"/></svg>
+                                  </span>
+                                  <div className="flex flex-col flex-1 min-w-0 gap-[3px]">
+                                    <a href={l.url} target="_blank" rel="noreferrer" className="text-[16px] font-semibold text-gray-100 hover:text-primary-300 transition-colors truncate">
                                       {l.titulo || l.url}
                                     </a>
-                                    {l.titulo && (
-                                      <span className="text-[12px] text-gray-500 truncate">{l.url}</span>
-                                    )}
-                                    <span className="text-[11px] text-gray-600">{new Date(l.created_at).toLocaleString("pt-BR")}</span>
+                                    {l.titulo && <span className="text-[13px] text-gray-400 truncate">{l.url}</span>}
+                                    <span className="text-[12px] text-gray-500" style={{ fontVariantNumeric: "tabular-nums" }}>{new Date(l.created_at).toLocaleString("pt-BR")}</span>
                                   </div>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setEditingLinkId(l.id);
-                                        setEditingLinkData({ titulo: l.titulo || "", url: l.url });
-                                      }}
-                                      className="p-1.5 rounded-lg text-gray-400 hover:text-primary-200 hover:bg-primary-800 transition-colors"
-                                      title="Editar link"
-                                    >
-                                      <Pencil size={14} />
+                                  <div className="flex items-center gap-1 flex-none">
+                                    <button type="button" onClick={() => { setEditingLinkId(l.id); setEditingLinkData({ titulo: l.titulo || "", url: l.url }); }} className="dt-iconmini-btn" title="Editar">
+                                      <Pencil size={15} />
                                     </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeLink(l.id)}
-                                      className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-primary-800 transition-colors"
-                                      title="Remover link"
-                                    >
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="3 6 5 6 21 6" />
-                                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                        <path d="M10 11v6M14 11v6" />
-                                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                                      </svg>
+                                    <button type="button" onClick={() => removeLink(l.id)} className="dt-iconmini-btn dt-iconmini-danger" title="Remover">
+                                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
                                     </button>
                                   </div>
-                                </div>
+                                </>
                               )}
                             </li>
                           ))}
@@ -2224,16 +2200,16 @@ export default function ProjetoDetalhesPage() {
                   };
                   const filtered = entregavelFilter === "todos" ? entregaveis : entregaveis.filter(e => e.status === entregavelFilter);
                   return (
-                  <div className="flex flex-col h-full gap-3">
-                    <div className="flex items-center justify-between flex-shrink-0">
-                      <h3 className="text-[20px] text-primary-100 font-semibold">Entregáveis</h3>
+                  <div className="flex flex-col h-full dt-panel gap-3">
+                    <div className="flex items-center justify-between flex-shrink-0 mb-[6px]">
+                      <h3 className="dt-panel-title">Entregáveis</h3>
                       {isOwner && (
                         <button
                           type="button"
                           onClick={() => setShowEntregavelForm(v => !v)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[13px] font-medium transition-colors border ${showEntregavelForm ? "bg-primary-700 border-primary-600 text-gray-200" : "bg-primary-500 hover:bg-primary-400 border-primary-500 text-primary-900"}`}
+                          className={showEntregavelForm ? "dt-ghost-btn flex items-center gap-2 text-[13px]" : "dt-primary-btn flex items-center gap-2 text-[13px]"}
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                          <Plus size={15} />
                           {showEntregavelForm ? "Cancelar" : "Novo entregável"}
                         </button>
                       )}
@@ -2301,7 +2277,7 @@ export default function ProjetoDetalhesPage() {
                     )}
 
                     {entregaveis.length > 0 && (
-                      <div className="flex gap-1.5 flex-shrink-0 overflow-x-auto pb-0.5">
+                      <div className="flex gap-[10px] flex-shrink-0 overflow-x-auto pb-0.5 flex-wrap">
                         {([
                           ["todos", "Todos"],
                           ["aguardando_aprovacao", "Aguardando"],
@@ -2312,21 +2288,10 @@ export default function ProjetoDetalhesPage() {
                             key={key}
                             type="button"
                             onClick={() => setEntregavelFilter(key)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors border ${
-                              entregavelFilter === key
-                                ? key === "aguardando_aprovacao" ? "bg-yellow-500/20 border-yellow-500 text-yellow-300"
-                                  : key === "aprovado" ? "bg-third-400/15 border-third-400 text-third-300"
-                                  : key === "para_alteracao" ? "bg-primary-600/40 border-primary-500 text-primary-200"
-                                  : "bg-primary-500/20 border-primary-500 text-primary-300"
-                                : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200 hover:border-primary-600"
-                            }`}
+                            className={`dt-deli-filter-btn${entregavelFilter === key ? " is-on" : ""}`}
                           >
                             {label}
-                            {counts[key] > 0 && (
-                              <span className={`text-[11px] font-bold rounded-full px-1.5 py-0.5 leading-none ${entregavelFilter === key ? "bg-primary-700 text-primary-200" : "bg-primary-700 text-gray-400"}`}>
-                                {counts[key]}
-                              </span>
-                            )}
+                            {counts[key] > 0 && <span className="dt-deli-count">{counts[key]}</span>}
                           </button>
                         ))}
                       </div>
@@ -2338,22 +2303,22 @@ export default function ProjetoDetalhesPage() {
                           <span className="text-gray-500 text-[13px]">{entregaveis.length === 0 ? "Nenhum entregável criado ainda." : "Nenhum entregável neste filtro."}</span>
                         </div>
                       ) : (
-                        <ul className="flex flex-col gap-2.5">
+                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-[18px]">
                           {filtered.map(ent => {
-                            const statusMap: Record<string, { label: string; cls: string }> = {
-                              rascunho: { label: "Rascunho", cls: "bg-primary-700 text-gray-400 border border-primary-600" },
-                              aguardando_aprovacao: { label: "Aguardando", cls: "bg-yellow-500/15 text-yellow-300 border border-yellow-500" },
-                              aprovado: { label: "Aprovado", cls: "bg-third-400/15 text-third-300 border border-third-400" },
-                              para_alteracao: { label: "Para alterar", cls: "bg-primary-600/40 text-primary-200 border border-primary-500" },
+                            const statusMap: Record<string, { label: string; color: string; bg: string; border: string }> = {
+                              rascunho:            { label: "Rascunho",     color: "var(--gray-300)",         bg: "rgba(148,169,173,0.07)",    border: "rgba(148,169,173,0.35)" },
+                              aguardando_aprovacao:{ label: "Aguardando",   color: "var(--alert-medium)",     bg: "rgba(255,167,38,0.10)",     border: "rgba(255,167,38,0.35)" },
+                              aprovado:            { label: "Aprovado",     color: "var(--success-medium)",   bg: "rgba(102,187,106,0.10)",    border: "rgba(102,187,106,0.35)" },
+                              para_alteracao:      { label: "Para alterar", color: "var(--error-medium)",     bg: "rgba(239,83,80,0.10)",      border: "rgba(239,83,80,0.35)" },
                             };
-                            const badge = statusMap[ent.status] || { label: ent.status, cls: "bg-primary-700 text-gray-200" };
+                            const badge = statusMap[ent.status] || statusMap["rascunho"];
                             const canSend = ent.status === "rascunho" || ent.status === "para_alteracao";
                             const feedbackImgs = ent.feedback_imagens && ent.feedback_imagens.length > 0 ? ent.feedback_imagens : null;
                             const hasFeedbackImage = ent.status === "para_alteracao" && (!!ent.feedback_imagem_url || !!feedbackImgs);
                             const feedbackThumbUrl = feedbackImgs ? feedbackImgs[0].url : ent.feedback_imagem_url;
                             const files = getEntregavelFiles(ent);
                             return (
-                              <li key={ent.id} className="bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden">
+                              <li key={ent.id} className="dt-deli-card-new overflow-hidden">
                                 {hasFeedbackImage && (
                                   <button type="button" onClick={() => setFeedbackViewerId(ent.id)} className="relative w-full block overflow-hidden group">
                                     <img src={feedbackThumbUrl!} alt="Anotação" className="w-full aspect-video object-cover group-hover:opacity-90 transition-opacity" />
@@ -2368,13 +2333,13 @@ export default function ProjetoDetalhesPage() {
                                   <EntregavelCarousel files={files} />
                                 )}
 
-                                <div className="px-4 py-3 flex flex-col gap-2">
+                                <div className="px-[18px] py-4 flex flex-col gap-2">
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="flex flex-col min-w-0 flex-1">
-                                      <span className="text-[14px] text-primary-100 font-semibold leading-snug truncate">{ent.titulo}</span>
+                                      <span className="text-[15px] text-gray-100 font-semibold leading-snug truncate">{ent.titulo}</span>
                                       {ent.descricao && <span className="text-[12px] text-gray-500 mt-0.5 truncate">{ent.descricao}</span>}
                                     </div>
-                                    <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[11px] font-medium ${badge.cls}`}>{badge.label}</span>
+                                    <span style={{ color: badge.color, background: badge.bg, border: `1px solid ${badge.border}`, borderRadius: "999px", fontSize: 12, fontWeight: 600, padding: "4px 10px", whiteSpace: "nowrap", flexShrink: 0 }}>{badge.label}</span>
                                   </div>
 
                                   {ent.url && <a href={ent.url} target="_blank" rel="noreferrer" className="text-[12px] text-primary-400 hover:text-primary-300 hover:underline truncate transition-colors">{ent.url}</a>}
@@ -2424,19 +2389,21 @@ export default function ProjetoDetalhesPage() {
                                       {ent.status === "para_alteracao" && ent.arquivo_url && (
                                         <label className="cursor-pointer">
                                           <input type="file" accept="image/*,application/pdf" className="hidden" disabled={uploadingCorrectedId === ent.id} onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadCorrectedFile(ent.id, f); e.target.value = ""; }} />
-                                          <span className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-primary-800 border border-primary-700 text-gray-400 hover:text-gray-200 text-[12px] transition-colors cursor-pointer">
+                                          <span className="dt-ghost-btn text-[12px] py-1.5 px-3 cursor-pointer">
                                             {uploadingCorrectedId === ent.id ? "Enviando..." : "Substituir arquivo"}
                                           </span>
                                         </label>
                                       )}
                                       <div className="flex-1" />
                                       {ent.status === "rascunho" && (
-                                        <button type="button" onClick={() => handleDeleteEntregavel(ent.id)} disabled={deletingEntregavelId === ent.id} className="px-3 py-1.5 rounded-xl text-gray-500 hover:text-red-400 text-[12px] transition-colors disabled:opacity-60">
+                                        <button type="button" onClick={() => handleDeleteEntregavel(ent.id)} disabled={deletingEntregavelId === ent.id} className="dt-deli-del-btn flex items-center gap-1.5 text-[13px] disabled:opacity-60">
+                                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/></svg>
                                           {deletingEntregavelId === ent.id ? "..." : "Excluir"}
                                         </button>
                                       )}
                                       {canSend && (
-                                        <button type="button" onClick={() => handleSendEntregavel(ent.id)} disabled={sendingEntregavelId === ent.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[12px] transition-colors disabled:opacity-60">
+                                        <button type="button" onClick={() => handleSendEntregavel(ent.id)} disabled={sendingEntregavelId === ent.id} className="dt-deli-send-btn flex items-center gap-1.5 text-[13px] disabled:opacity-60">
+                                          <Send size={14} />
                                           {sendingEntregavelId === ent.id ? "Enviando..." : ent.status === "para_alteracao" ? "Reenviar" : "Enviar ao cliente"}
                                         </button>
                                       )}
@@ -2454,26 +2421,16 @@ export default function ProjetoDetalhesPage() {
                 })()}
 
                 {activeTab === "briefing" && (
-                  <div className="flex flex-col h-full gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="text-[20px] text-primary-100 font-semibold">Briefing do projeto</h3>
+                  <div className="flex flex-col h-full dt-panel">
+                    <div className="flex items-center justify-between gap-3 mb-[22px]">
+                      <h3 className="dt-panel-title">Briefing</h3>
                       {projeto?.user_id === user?.id && (
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleOpenSendNewBriefing}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold transition-colors text-[13px]"
-                          >
-                            <Send size={14} />
-                            Novo briefing
+                          <button type="button" onClick={handleOpenSendNewBriefing} className="dt-primary-btn flex items-center gap-2 text-[13px]">
+                            <Send size={14} /> Novo briefing
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setAttachBriefingOpen(true)}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 hover:bg-primary-600 transition-colors text-[13px]"
-                          >
-                            <ClipboardList size={14} />
-                            Vincular existente
+                          <button type="button" onClick={() => setAttachBriefingOpen(true)} className="dt-ghost-btn flex items-center gap-2 text-[13px]">
+                            <ClipboardList size={14} /> Vincular existente
                           </button>
                         </div>
                       )}
@@ -2481,52 +2438,40 @@ export default function ProjetoDetalhesPage() {
 
                     <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
                       {projetoBriefingEnvios.length === 0 ? (
-                        <div className="text-gray-400">Nenhum briefing neste projeto. Crie um novo ou vincule um já enviado.</div>
+                        <p className="text-[15px] text-gray-500">Nenhum briefing neste projeto. Crie um novo ou vincule um já enviado.</p>
                       ) : (
                         <div className="flex flex-col gap-4">
                           {projetoBriefingEnvios.map(envio => (
-                            <div key={envio.id} className="bg-primary-900/60 border border-primary-700 rounded-xl overflow-hidden">
-                              <div className="flex items-center justify-between px-4 py-3 border-b border-primary-700">
+                            <div key={envio.id} className="dt-card-inner overflow-hidden">
+                              <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid var(--primary-700)" }}>
                                 <div className="flex flex-col gap-0.5">
-                                  <span className="text-[15px] text-gray-100 font-medium">
-                                    {(envio as any).template?.titulo || "Briefing sem título"}
-                                  </span>
+                                  <span className="text-[15px] text-gray-100 font-semibold">{(envio as any).template?.titulo || "Briefing sem título"}</span>
                                   <span className="text-[12px] text-gray-500">
                                     Enviado em {new Date(envio.created_at).toLocaleDateString("pt-BR")}
-                                    {envio.respondido_em ? ` • Respondido em ${new Date(envio.respondido_em).toLocaleDateString("pt-BR")}` : ""}
+                                    {envio.respondido_em ? ` · Respondido em ${new Date(envio.respondido_em).toLocaleDateString("pt-BR")}` : ""}
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                   {(() => {
                                     const respondido = envio.status === "respondido" || !!envio.respondido_em || (envio.briefings_respostas && envio.briefings_respostas.length > 0);
-                                    return (
-                                      <span className={`text-[12px] px-2.5 py-1 rounded-full ${respondido ? "text-third-400 bg-third-400/10" : "text-yellow-400 bg-yellow-400/10"}`}>
-                                        {respondido ? "Respondido" : "Aguardando resposta"}
-                                      </span>
-                                    );
+                                    return <span className={`text-[12px] px-2.5 py-1 rounded-full font-medium ${respondido ? "bg-success-medium/10 text-success-medium" : "bg-alert-medium/10 text-alert-medium"}`}>{respondido ? "Respondido" : "Aguardando"}</span>;
                                   })()}
                                   {projeto?.user_id === user?.id && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDetachBriefing(envio.id)}
-                                      className="text-[12px] px-2.5 py-1 rounded-full text-red-400 bg-red-400/10 hover:bg-red-400/20 transition-colors"
-                                    >
-                                      Desvincular
-                                    </button>
+                                    <button type="button" onClick={() => handleDetachBriefing(envio.id)} className="text-[12px] px-2.5 py-1 rounded-full text-error-medium bg-error-medium/10 hover:bg-error-medium/20 transition-colors">Desvincular</button>
                                   )}
                                 </div>
                               </div>
                               {envio.briefings_respostas && envio.briefings_respostas.length > 0 ? (
-                                <ul className="flex flex-col gap-0">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4">
                                   {envio.briefings_respostas.map((r, idx) => (
-                                    <li key={r.id || idx} className="px-4 py-3 border-t border-primary-700">
-                                      <div className="text-[13px] text-gray-400 mb-0.5">{r.pergunta}</div>
-                                      <div className="text-[14px] text-gray-200 whitespace-pre-wrap break-words">{r.resposta || "—"}</div>
-                                    </li>
+                                    <div key={r.id || idx} className="dt-brief-card">
+                                      <span className="dt-brief-q">{r.pergunta}</span>
+                                      <p className="dt-brief-a">{r.resposta || "—"}</p>
+                                    </div>
                                   ))}
-                                </ul>
+                                </div>
                               ) : (
-                                <div className="px-4 py-3 text-[13px] text-gray-500">Aguardando resposta do cliente.</div>
+                                <p className="px-4 py-3 text-[13px] text-gray-500">Aguardando resposta do cliente.</p>
                               )}
                             </div>
                           ))}
@@ -2897,6 +2842,455 @@ export default function ProjetoDetalhesPage() {
       )}
 
       <style jsx global>{`
+        /* ── Detail page redesign ── */
+
+        /* Top bar */
+        .dt-back-btn {
+          padding: 12px 20px;
+          border-radius: 13px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          transition: border-color .2s;
+        }
+        .dt-back-btn:hover { border-color: var(--primary-600); }
+
+        .dt-timer-btn {
+          display: grid;
+          place-items: center;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          border: none;
+          cursor: pointer;
+          color: var(--primary-900);
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500));
+          box-shadow: 0 0 0 5px rgba(30,182,232,0.10), 0 10px 24px -10px rgba(30,182,232,0.8);
+          transition: transform .2s;
+        }
+        .dt-timer-btn:hover { transform: scale(1.06); }
+
+        .dt-upload-btn {
+          display: grid;
+          place-items: center;
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          color: var(--gray-200);
+          transition: border-color .2s, color .2s;
+        }
+        .dt-upload-btn:hover { border-color: var(--primary-500); color: var(--primary-300); }
+
+        /* Cards */
+        .dt-card-new {
+          border-radius: 22px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+        }
+        .dt-card-inner {
+          border-radius: 14px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-900);
+        }
+
+        /* Buttons */
+        .dt-ghost-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 500;
+          color: var(--gray-100);
+          cursor: pointer;
+          padding: 12px 20px;
+          border-radius: 12px;
+          border: 1px solid var(--primary-600);
+          background: var(--primary-800);
+          transition: border-color .2s, color .2s;
+          white-space: nowrap;
+        }
+        .dt-ghost-btn:hover { border-color: var(--primary-500); color: var(--gray-100); }
+
+        .dt-primary-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--primary-900);
+          cursor: pointer;
+          padding: 13px 22px;
+          border: 0;
+          border-radius: 12px;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 10px 24px -12px rgba(30,182,232,0.8);
+          transition: transform .2s, box-shadow .2s;
+          white-space: nowrap;
+        }
+        .dt-primary-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 30px -10px rgba(30,182,232,0.9); }
+
+        /* Meta cells */
+        .dt-meta-cell {
+          padding: 20px 24px;
+          display: flex;
+          flex-direction: column;
+          gap: 9px;
+        }
+        .dt-meta-label { font-size: 14px; color: var(--gray-400); }
+        .dt-meta-value {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--gray-100);
+          letter-spacing: -0.01em;
+          font-variant-numeric: tabular-nums;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        /* Section title */
+        .dt-section-title { margin: 0; font-size: 21px; font-weight: 600; color: var(--gray-100); letter-spacing: -0.01em; }
+        .dt-section-sub { margin: 6px 0 0; font-size: 14px; color: var(--gray-400); }
+
+        /* Empty state */
+        .dt-empty-state {
+          margin-top: 24px;
+          padding: 44px 20px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 14px;
+          border: 1px dashed var(--primary-700);
+          border-radius: 16px;
+        }
+        .dt-empty-icon {
+          display: grid;
+          place-items: center;
+          width: 52px;
+          height: 52px;
+          border-radius: 14px;
+          color: var(--gray-400);
+          background: var(--primary-700);
+          border: 1px solid var(--primary-600);
+        }
+        .dt-empty-state p { margin: 0; font-size: 15px; color: var(--gray-500); }
+
+        /* Tabs */
+        .dt-tabs-nav {
+          display: flex;
+          gap: 6px;
+          border-bottom: 1px solid var(--primary-700);
+          padding-top: 14px;
+          flex-wrap: wrap;
+          margin-bottom: 4px;
+        }
+        .dt-tab-btn {
+          position: relative;
+          font-family: inherit;
+          font-size: 16px;
+          font-weight: 500;
+          color: var(--gray-400);
+          cursor: pointer;
+          padding: 14px 18px;
+          border: 0;
+          background: none;
+          transition: color .2s;
+        }
+        .dt-tab-btn:hover { color: var(--gray-100); }
+        .dt-tab-btn.is-on { color: var(--primary-300); }
+        .dt-tab-btn.is-on::after {
+          content: "";
+          position: absolute;
+          left: 14px;
+          right: 14px;
+          bottom: -1px;
+          height: 2.5px;
+          border-radius: 3px;
+          background: linear-gradient(90deg, var(--primary-400), var(--primary-500));
+          box-shadow: 0 0 10px -1px var(--primary-500);
+        }
+
+        /* Panel common */
+        .dt-panel { padding-top: 26px; min-height: 400px; }
+        .dt-panel-title { margin: 0; font-size: 22px; font-weight: 700; color: var(--gray-100); letter-spacing: -0.01em; }
+
+        /* Editor */
+        .dt-editor-wrap {
+          border: 1px solid var(--primary-700);
+          border-radius: 16px;
+          overflow: hidden;
+          background: var(--primary-900);
+        }
+
+        /* Dropzone */
+        .dt-dropzone-new {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+          cursor: pointer;
+          padding: 36px 20px;
+          border-radius: 16px;
+          border: 1.5px dashed var(--primary-600);
+          background: rgba(30,182,232,0.03);
+          font-family: inherit;
+          transition: border-color .2s, background .2s;
+        }
+        .dt-dropzone-new:hover { border-color: var(--primary-500); background: rgba(30,182,232,0.06); }
+        .dt-dropzone-icon-wrap {
+          display: grid;
+          place-items: center;
+          width: 50px;
+          height: 50px;
+          border-radius: 14px;
+          color: var(--primary-300);
+          background: rgba(30,182,232,0.10);
+          border: 1px solid rgba(30,182,232,0.3);
+        }
+
+        /* File items */
+        .dt-file-item {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 14px 16px;
+          border-radius: 14px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-900);
+          transition: border-color .2s;
+        }
+        .dt-file-item:hover { border-color: var(--primary-600); }
+        .dt-file-icon-wrap {
+          flex: none;
+          display: grid;
+          place-items: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+        }
+        .dt-file-icon-primary { color: var(--primary-300); background: rgba(30,182,232,0.10); border: 1px solid rgba(30,182,232,0.25); }
+
+        /* Input field */
+        .dt-input-field {
+          height: 52px;
+          padding: 0 18px;
+          border-radius: 13px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-900);
+          color: var(--gray-100);
+          font-family: inherit;
+          font-size: 15px;
+          outline: none;
+          transition: border-color .2s;
+        }
+        .dt-input-field::placeholder { color: var(--gray-500); }
+        .dt-input-field:focus { border-color: var(--primary-600); }
+
+        /* Link items */
+        .dt-link-item {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 16px 18px;
+          border-radius: 14px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-900);
+          transition: border-color .2s;
+        }
+        .dt-link-item:hover { border-color: var(--primary-600); }
+        .dt-link-icon-wrap {
+          flex: none;
+          display: grid;
+          place-items: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 12px;
+          color: var(--primary-300);
+          background: rgba(30,182,232,0.10);
+          border: 1px solid rgba(30,182,232,0.25);
+        }
+
+        /* Icon mini buttons */
+        .dt-iconmini-btn {
+          display: grid;
+          place-items: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          border: 0;
+          background: none;
+          color: var(--gray-400);
+          cursor: pointer;
+          transition: background .2s, color .2s;
+        }
+        .dt-iconmini-btn:hover { background: rgba(148,169,173,0.1); color: var(--gray-100); }
+        .dt-iconmini-danger:hover { background: rgba(239,83,80,0.10); color: var(--error-medium); }
+
+        /* Briefing cards */
+        .dt-brief-card {
+          padding: 20px 22px;
+          border-radius: 14px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-900);
+        }
+        .dt-brief-q {
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--primary-300);
+          display: block;
+        }
+        .dt-brief-a {
+          margin: 10px 0 0;
+          font-size: 15px;
+          color: var(--gray-200);
+          line-height: 1.5;
+        }
+
+        /* Entregáveis */
+        .dt-deli-card-new {
+          border-radius: 18px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          overflow: hidden;
+          transition: border-color .2s, transform .2s, box-shadow .2s;
+        }
+        .dt-deli-card-new:hover { border-color: var(--primary-600); transform: translateY(-2px); box-shadow: 0 16px 40px -24px rgba(0,0,0,0.5); }
+
+        .dt-deli-filter-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: inherit;
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--gray-300);
+          cursor: pointer;
+          padding: 9px 16px;
+          border-radius: 999px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          transition: border-color .2s, color .2s, background .2s;
+        }
+        .dt-deli-filter-btn:hover { border-color: var(--primary-600); color: var(--gray-100); }
+        .dt-deli-filter-btn.is-on { color: var(--primary-300); border-color: var(--primary-500); background: rgba(30,182,232,0.08); }
+        .dt-deli-count {
+          display: grid;
+          place-items: center;
+          min-width: 22px;
+          height: 22px;
+          padding: 0 7px;
+          border-radius: 7px;
+          font-size: 12px;
+          font-weight: 600;
+          background: rgba(148,169,173,0.10);
+          color: var(--gray-300);
+        }
+        .dt-deli-filter-btn.is-on .dt-deli-count { background: rgba(30,182,232,0.15); color: var(--primary-200); }
+
+        .dt-deli-del-btn {
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--gray-400);
+          cursor: pointer;
+          padding: 8px 12px;
+          border-radius: 10px;
+          border: 1px solid var(--primary-700);
+          background: none;
+          transition: color .2s, border-color .2s, background .2s;
+        }
+        .dt-deli-del-btn:hover { color: var(--error-medium); border-color: rgba(239,83,80,0.35); background: rgba(239,83,80,0.08); }
+
+        .dt-deli-send-btn {
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--primary-900);
+          cursor: pointer;
+          padding: 9px 15px;
+          border-radius: 10px;
+          border: 0;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 8px 20px -12px rgba(30,182,232,0.8);
+          transition: transform .2s;
+        }
+        .dt-deli-send-btn:hover { transform: translateY(-1px); }
+
+        /* Etapas */
+        .dt-step-item { display: flex; flex-direction: column; }
+        .dt-step-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 16px 18px;
+          border-radius: 14px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-900);
+          transition: border-color .2s;
+        }
+        .dt-step-row:hover { border-color: var(--primary-600); }
+        .dt-step-row.is-done { opacity: 0.7; }
+        .dt-check-box {
+          flex: none;
+          display: grid;
+          place-items: center;
+          width: 30px;
+          height: 30px;
+          border-radius: 9px;
+          border: 1.5px solid var(--primary-600);
+          color: var(--primary-900);
+          cursor: pointer;
+          transition: border-color .2s, background .2s, box-shadow .2s;
+          background: none;
+        }
+        .dt-check-box.on {
+          border-color: var(--primary-500);
+          background: var(--primary-400);
+          box-shadow: 0 0 12px -3px var(--primary-500);
+        }
+        .dt-check-box.sm { width: 24px; height: 24px; border-radius: 7px; }
+        .dt-check-box:hover:not(.on) { border-color: var(--primary-400); }
+        .dt-assignee-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          font-size: 13px;
+          color: var(--gray-300);
+          padding: 5px 14px 5px 5px;
+          border-radius: 999px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          white-space: nowrap;
+        }
+        .dt-step-edit-btn {
+          display: grid;
+          place-items: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 9px;
+          border: 0;
+          background: none;
+          color: var(--gray-500);
+          cursor: pointer;
+          transition: background .2s, color .2s;
+        }
+        .dt-step-edit-btn:hover { background: rgba(148,169,173,0.10); color: var(--gray-100); }
+        .dt-substep-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 11px 12px;
+          border-radius: 10px;
+          transition: background .15s;
+        }
+        .dt-substep-row:hover { background: rgba(148,169,173,0.04); }
+
         .custom-scrollbar::-webkit-scrollbar {
           width: 10px;
           height: 10px;
@@ -2948,11 +3342,11 @@ export default function ProjetoDetalhesPage() {
           border-left: 3px solid rgba(148, 163, 184, 0.8);
           padding-left: 0.75rem;
           margin: 0.5rem 0;
-          color: #e5e7eb;
+          color: var(--gray-100);
           font-style: italic;
         }
         .tiptap a {
-          color: #38bdf8;
+          color: var(--primary-400);
           text-decoration: underline;
         }
         .animate-fade-in {
@@ -3754,19 +4148,33 @@ const TaskList = memo(function TaskList({
     return found?.avatar || "";
   }
 
+  const doneTasks = tasks.filter(isTaskDone).length;
+  const totalTasks = tasks.length;
+  const progressPct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[20px] text-primary-100 font-semibold">Etapas do projeto</h2>
+    <div className="flex flex-col h-full dt-panel">
+      <div className="flex items-start justify-between gap-4 mb-[22px]">
+        <div>
+          <h2 className="dt-panel-title">Etapas do projeto</h2>
+          {totalTasks > 0 && (
+            <div className="flex items-center gap-3 mt-3">
+              <div className="w-[180px] h-[7px] rounded-full overflow-hidden" style={{ background: "rgba(148,169,173,0.12)" }}>
+                <div className="h-full rounded-full" style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--primary-400), var(--primary-500))", boxShadow: "0 0 10px -1px var(--primary-500)" }} />
+              </div>
+              <span className="text-[14px] text-gray-400" style={{ fontVariantNumeric: "tabular-nums" }}>{doneTasks}/{totalTasks} concluídas</span>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => {
             setNewTaskForm({ titulo: "", due_date: "", assigned_to: user?.id || "", subtasks: [] });
             setNewTaskOpen((v) => !v);
           }}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-700 border border-primary-600 text-gray-200 text-[13px] hover:bg-primary-600 transition-colors"
+          className="dt-ghost-btn flex items-center gap-2 text-[14px] flex-none"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
           Nova tarefa
         </button>
       </div>
@@ -3881,9 +4289,9 @@ const TaskList = memo(function TaskList({
 
       <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
         {tasks.length === 0 ? (
-          <div className="text-gray-400 text-[14px]">Nenhuma tarefa criada ainda.</div>
+          <p className="text-[15px] text-gray-500">Nenhuma tarefa criada ainda.</p>
         ) : (
-          <ul className="flex flex-col divide-y divide-gray-700">
+          <ul className="flex flex-col gap-2">
             {tasks.map((t) => {
               const subs = subtasksByTask[t.id] || [];
               const done = isTaskDone(t);
@@ -3893,46 +4301,41 @@ const TaskList = memo(function TaskList({
               const assigneeInitials = assigneeName ? assigneeName.slice(0, 2).toUpperCase() : "?";
 
               return (
-                <li key={t.id} className="py-3 first:pt-0">
-                  <div className="flex items-center gap-3">
+                <li key={t.id} className="dt-step-item flex flex-col">
+                  <div className={`dt-step-row${done ? " is-done" : ""}`}>
+                    {/* Checkbox */}
                     <button
                       type="button"
                       onClick={() => canToggle && toggleTaskCompletion(t)}
-                      className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center shrink-0 transition-all ${
-                        canToggle ? "cursor-pointer" : "cursor-not-allowed opacity-40"
-                      } ${
-                        done
-                          ? "bg-primary-500/20 border-primary-400 text-primary-300"
-                          : "bg-primary-900 border-primary-600 hover:border-primary-400"
-                      }`}
+                      className={`dt-check-box${done ? " on" : ""}${!canToggle ? " opacity-40 cursor-not-allowed" : ""}`}
                       title={canToggle ? undefined : "Você só pode concluir suas próprias tarefas"}
                     >
                       {done && (
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="m5 12.5 4.5 4.5L19 7"/>
                         </svg>
                       )}
                     </button>
 
-                    <span className={`flex-1 text-[15px] font-medium ${done ? "line-through text-gray-500" : "text-gray-100"}`}>
+                    {/* Título */}
+                    <span className={`flex-1 text-[17px] font-semibold${done ? " line-through text-gray-500" : " text-gray-100"}`}>
                       {t.titulo}
                     </span>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Assignee + data + edit */}
+                    <div className="flex items-center gap-3 shrink-0">
                       {assigneeName && (
-                        <div className="flex items-center gap-1.5 bg-primary-800 border border-primary-700 rounded-full pl-1 pr-2.5 py-0.5">
-                          <div className="w-4 h-4 rounded-full overflow-hidden bg-primary-600 flex items-center justify-center shrink-0 text-[8px] text-gray-300 font-medium">
-                            {assigneeAvatar ? (
-                              <img src={assigneeAvatar} alt={assigneeName} className="w-full h-full object-cover" />
-                            ) : (
-                              <span>{assigneeInitials}</span>
-                            )}
-                          </div>
-                          <span className="text-[11px] text-gray-400">{assigneeName}</span>
-                        </div>
+                        <span className="dt-assignee-chip">
+                          <span className="w-[26px] h-[26px] rounded-full overflow-hidden shrink-0 bg-primary-700 flex items-center justify-center text-[10px] text-gray-300 font-medium">
+                            {assigneeAvatar
+                              ? <img src={assigneeAvatar} alt={assigneeName} className="w-full h-full object-cover" />
+                              : <span>{assigneeInitials}</span>}
+                          </span>
+                          {assigneeName}
+                        </span>
                       )}
                       {t.due_date && (
-                        <span className="text-[12px] text-gray-500">
+                        <span className="text-[13px] text-gray-500" style={{ fontVariantNumeric: "tabular-nums" }}>
                           {new Date(t.due_date + "T00:00:00").toLocaleDateString("pt-BR")}
                         </span>
                       )}
@@ -3940,41 +4343,40 @@ const TaskList = memo(function TaskList({
                         <button
                           type="button"
                           onClick={() => router.push(`/dashboard/tarefas/editar/${t.id}`)}
-                          className="p-1 rounded-lg text-gray-600 hover:text-gray-300 hover:bg-primary-700 transition-colors"
+                          className="dt-step-edit-btn"
                           title="Editar tarefa"
                         >
-                          <Pencil size={13} />
+                          <Pencil size={15} />
                         </button>
                       )}
                     </div>
                   </div>
 
+                  {/* Subtarefas */}
                   {subs.length > 0 && (
-                    <div className="mt-1 ml-11 flex flex-col">
+                    <ul className="ml-[46px] flex flex-col mt-1">
                       {subs.map((s) => (
-                        <div key={s.id} className="flex items-center gap-2 py-1.5 border-t border-gray-700 first:border-t-0">
-                          <span className="text-primary-700 text-[13px] select-none shrink-0">⠿</span>
+                        <li key={s.id} className="dt-substep-row">
+                          <span className="text-gray-600 select-none">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/></svg>
+                          </span>
                           <button
                             type="button"
                             onClick={() => toggleSubtaskCompletion(s)}
-                            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
-                              s.concluida
-                                ? "bg-primary-500/20 border-primary-400 text-primary-300"
-                                : "bg-primary-900 border-primary-600 hover:border-primary-400"
-                            }`}
+                            className={`dt-check-box sm${s.concluida ? " on" : ""}`}
                           >
                             {s.concluida && (
-                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                                <polyline points="20 6 9 17 4 12" />
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="m5 12.5 4.5 4.5L19 7"/>
                               </svg>
                             )}
                           </button>
-                          <span className={`text-[14px] ${s.concluida ? "line-through text-gray-600" : "text-gray-300"}`}>
+                          <span className={`text-[15px]${s.concluida ? " line-through text-gray-500" : " text-gray-300"}`}>
                             {s.titulo}
                           </span>
-                        </div>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   )}
                 </li>
               );

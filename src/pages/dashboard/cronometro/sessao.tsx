@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { Minus, Plus, Play, Pause, RotateCcw, CheckCircle2, Pencil, Focus, X, ArrowLeft, Coffee } from "lucide-react";
 
+const SESSION_KEY = "tt_free_session";
+
 const MODE_LABELS: Record<string, string> = {
   pomodoro: "POMODORO",
   foco: "FOCO",
@@ -100,6 +102,7 @@ export default function CronometroSessaoPage() {
   const [currentCycle, setCurrentCycle] = useState(1);
   const [isBreak, setIsBreak]           = useState(false);
   const [allDone, setAllDone]           = useState(false);
+  const [phaseKey, setPhaseKey]         = useState(0);
 
   const totalSeconds  = useRef(0);
   const [secondsLeft, setSecondsLeft] = useState(0);
@@ -109,6 +112,7 @@ export default function CronometroSessaoPage() {
   const [focusMode,   setFocusMode]   = useState(false);
   const [startTime,   setStartTime]   = useState<Date | null>(null);
   const [ready,       setReady]       = useState(false);
+  const [sessionRestored, setSessionRestored] = useState(false);
 
   const endAtRef     = useRef<number | null>(null);
   const intervalRef  = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -120,9 +124,71 @@ export default function CronometroSessaoPage() {
     if (!router.isReady || !minutes) return;
     const secs = isPomodoro ? workSecs : parseInt(minutes as string) * 60;
     totalSeconds.current = secs;
-    setSecondsLeft(secs);
+
+    let restored = false;
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          endAt: number | null;
+          secondsLeft: number;
+          running: boolean;
+          isBreak: boolean;
+          currentCycle: number;
+          totalSecs: number;
+          mode: string;
+          minutes: string;
+        };
+        if (saved.mode === (mode as string) && saved.minutes === (minutes as string) && saved.totalSecs) {
+          totalSeconds.current = saved.totalSecs;
+          setCurrentCycle(saved.currentCycle ?? 1);
+          setIsBreak(saved.isBreak ?? false);
+
+          if (saved.running && saved.endAt) {
+            const remaining = Math.max(0, Math.round((saved.endAt - Date.now()) / 1000));
+            if (remaining > 0) {
+              endAtRef.current = saved.endAt;
+              setSecondsLeft(remaining);
+              setRunning(true);
+              restored = true;
+              setSessionRestored(true);
+            } else {
+              sessionStorage.removeItem(SESSION_KEY);
+            }
+          } else if (!saved.running && saved.secondsLeft > 0) {
+            setSecondsLeft(saved.secondsLeft);
+            restored = true;
+            setSessionRestored(true);
+          } else {
+            sessionStorage.removeItem(SESSION_KEY);
+          }
+        }
+      }
+    } catch { /* ignore */ }
+
+    if (!restored) setSecondsLeft(secs);
     setReady(true);
   }, [minutes, router.isReady]);
+
+  useEffect(() => {
+    if (!router.isReady || !minutes) return;
+    if (concluded || allDone || finished) {
+      sessionStorage.removeItem(SESSION_KEY);
+      return;
+    }
+    if (secondsLeft === 0 && !running) return;
+    const endAt = running && secondsLeft > 0 ? Date.now() + secondsLeft * 1000 : null;
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      endAt,
+      secondsLeft,
+      running,
+      isBreak,
+      currentCycle,
+      totalSecs: totalSeconds.current,
+      mode: mode as string,
+      minutes: minutes as string,
+    }));
+  }, [secondsLeft, running, isBreak, currentCycle, concluded, allDone, finished, router.isReady]);
 
   useEffect(() => {
     if (running && !finished) {
@@ -133,7 +199,7 @@ export default function CronometroSessaoPage() {
         if (remaining <= 0) {
           clearInterval(intervalRef.current!);
           intervalRef.current = null;
-          endAtRef.current    = null;
+          endAtRef.current = null;
           if (isPomodoro && !allDone) {
             handlePomodoroPhaseEnd();
           } else {
@@ -147,7 +213,7 @@ export default function CronometroSessaoPage() {
       if (!running && endAtRef.current) endAtRef.current = null;
     }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [running, finished]);
+  }, [running, finished, phaseKey]);
 
   function handlePomodoroPhaseEnd() {
     if (isBreak) {
@@ -159,13 +225,15 @@ export default function CronometroSessaoPage() {
         setCurrentCycle(nextCycle); setIsBreak(false);
         totalSeconds.current = workSecs;
         setSecondsLeft(workSecs);
-        endAtRef.current = Date.now() + workSecs * 1000;
+        endAtRef.current = null;
+        setPhaseKey(k => k + 1);
       }
     } else {
       playBreakSound(); setIsBreak(true);
       totalSeconds.current = breakSecs;
       setSecondsLeft(breakSecs);
-      endAtRef.current = Date.now() + breakSecs * 1000;
+      endAtRef.current = null;
+      setPhaseKey(k => k + 1);
     }
   }
 
@@ -221,19 +289,23 @@ export default function CronometroSessaoPage() {
     endAtRef.current = null;
     setRunning(false); setFinished(false); setConcluded(false);
     setAllDone(false); setIsBreak(false); setCurrentCycle(1);
+    setPhaseKey(0);
     const secs = isPomodoro ? workSecs : (parseInt(minutes as string) || 0) * 60;
     totalSeconds.current = secs;
     setSecondsLeft(secs);
     setStartTime(null);
+    sessionStorage.removeItem(SESSION_KEY);
   }
 
   function handleEdit() {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    sessionStorage.removeItem(SESSION_KEY);
     router.push("/dashboard/cronometro");
   }
 
   function handleBack() {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    sessionStorage.removeItem(SESSION_KEY);
     router.push("/dashboard/cronometro");
   }
 
@@ -270,7 +342,7 @@ export default function CronometroSessaoPage() {
   const breakGradId = "ringGradBreak";
   const activeGrad  = isBreak ? `url(#${breakGradId})` : `url(#${workGradId})`;
 
-  if (!ready) return (
+  if (!ready && !sessionRestored) return (
     <div className="h-full flex items-center justify-center bg-primary-900 text-gray-500 text-sm">
       Carregando...
     </div>
@@ -468,9 +540,9 @@ export default function CronometroSessaoPage() {
 
           <div className="flex items-center gap-3 flex-wrap justify-center">
             {[
-              { label: "Editar",    icon: <Pencil size={16} />, onClick: handleEdit,           active: false, style: {} },
-              { label: "Foco",     icon: <Focus  size={16} />, onClick: () => setFocusMode(v => !v), active: focusMode, style: {} },
-              { label: "Reiniciar",icon: <RotateCcw size={16} />, onClick: handleRestart,      active: false, style: {} },
+              { label: "Editar",    icon: <Pencil size={16} />, onClick: handleEdit,           active: false },
+              { label: "Foco",     icon: <Focus  size={16} />, onClick: () => setFocusMode(v => !v), active: focusMode },
+              { label: "Reiniciar",icon: <RotateCcw size={16} />, onClick: handleRestart,      active: false },
             ].map(a => (
               <button key={a.label} type="button" onClick={a.onClick}
                 className="flex items-center gap-2 text-[15px] font-medium rounded-full border cursor-pointer transition-all duration-200"

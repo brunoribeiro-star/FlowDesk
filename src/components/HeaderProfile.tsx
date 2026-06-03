@@ -40,14 +40,21 @@ export default function HeaderProfile({ user }: HeaderProfileProps) {
       <button
         type="button"
         onClick={() => setProfileOpen((v) => !v)}
-        className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-primary-800 transition-colors"
+        className="flex items-center gap-2 transition-colors hover:border-gray-500"
+        style={{
+          padding: "5px 9px 5px 5px",
+          borderRadius: "999px",
+          border: "1px solid var(--primary-700)",
+          background: "var(--primary-800)",
+          color: "var(--gray-300)",
+        }}
       >
-        <UserAvatar src={avatarSrc} name={displayName} size={35} className="border border-primary-600" />
+        <UserAvatar src={avatarSrc} name={displayName} size={36} className="border border-primary-600" />
 
         {profileOpen ? (
-          <ChevronUp size={18} className="text-primary-100" />
+          <ChevronUp size={16} className="text-gray-300" />
         ) : (
-          <ChevronDown size={18} className="text-primary-100" />
+          <ChevronDown size={16} className="text-gray-300" />
         )}
       </button>
 

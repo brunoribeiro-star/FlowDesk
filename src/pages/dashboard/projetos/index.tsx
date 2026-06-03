@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList, SkeletonBoardCards } from "@/components/Skeleton";
-import { Search } from "lucide-react";
+import { Search, List, LayoutGrid, Calendar } from "lucide-react";
 import { jsonToPlainText, calcularUrgencia } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -99,7 +99,6 @@ function normalizeStatus(p: Projeto, pagamentosPendente: boolean): "para fazer" 
   const s = String(p.status || "").trim().toLowerCase();
   const isConcluido = s === "concluído" || s === "concluido";
 
-  // Pagamento pendente tem prioridade sobre arquivamento
   if (isConcluido && pagamentosPendente) return "pgto pendente";
 
   if (isArchivedProject(p)) return "arquivado";
@@ -553,7 +552,6 @@ export default function ProjetosPage() {
         supabase.from("clientes").select("id, nome, empresa").eq("user_id", authUser!.id).order("nome"),
       ]);
       if (proj) {
-        // Check for in-progress form saved in sessionStorage
         let restoredForm: typeof editModal.form | null = null;
         let restoredStep: 1 | 2 = 1;
         try {
@@ -954,110 +952,111 @@ export default function ProjetosPage() {
   const totalProjetos = projetos.length;
 
   function renderCalendarView() {
-      if (loading) return <div className="mt-8 text-gray-300">Carregando projetos...</div>;
+    if (loading) return <div className="mt-8 text-gray-300">Carregando projetos...</div>;
 
-      const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-  
-      return (
-        <div className="flex-1 overflow-hidden flex flex-col bg-primary-900/40 border border-primary-700 rounded-2xl p-4">
-          <div className="flex items-center justify-between mb-6 px-2">
-            <button
-              onClick={prevMonth}
-              className="p-2 hover:bg-primary-800 rounded-full text-gray-400 hover:text-gray-100 transition-colors"
-              type="button"
+    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+    const monthName = capitalize(currentDate.toLocaleDateString("pt-BR", { month: "long" }));
+    const year = currentDate.getFullYear();
+
+    function getEventStyle(urg: string, ns: string): React.CSSProperties {
+      if (ns === "finalizado" || ns === "arquivado")
+        return { background: "rgba(148,169,173,0.06)", border: "1px solid rgba(148,169,173,0.20)" };
+      if (urg === "Muito urgente" || urg === "Vencida")
+        return { background: "rgba(239,83,80,0.10)", border: "1px solid rgba(239,83,80,0.30)" };
+      if (urg === "Urgente")
+        return { background: "rgba(255,167,38,0.10)", border: "1px solid rgba(255,167,38,0.30)" };
+      return { background: "rgba(30,182,232,0.10)", border: "1px solid rgba(30,182,232,0.28)" };
+    }
+
+    return (
+      <div
+        className="flex-1 overflow-hidden flex flex-col"
+        style={{
+          borderRadius: 22,
+          border: "1px solid var(--primary-700)",
+          padding: "22px 26px 26px",
+          background: "var(--primary-800)",
+        }}
+      >
+        <div className="flex items-center justify-center gap-7 mb-[18px]">
+          <button type="button" onClick={prevMonth} className="cv-nav-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 18-6-6 6-6"/>
+            </svg>
+          </button>
+          <h2 className="m-0 text-[24px] font-semibold text-gray-100 tracking-tight">
+            {monthName}{" "}
+            <span className="text-primary-400 font-medium">{year}</span>
+          </h2>
+          <button type="button" onClick={nextMonth} className="cv-nav-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m9 18 6-6-6-6"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-2 mb-2">
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((day) => (
+            <div
+              key={day}
+              className="text-center text-[13px] font-semibold text-gray-400 uppercase tracking-widest pb-1.5"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-            <h2 className="text-xl font-bold text-gray-100 capitalize">
-              {currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-            </h2>
-            <button
-              onClick={nextMonth}
-              className="p-2 hover:bg-primary-800 rounded-full text-gray-400 hover:text-gray-100 transition-colors"
-              type="button"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          </div>
-  
-          <div className="grid grid-cols-7 gap-4 px-1">
-            {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map((day) => (
-              <div key={day} className="text-center text-sm font-medium text-gray-400">
-                {day}
-              </div>
-            ))}
-          </div>
-  
-          <div className="flex-1 overflow-y-auto custom-scrollbar px-1 pb-2 mt-2">
-          <div className="grid grid-cols-7 auto-rows-[minmax(140px,auto)] gap-4">
+              {day}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar pb-1">
+          <div className="grid grid-cols-7 gap-2" style={{ gridAutoRows: "minmax(110px, auto)" }}>
             {calendarDays.map((date, i) => {
               if (!date) return <div key={`empty-${i}`} />;
-  
+
               const dateStr = date.toISOString().split("T")[0];
               const daysProjects = filtered.filter((p) => {
-                  if (!p.prazo_entrega) return false;
-                  return p.prazo_entrega.startsWith(dateStr);
+                if (!p.prazo_entrega) return false;
+                return p.prazo_entrega.startsWith(dateStr);
               });
               const isToday = new Date().toDateString() === date.toDateString();
-  
+
               return (
                 <div
                   key={dateStr}
-                  className={`flex flex-col gap-2 p-3 rounded-2xl transition-all border min-h-[140px] ${
-                    isToday
-                      ? "bg-primary-800/10 border-primary-500"
-                      : "bg-primary-800/20 border-transparent hover:bg-primary-800/40"
-                  }`}
+                  className={`cv-cell-new${isToday ? " is-today" : ""}`}
                 >
-                  <div className="flex justify-between items-start">
-                    <span className={`text-lg font-bold ${isToday ? "text-primary-500" : "text-gray-100"}`}>
+                  <div className="flex items-start justify-between">
+                    <span className={`cv-day-num${isToday ? " is-today" : ""}`}>
                       {date.getDate()}
                     </span>
                     {daysProjects.length > 0 && (
-                      <span className="text-[10px] text-gray-500 font-medium">{daysProjects.length}</span>
+                      <span className="text-[10px] font-medium text-gray-500">
+                        {daysProjects.length}
+                      </span>
                     )}
                   </div>
-  
-                  <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1">
+
+                  <div className="flex flex-col gap-[6px] overflow-y-auto custom-scrollbar flex-1">
                     {daysProjects.map((p) => {
-                      const urgencia = urgencyByProject[p.id] ?? "Sem prioridade";
+                      const urg = urgencyByProject[p.id] ?? "Sem prioridade";
                       const ns = statusByProject[p.id];
-                      const isCompleted = ns === 'finalizado' || ns === 'arquivado';
+                      const isCompleted = ns === "finalizado" || ns === "arquivado";
 
                       return (
                         <div
                           key={p.id}
                           onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
-                          className="group flex items-center justify-between gap-2 cursor-pointer p-2 rounded-lg bg-primary-800 hover:bg-primary-700 transition-all shadow-sm min-w-0"
+                          className="cv-event-chip flex items-center gap-2 cursor-pointer"
+                          style={getEventStyle(urg, ns)}
                           title={p.titulo}
                         >
-                          <span className={`text-[11px] font-medium truncate flex-1 ${isCompleted ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
+                          <span
+                            className={`text-[12px] font-semibold truncate flex-1 text-gray-100 min-w-0${
+                              isCompleted ? " line-through opacity-50" : ""
+                            }`}
+                          >
                             {p.titulo}
                           </span>
-                          <div className="shrink-0 scale-75 origin-right">
-                              <UrgenciaIndicator nivel={urgencia} />
+                          <div className="shrink-0">
+                            <UrgenciaIndicator nivel={urg} />
                           </div>
                         </div>
                       );
@@ -1067,167 +1066,253 @@ export default function ProjetosPage() {
               );
             })}
           </div>
-          </div>
         </div>
-      );
+      </div>
+    );
   }
 
   function renderViewToggle() {
-      return (
-        <div className="flex bg-primary-800 rounded-lg p-1 border border-primary-700">
+    const views: [ViewMode, string, React.ReactNode][] = [
+      ["list",     "Lista",      <List     key="list"     size={20} />],
+      ["board",    "Quadros",    <LayoutGrid key="board"  size={20} />],
+      ["calendar", "Calendário", <Calendar key="calendar" size={20} />],
+    ];
+
+    return (
+      <div
+        className="flex gap-1 flex-none"
+        style={{ padding: 5, borderRadius: 14, background: "var(--primary-800)", border: "1px solid var(--primary-700)" }}
+      >
+        {views.map(([key, label, icon]) => (
           <button
-            onClick={() => changeView("list")}
-            className={`p-2 rounded-md transition-all ${
-              viewMode === "list" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"
-            }`}
-            title="Visualização em Lista"
+            key={key}
+            type="button"
+            onClick={() => changeView(key)}
+            title={label}
+            className="transition-all duration-200"
+            style={{
+              display: "grid",
+              placeItems: "center",
+              width: 44,
+              height: 38,
+              borderRadius: 10,
+              border: "none",
+              cursor: "pointer",
+              ...(viewMode === key
+                ? {
+                    color: "var(--primary-900)",
+                    background: "linear-gradient(135deg, var(--primary-300), var(--primary-500))",
+                    boxShadow: "0 6px 16px -6px rgba(30,182,232,0.7)",
+                  }
+                : { color: "var(--gray-400)", background: "none" }),
+            }}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
+            {icon}
           </button>
-    
-          <button
-            onClick={() => changeView("board")}
-            className={`p-2 rounded-md transition-all ${
-              viewMode === "board" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"
-            }`}
-            title="Visualização em Quadros"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" /><rect x="14" y="3" width="7" height="5" /><rect x="14" y="12" width="7" height="9" /><rect x="3" y="16" width="7" height="5" /></svg>
-          </button>
-    
-          <button
-            onClick={() => changeView("calendar")}
-            className={`p-2 rounded-md transition-all ${
-              viewMode === "calendar" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"
-            }`}
-            title="Visualização em Calendário"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-          </button>
-        </div>
-      );
+        ))}
+      </div>
+    );
+  }
+
+  function renderStatusBadge(ns: string) {
+    const configs: Record<string, { color: string; bg: string; border: string; label: string }> = {
+      "para fazer":    { color: "var(--primary-300)",   bg: "rgba(30,182,232,0.10)",   border: "rgba(30,182,232,0.35)",   label: "Para fazer" },
+      "fazendo":       { color: "var(--alert-medium)",  bg: "rgba(255,167,38,0.10)",   border: "rgba(255,167,38,0.35)",   label: "Fazendo" },
+      "pgto pendente": { color: "var(--error-medium)",  bg: "rgba(239,83,80,0.10)",    border: "rgba(239,83,80,0.35)",    label: "Pgto. Pendente" },
+      "finalizado":    { color: "var(--success-medium)", bg: "rgba(102,187,106,0.10)", border: "rgba(102,187,106,0.35)", label: "Finalizado" },
+      "arquivado":     { color: "var(--gray-400)",      bg: "rgba(148,169,173,0.08)",  border: "rgba(148,169,173,0.35)", label: "Arquivado" },
+    };
+    const cfg = configs[ns] ?? configs["arquivado"];
+    return (
+      <span
+        style={{
+          color: cfg.color,
+          background: cfg.bg,
+          border: `1px solid ${cfg.border}`,
+          borderRadius: "999px",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "7px",
+          fontSize: "13px",
+          fontWeight: 600,
+          padding: "6px 13px",
+          whiteSpace: "nowrap",
+        }}
+      >
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: "currentColor",
+            boxShadow: "0 0 8px currentColor",
+            flexShrink: 0,
+            display: "inline-block",
+          }}
+        />
+        {cfg.label}
+      </span>
+    );
   }
 
   function renderListView() {
     const temErroOuVazio = !loading && (error || !filtered.length);
 
     return (
-      <div className="flex-1 bg-primary-900/40 border border-primary-700 rounded-2xl overflow-hidden flex flex-col">
-        <div className="px-6 py-3 border-b border-primary-700 text-[13px] text-gray-400 flex items-center gap-4">
+      <div className="flex-1 flex flex-col gap-2.5 min-h-0 overflow-hidden">
+        <div className="hidden md:flex items-center gap-4 px-6 pb-1 text-[13.5px] font-medium text-gray-400">
           <div className="flex-1 min-w-[280px]">Projeto</div>
-          <div className="w-[220px] hidden lg:block">Contato</div>
-          <div className="w-[140px] hidden md:block">Valor</div>
-          <div className="w-[140px] hidden md:block">Status</div>
-          <div className="w-[120px] hidden md:block">Urgência</div>
-          <div className="w-[130px] hidden md:block">Entrega</div>
+          <div className="w-[210px] hidden lg:block">Contato</div>
+          <div className="w-[130px]">Valor</div>
+          <div className="w-[150px]">Status</div>
+          <div className="w-[100px]">Urgência</div>
+          <div className="w-[110px]">Entrega</div>
           <div className="w-[44px]" />
         </div>
 
-        <div className="flex-1 custom-scrollbar overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar pb-2">
           {loading ? (
             <SkeletonList rows={7} cols={6} />
           ) : temErroOuVazio ? (
             <div className="py-16 text-center text-sm">
-              {error ? <span className="text-red-400">{error}</span> : <span className="text-gray-500">Nenhum projeto encontrado com os filtros atuais.</span>}
+              {error
+                ? <span className="text-red-400">{error}</span>
+                : <span className="text-gray-500">Nenhum projeto encontrado com os filtros atuais.</span>
+              }
             </div>
           ) : (
-            <div className="px-5 py-5 flex flex-col gap-3">
+            <div className="flex flex-col gap-3">
               {filtered.map((p) => {
                 const ns = statusByProject[p.id];
                 const clienteNome = p.clientes?.nome || "Cliente não informado";
                 const clienteFoto = p.clientes?.foto_url || "/perfil.svg";
                 const pendente = ns === "pgto pendente";
                 const valorRestante = valorPendente(p);
-                const previewDescricao = p.descricao ? jsonToPlainText(p.descricao).slice(0, 110) : "";
-                const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR") : "—";
+                const previewDescricao = p.descricao ? jsonToPlainText(p.descricao).slice(0, 80) : "";
+                const entregaTxt = p.prazo_entrega
+                  ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR")
+                  : "—";
                 const urg = urgencyByProject[p.id] ?? "Sem prioridade";
+                const valor = p.isCollaborator
+                  ? (p.collaboratorValue != null
+                      ? p.collaboratorValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                      : "—")
+                  : (p.orcamento
+                      ? p.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+                      : "—");
 
                 return (
                   <div
                     key={p.id}
                     onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
-                    className={`group w-full bg-primary-900/45 hover:bg-primary-800/60 border border-primary-700 rounded-xl px-5 py-3 flex items-center gap-4 cursor-pointer transition-colors ${ns === "arquivado" ? "opacity-60" : ""}`}
+                    className={`proj-list-row${ns === "arquivado" ? " opacity-60" : ""}`}
                   >
                     <div className="flex items-center gap-4 flex-1 min-w-[280px]">
-                      <div className="w-[72px] h-[46px] rounded-2xl overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
+                      <div className="w-[52px] h-[52px] rounded-[14px] overflow-hidden shrink-0"
+                        style={{ border: "1px solid var(--gray-700)", background: "var(--primary-900)" }}>
                         <Image
                           src={p.cover_url || "/project-cover-placeholder.jpg"}
                           alt={`Capa do projeto ${p.titulo}`}
-                          width={220}
-                          height={140}
+                          width={52}
+                          height={52}
                           className="w-full h-full object-cover"
                         />
                       </div>
-
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[16px] text-gray-100 truncate">{p.titulo}</span>
-                          <span className={`hidden md:inline-flex items-center px-3 py-1 rounded-full text-[12px] ${statusPillClasses(ns)}`}>
-                            {statusLabel(ns)}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[17px] font-semibold text-gray-100 truncate leading-tight">
+                            {p.titulo}
                           </span>
                           {p.isCollaborator && (
-                            <span className="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-sky-500/10 text-sky-300 border border-sky-400/30">
-                              <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            <span
+                              className="shrink-0 hidden sm:inline-flex text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                              style={{
+                                color: "var(--primary-300)",
+                                background: "rgba(30,182,232,0.08)",
+                                border: "1px solid rgba(30,182,232,0.25)",
+                              }}
+                            >
                               Colaborador
                             </span>
                           )}
                         </div>
-
-                        <div className="mt-1 text-[13px] text-gray-400 line-clamp-1">{previewDescricao || clienteNome}</div>
-
-                        <div className="mt-2 flex items-center gap-2 md:hidden">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] ${statusPillClasses(ns)}`}>
-                            {statusLabel(ns)}
-                          </span>
-                          <div className="flex items-center gap-2 text-[12px] text-gray-300">
-                            <UrgenciaIndicator nivel={urg} />
-                            <span>{entregaTxt}</span>
-                          </div>
+                        <div className="mt-0.5 text-[13.5px] text-gray-400 truncate">
+                          {previewDescricao || p.clientes?.empresa || clienteNome}
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 md:hidden flex-wrap">
+                          {renderStatusBadge(ns)}
+                          <UrgenciaIndicator nivel={urg} />
+                          <span className="text-[12px] text-gray-400">{entregaTxt}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="w-[220px] hidden lg:flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full overflow-hidden border border-primary-700 bg-primary-900">
-                        <Image src={clienteFoto} alt={clienteNome} width={36} height={36} className="object-cover" />
+                    <div className="w-[210px] hidden lg:flex items-center gap-[11px] shrink-0">
+                      <div className="w-[34px] h-[34px] rounded-full overflow-hidden shrink-0"
+                        style={{ border: "1px solid var(--gray-600)", background: "var(--primary-900)" }}>
+                        <Image
+                          src={clienteFoto}
+                          alt={clienteNome}
+                          width={34}
+                          height={34}
+                          className="object-cover w-full h-full"
+                        />
                       </div>
-                      <span className="text-[14px] text-primary-100 truncate max-w-[160px]">{clienteNome}</span>
+                      <span className="text-[15px] text-gray-200 truncate">{clienteNome}</span>
                     </div>
 
-                    <div className="w-[140px] hidden md:block">
-                      <div className="text-[14px] text-gray-100">
-                        {p.isCollaborator
-                          ? (p.collaboratorValue != null ? p.collaboratorValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
-                          : (p.orcamento ? p.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
-                        }
-                      </div>
+                    <div className="w-[130px] hidden md:flex flex-col gap-1 shrink-0">
+                      <span className="text-[16px] font-semibold text-gray-100" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {valor}
+                      </span>
                       {pendente && !p.isCollaborator && (
-                        <div className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-400/30 inline-flex">
-                          Pend.: {valorRestante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </div>
+                        <span
+                          className="text-[12px] font-semibold w-fit"
+                          style={{
+                            color: "var(--error-medium)",
+                            background: "rgba(239,83,80,0.10)",
+                            border: "1px solid rgba(239,83,80,0.25)",
+                            borderRadius: "7px",
+                            padding: "2px 8px",
+                          }}
+                        >
+                          Pend. {valorRestante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </span>
                       )}
                       {p.isCollaborator && (
-                        <div className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-400/30 inline-flex">
+                        <span
+                          className="text-[12px] font-semibold w-fit"
+                          style={{
+                            color: "var(--primary-300)",
+                            background: "rgba(30,182,232,0.08)",
+                            border: "1px solid rgba(30,182,232,0.25)",
+                            borderRadius: "7px",
+                            padding: "2px 8px",
+                          }}
+                        >
                           Colaborador
-                        </div>
+                        </span>
                       )}
                     </div>
 
-                    <div className="w-[140px] hidden md:flex">
-                      <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[12px] w-full ${statusPillClasses(ns)}`}>
-                        {statusLabel(ns)}
-                      </span>
+                    <div className="w-[150px] hidden md:flex items-center shrink-0">
+                      {renderStatusBadge(ns)}
                     </div>
 
-                    <div className="w-[120px] hidden md:flex items-center justify-center">
+                    <div className="w-[100px] hidden md:flex items-center shrink-0">
                       <UrgenciaIndicator nivel={urg} />
                     </div>
 
-                    <div className="w-[130px] hidden md:block">
-                      <span className="text-[13px] text-gray-100">{entregaTxt}</span>
+                    <div className="w-[110px] hidden md:block shrink-0 text-[15px] text-gray-200"
+                      style={{ fontVariantNumeric: "tabular-nums" }}>
+                      {entregaTxt}
                     </div>
 
-                    <div className="w-[44px] flex justify-end" data-project-menu>
+                    <div
+                      className="w-[44px] flex justify-end shrink-0"
+                      data-project-menu
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="relative">
                         <button
                           type="button"
@@ -1235,17 +1320,26 @@ export default function ProjetosPage() {
                             e.stopPropagation();
                             setMenuOpenId((current) => (current === p.id ? null : p.id));
                           }}
-                          className="p-2 rounded-full hover:bg-primary-700/60 text-gray-400"
+                          className="proj-more-btn text-gray-400 hover:text-gray-100"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="5" r="1" />
-                            <circle cx="12" cy="12" r="1" />
-                            <circle cx="12" cy="19" r="1" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            stroke="none"
+                          >
+                            <circle cx="12" cy="5" r="1.6" />
+                            <circle cx="12" cy="12" r="1.6" />
+                            <circle cx="12" cy="19" r="1.6" />
                           </svg>
                         </button>
-
                         {menuOpenId === p.id && (
-                          <div className="absolute right-0 mt-2 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20" onClick={(e) => e.stopPropagation()}>
+                          <div
+                            className="absolute right-0 mt-2 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               type="button"
                               onClick={() => openEditModal(p.id)}
@@ -1286,7 +1380,7 @@ export default function ProjetosPage() {
 
   function renderBoardView() {
     if (loading) return (
-      <div className="mt-6 flex gap-4">
+      <div className="mt-6 flex gap-5">
         {Array.from({length: 4}).map((_,i) => (
           <div key={i} className="flex-1 min-w-0"><SkeletonBoardCards count={2} /></div>
         ))}
@@ -1296,29 +1390,52 @@ export default function ProjetosPage() {
     if (!filtered.length) return <div className="mt-8 text-gray-400">Nenhum projeto encontrado.</div>;
 
     return (
-      <div className="mt-6 overflow-y-auto pb-4 custom-scrollbar h-full">
-        <div className="flex divide-x divide-primary-700 min-h-full">
+      <div className="overflow-y-auto overflow-x-hidden pb-4 custom-scrollbar h-full">
+        <div
+          className="grid min-h-full"
+          style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`, gap: 20 }}
+        >
           {columns.map((col) => {
             const colProjects = filtered.filter((p) => statusByProject[p.id] === col.status);
 
             return (
-              <div key={col.status} className="flex-1 min-w-0 px-4 flex flex-col">
-                <div className="px-2 py-4 flex items-center justify-between sticky top-0 bg-primary-900 z-10">
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] ${statusPillClasses(col.status)}`}>
-                      {col.label}
-                    </span>
-                    <span className="text-[13px] text-gray-400">{colProjects.length}</span>
-                  </div>
+              <div key={col.status} className="flex flex-col gap-4">
+                <div
+                  className="flex items-center gap-3 px-1 py-3 sticky top-0 z-10"
+                  style={{ background: "var(--primary-900)" }}
+                >
+                  {renderStatusBadge(col.status)}
+                  <span
+                    className="text-[14px] font-semibold text-gray-400"
+                    style={{
+                      minWidth: 26,
+                      height: 26,
+                      padding: "0 8px",
+                      borderRadius: 8,
+                      display: "grid",
+                      placeItems: "center",
+                      background: "var(--primary-800)",
+                    }}
+                  >
+                    {colProjects.length}
+                  </span>
                 </div>
 
                 <div
                   onDragOver={handleColumnDragOver}
                   onDrop={() => handleColumnDrop(col.status as ProjetoStatus)}
-                  className={`pb-4 px-2 flex-1 ${col.status === "arquivado" ? "grid grid-cols-2 gap-4 auto-rows-min" : "flex flex-col gap-4"}`}
+                  className={`flex-1 ${col.status === "arquivado" ? "grid grid-cols-2 gap-4 auto-rows-min" : "flex flex-col gap-4"}`}
                 >
                   {colProjects.length === 0 ? (
-                    <div className="text-[13px] text-gray-500 italic px-1">Nenhum projeto.</div>
+                    <div
+                      className="text-[14px] text-gray-500 text-center py-7"
+                      style={{
+                        borderRadius: 16,
+                        border: "1px dashed var(--primary-700)",
+                      }}
+                    >
+                      Nenhum projeto
+                    </div>
                   ) : (
                     colProjects.map((p) => {
                       const ns = statusByProject[p.id];
@@ -1328,6 +1445,9 @@ export default function ProjetosPage() {
                       const valorRestante = valorPendente(p);
                       const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega).toLocaleDateString("pt-BR") : "—";
                       const urg = urgencyByProject[p.id] ?? "Sem prioridade";
+                      const valorExibido = p.isCollaborator
+                        ? (p.collaboratorValue != null ? p.collaboratorValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—")
+                        : (p.orcamento ? p.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—");
 
                       return (
                         <div
@@ -1335,116 +1455,117 @@ export default function ProjetosPage() {
                           draggable
                           onDragStart={() => handleDragStart(p.id)}
                           onDragEnd={handleDragEnd}
-                          className={`bg-primary-900/55 border border-primary-700 rounded-2xl overflow-hidden cursor-grab active:cursor-grabbing hover:border-primary-500 transition-colors ${
-                            draggingId === p.id ? "opacity-60 border-primary-500" : ""
-                          }`}
+                          className={`bv-card-new cursor-grab active:cursor-grabbing${draggingId === p.id ? " opacity-60" : ""}`}
                         >
-                          <div className="relative w-full h-[120px] bg-primary-900 border-b border-primary-700">
+                          <div
+                            className="relative w-full overflow-hidden"
+                            style={{ height: 132, background: "var(--primary-700)" }}
+                          >
                             <Image
                               src={p.cover_url || "/project-cover-placeholder.jpg"}
                               alt={`Capa do projeto ${p.titulo}`}
                               fill
                               className="object-cover"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-primary-900/70 via-primary-900/10 to-transparent" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                           </div>
 
-                          <div className="p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[15px] text-gray-100 font-medium line-clamp-2">{p.titulo}</div>
-                                <div className="mt-2 flex items-center justify-between gap-3">
-                                  <div className="text-[13px] text-gray-200">
-                                    {p.orcamento ? p.orcamento.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}
-                                  </div>
-                                  <div className="flex items-center gap-2 text-[12px] text-gray-300">
-                                    <UrgenciaIndicator nivel={urg} />
-                                    <span>{entregaTxt}</span>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="relative flex flex-col items-end gap-2" data-project-menu>
+                          <div className="flex flex-col gap-3 p-5">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="text-[17px] font-semibold text-gray-100 leading-snug line-clamp-2 flex-1">
+                                {p.titulo}
+                              </h3>
+                              <div className="relative flex-none" data-project-menu onClick={(e) => e.stopPropagation()}>
                                 <button
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setMenuOpenId((prev) => (prev === p.id ? null : p.id));
                                   }}
-                                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary-800 text-gray-300"
+                                  className="proj-more-btn text-gray-400 hover:text-gray-100"
                                 >
-                                  ⋮
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                    <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
+                                  </svg>
                                 </button>
-
                                 {menuOpenId === p.id && (
-                                  <div className="absolute right-0 top-8 z-30 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                      type="button"
-                                      onClick={() => openEditModal(p.id)}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 rounded-t-xl"
-                                    >
-                                      Editar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDuplicate(p.id)}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700"
-                                    >
-                                      Duplicar
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setMenuOpenId(null);
-                                        handleAskDelete(p.id);
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] text-red-300 hover:bg-red-500/10 rounded-b-xl"
-                                    >
-                                      Excluir
-                                    </button>
+                                  <div className="absolute right-0 top-9 z-30 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                                    <button type="button" onClick={() => openEditModal(p.id)} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 rounded-t-xl">Editar</button>
+                                    <button type="button" onClick={() => handleDuplicate(p.id)} className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700">Duplicar</button>
+                                    <button type="button" onClick={() => { setMenuOpenId(null); handleAskDelete(p.id); }} className="w-full text-left px-4 py-2.5 text-[13px] text-red-400 hover:bg-primary-700 rounded-b-xl">Excluir</button>
                                   </div>
                                 )}
                               </div>
                             </div>
 
-                            <div className="mt-3 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-full overflow-hidden border border-primary-600 bg-primary-900">
-                                  <Image src={clienteFoto} alt={clienteNome} width={28} height={28} className="object-cover" />
-                                </div>
-                                <span className="text-[13px] text-primary-100 truncate max-w-[190px]">{clienteNome}</span>
-                              </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[16px] font-semibold text-gray-100" style={{ fontVariantNumeric: "tabular-nums" }}>
+                                {valorExibido}
+                              </span>
+                              <UrgenciaIndicator nivel={urg} />
+                              <span className="text-[13.5px] text-gray-400 ml-auto" style={{ fontVariantNumeric: "tabular-nums" }}>
+                                {entregaTxt}
+                              </span>
                             </div>
 
-                            {pendente && ns === "pgto pendente" && (
-                              <div className="mt-4 flex flex-col gap-2">
-                                <span className="text-[12px] px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-400/30 text-center font-medium">
-                                  Pendência: {valorRestante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                            <div className="flex items-center gap-[10px]">
+                              <div
+                                className="w-[34px] h-[34px] rounded-full overflow-hidden shrink-0"
+                                style={{ border: "1px solid var(--primary-600)", background: "var(--primary-900)" }}
+                              >
+                                <Image src={clienteFoto} alt={clienteNome} width={34} height={34} className="object-cover w-full h-full" />
+                              </div>
+                              <span className="text-[14.5px] text-gray-200 truncate">{clienteNome}</span>
+                              {p.isCollaborator && (
+                                <span className="shrink-0 text-[11px] font-semibold px-2 py-0.5 rounded-full ml-auto"
+                                  style={{ color: "var(--primary-300)", background: "rgba(30,182,232,0.08)", border: "1px solid rgba(30,182,232,0.25)" }}>
+                                  Colaborador
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() => checkCollabAndFinalize(p.id)}
-                                  className="text-[14px] w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors shadow-lg shadow-emerald-500/20"
-                                >
-                                  Pagamento recebido
-                                </button>
+                              )}
+                            </div>
+
+                            {pendente && (
+                              <div
+                                className="text-[14px] font-medium text-center py-[10px]"
+                                style={{
+                                  color: "var(--error-medium)",
+                                  borderRadius: 11,
+                                  background: "rgba(239,83,80,0.08)",
+                                  border: "1px solid rgba(239,83,80,0.28)",
+                                }}
+                              >
+                                Pendência <strong className="font-bold">{valorRestante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
                               </div>
                             )}
 
+                            {pendente && (
+                              <button
+                                type="button"
+                                onClick={() => checkCollabAndFinalize(p.id)}
+                                className="bv-paid-btn w-full flex items-center justify-center gap-2"
+                              >
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>
+                                </svg>
+                                Pagamento recebido
+                              </button>
+                            )}
+
                             {ns === "arquivado" && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleAskDelete(p.id)}
-                                  className="mt-3 w-full bg-red-500/10 border border-red-500/30 text-[13px] text-red-400 rounded-xl py-2 hover:bg-red-500/20 transition-colors"
-                                >
-                                  Excluir permanentemente
-                                </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAskDelete(p.id)}
+                                className="w-full text-[13px] text-red-400 py-2 rounded-xl transition-colors"
+                                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.28)" }}
+                              >
+                                Excluir permanentemente
+                              </button>
                             )}
 
                             <button
                               type="button"
                               onClick={() => router.push(`/dashboard/projetos/${p.id}`)}
-                              className="mt-3 w-full bg-primary-800 border border-primary-700 text-[13px] text-gray-200 rounded-xl py-2 hover:bg-primary-700 transition-colors"
+                              className="bv-details-btn w-full"
                             >
                               Ver detalhes
                             </button>
@@ -1467,57 +1588,91 @@ export default function ProjetosPage() {
       <PageTour name="projetos" steps={PROJETOS_TOUR_STEPS} />
 
       <div className="flex flex-col flex-1 gap-4 pr-6 py-4 w-full overflow-hidden relative">
-        <div className="flex items-center justify-between gap-4 w-full">
-          <span className="text-[15px] text-gray-300">
-            {totalProjetos === 0 ? "Nenhum projeto" : totalProjetos === 1 ? "1 projeto" : `${totalProjetos} projetos`}
+        <div className="flex items-center gap-4 w-full pb-3">
+          {/* Contador */}
+          <span className="text-[19px] text-gray-300 flex-none">
+            <strong className="text-white font-bold">{totalProjetos}</strong>{" "}
+            {totalProjetos === 1 ? "projeto" : "projetos"}
           </span>
 
-          <div className="flex-1" />
+          {renderViewToggle()}
 
-          <div className="flex items-center gap-3">
-            {renderViewToggle()}
+          <label
+            className="flex-1 flex items-center gap-3 transition-colors cursor-text"
+            style={{
+              height: 50,
+              padding: "0 16px",
+              borderRadius: 13,
+              border: "1px solid var(--primary-700)",
+              background: "var(--primary-800)",
+              color: "var(--gray-400)",
+            }}
+          >
+            <Search size={19} style={{ flexShrink: 0 }} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar projetos, clientes…"
+              className="flex-1 bg-transparent outline-none text-[15px] text-gray-100 placeholder-gray-500"
+            />
+          </label>
 
-            <div className="flex items-center gap-3 bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 w-[240px]">
-              <Search size={18} className="text-gray-400" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Buscar..."
-                className="w-full bg-transparent outline-none text-[14px] text-gray-200 placeholder-gray-400"
-              />
-            </div>
+          <button
+            type="button"
+            onClick={() => setShowArchived((prev) => !prev)}
+            className="flex items-center gap-2 flex-none font-medium transition-colors"
+            style={{
+              height: 50,
+              padding: "0 18px",
+              borderRadius: 13,
+              fontSize: 15,
+              border: showArchived
+                ? "1px solid var(--gray-500)"
+                : "1px solid var(--primary-700)",
+              color: showArchived ? "var(--gray-100)" : "var(--gray-200)",
+              background: showArchived ? "var(--primary-700)" : "var(--primary-800)",
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="5" rx="1.5"/>
+              <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/>
+              <path d="M10 13h4"/>
+            </svg>
+            {showArchived ? "Voltar" : "Arquivados"}
+          </button>
 
-            <button
-              onClick={() => setShowArchived((prev) => !prev)}
-              className={`px-4 py-2 rounded-lg text-[14px] font-medium transition-colors border ${
-                showArchived
-                  ? "bg-gray-700 text-white border-gray-600"
-                  : "bg-primary-800 text-gray-400 border-primary-700 hover:text-gray-200 hover:bg-primary-700"
-              }`}
-            >
-              {showArchived ? "Voltar aos Projetos" : "Arquivados"}
-            </button>
+          <button
+            type="button"
+            id="tour-add-btn"
+            onClick={() => {
+              const limit = subscription.limits.projetos;
+              const ativos = projetos.filter(p => !isArchivedProject(p)).length;
+              if (limit !== null && ativos >= limit) {
+                triggerUpgradeBanner("projetos");
+                return;
+              }
+              router.push("/dashboard/projetos/novo");
+            }}
+            className="flex items-center gap-2 flex-none font-semibold transition-all duration-200 pv-primary-btn"
+            style={{
+              height: 50,
+              padding: "0 22px",
+              borderRadius: 13,
+              fontSize: 15.5,
+              border: "none",
+              cursor: "pointer",
+              color: "var(--primary-900)",
+              background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
+              boxShadow: "0 12px 28px -12px rgba(30,182,232,0.8)",
+            }}
+          >
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14"/><path d="M5 12h14"/>
+            </svg>
+            Projeto
+          </button>
 
-            <div className="w-px h-8 bg-primary-700 mx-2" />
-
-            <button
-              onClick={() => {
-                const limit = subscription.limits.projetos;
-                const ativos = projetos.filter(p => !isArchivedProject(p)).length;
-                if (limit !== null && ativos >= limit) {
-                  triggerUpgradeBanner("projetos");
-                  return;
-                }
-                router.push("/dashboard/projetos/novo");
-              }}
-              id="tour-add-btn"
-              className="bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg py-2 px-6 text-[15px] font-semibold transition-colors shadow-lg shadow-primary-500/20"
-            >
-              + Projeto
-            </button>
-
-            <HeaderProfile />
-          </div>
+          <HeaderProfile />
         </div>
 
         <section className="flex-1 h-full min-h-0 overflow-hidden pr-4 flex flex-col">
@@ -1586,7 +1741,6 @@ export default function ProjetosPage() {
                   <div className="w-7 h-7 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : editModal.step === 1 ? (
-                /* ── PASSO 1: Informações ── */
                 <div className="px-6 py-5 flex flex-col gap-4">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[13px] text-gray-400 font-medium">Título</label>
@@ -1685,7 +1839,6 @@ export default function ProjetosPage() {
                   </div>
                 </div>
               ) : (
-                /* ── PASSO 2: Capa e notas ── */
                 <div className="px-6 py-5 flex flex-col gap-5">
                   <div className="flex flex-col gap-2">
                     <label className="text-[13px] text-gray-400 font-medium">Imagem de capa</label>
@@ -1741,7 +1894,6 @@ export default function ProjetosPage() {
                 </div>
               )}
 
-              {/* Footer sticky */}
               <div className="sticky bottom-0 bg-primary-800 flex items-center justify-between px-6 py-4 border-t border-primary-700">
                 <div className="flex items-center gap-2">
                   {editModal.step === 1 ? (
@@ -1848,6 +2000,142 @@ export default function ProjetosPage() {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+
+        /* ── Header ── */
+        .pv-primary-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 34px -10px rgba(30,182,232,0.9) !important;
+        }
+
+        /* ── List view redesign ── */
+        .proj-list-row {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 16px 24px;
+          border-radius: 18px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          transition: border-color .2s, background .2s;
+          cursor: pointer;
+        }
+        .proj-list-row:hover {
+          border-color: var(--primary-600);
+          background: var(--primary-700);
+        }
+        .proj-more-btn {
+          display: grid;
+          place-items: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 10px;
+          border: none;
+          background: none;
+          cursor: pointer;
+          transition: background .2s, color .2s;
+        }
+        .proj-more-btn:hover {
+          background: rgba(148, 169, 173, 0.1);
+        }
+
+        /* ── Board view redesign ── */
+        .bv-card-new {
+          border-radius: 20px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          overflow: hidden;
+          transition: border-color .2s, transform .2s, box-shadow .2s;
+        }
+        .bv-card-new:hover {
+          border-color: var(--primary-600);
+          transform: translateY(-3px);
+          box-shadow: 0 20px 44px -24px rgba(0,0,0,0.45);
+        }
+        .bv-paid-btn {
+          height: 46px;
+          font-size: 15px;
+          font-weight: 600;
+          color: #06241a;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          background: linear-gradient(135deg, var(--success-medium), var(--success-dark));
+          box-shadow: 0 12px 26px -12px rgba(56,142,60,0.8);
+          transition: transform .2s, box-shadow .2s;
+        }
+        .bv-paid-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 16px 30px -10px rgba(56,142,60,0.9);
+        }
+        .bv-details-btn {
+          height: 46px;
+          font-size: 15px;
+          font-weight: 500;
+          color: var(--gray-100);
+          border-radius: 12px;
+          border: 1px solid var(--primary-600);
+          background: var(--primary-800);
+          cursor: pointer;
+          transition: border-color .2s, color .2s, background .2s;
+        }
+        .bv-details-btn:hover {
+          border-color: var(--primary-500);
+          color: var(--gray-100);
+          background: var(--primary-700);
+        }
+
+        /* ── Calendar redesign ── */
+        .cv-nav-btn {
+          display: grid;
+          place-items: center;
+          width: 42px;
+          height: 42px;
+          border-radius: 11px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-800);
+          color: var(--gray-300);
+          cursor: pointer;
+          transition: border-color .2s, color .2s;
+          flex-shrink: 0;
+        }
+        .cv-nav-btn:hover {
+          border-color: var(--primary-500);
+          color: var(--primary-300);
+        }
+        .cv-cell-new {
+          border-radius: 12px;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          border: 1px solid var(--primary-700);
+          background: var(--primary-900);
+          transition: border-color .15s;
+        }
+        .cv-cell-new.is-today {
+          border-color: var(--primary-500);
+          background: rgba(30,182,232,0.07);
+          box-shadow: inset 0 0 0 1px rgba(30,182,232,0.4), 0 0 30px -16px var(--primary-500);
+        }
+        .cv-day-num {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--gray-300);
+          font-variant-numeric: tabular-nums;
+          line-height: 1;
+        }
+        .cv-day-num.is-today {
+          color: var(--primary-300);
+        }
+        .cv-event-chip {
+          padding: 7px 10px;
+          border-radius: 9px;
+          min-width: 0;
+          transition: opacity .15s;
+        }
+        .cv-event-chip:hover {
+          opacity: 0.82;
         }
       `}</style>
     </>

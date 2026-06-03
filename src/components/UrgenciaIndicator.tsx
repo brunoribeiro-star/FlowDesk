@@ -4,40 +4,41 @@ interface UrgenciaIndicatorProps {
   nivel: string;
 }
 
-function getUrgenciaColor(nivel: string): string {
-  switch (nivel) {
-    case "Muito urgente":
-    case "Vencida": return "bg-rose-400";
-    case "Urgente":  return "bg-amber-400";
-    case "Normal":   return "bg-sky-400";
-    case "Baixa":    return "bg-emerald-400";
-    default:         return "bg-gray-600";
-  }
-}
+const HEIGHTS = [7, 11, 15, 18];
 
-function getAtivos(nivel: string): number {
+function getUrgenciaConfig(nivel: string): { color: string; shadow: string; ativos: number } {
   switch (nivel) {
     case "Muito urgente":
-    case "Vencida": return 4;
-    case "Urgente": return 3;
-    case "Normal":  return 2;
-    case "Baixa":   return 1;
-    default:        return 0;
+    case "Vencida":
+      return { color: "var(--error-medium)", shadow: "0 0 6px -1px var(--error-medium)", ativos: 4 };
+    case "Urgente":
+      return { color: "var(--alert-medium)", shadow: "0 0 6px -1px var(--alert-medium)", ativos: 3 };
+    case "Normal":
+      return { color: "var(--primary-400)", shadow: "0 0 6px -1px var(--primary-500)", ativos: 2 };
+    case "Baixa":
+      return { color: "var(--primary-400)", shadow: "0 0 6px -1px var(--primary-500)", ativos: 1 };
+    default:
+      return { color: "var(--gray-600)", shadow: "none", ativos: 0 };
   }
 }
 
 const UrgenciaIndicator = React.memo(function UrgenciaIndicator({ nivel }: UrgenciaIndicatorProps) {
-  const total = 4;
-  const ativos = getAtivos(nivel);
-  const colorClass = getUrgenciaColor(nivel);
+  const { color, shadow, ativos } = getUrgenciaConfig(nivel);
 
   return (
-    <div className="flex items-end gap-[3px]">
-      {Array.from({ length: total }).map((_, i) => (
-        <div
+    <div style={{ display: "inline-flex", alignItems: "flex-end", gap: "3px", height: "18px" }}>
+      {HEIGHTS.map((h, i) => (
+        <span
           key={i}
-          className={`w-[3px] rounded-full ${i < ativos ? colorClass : "bg-gray-600"}`}
-          style={{ height: 6 + i * 3 }}
+          style={{
+            width: 4,
+            height: h,
+            borderRadius: 2,
+            background: i < ativos ? color : "var(--gray-600)",
+            boxShadow: i < ativos ? shadow : "none",
+            display: "inline-block",
+            flexShrink: 0,
+          }}
         />
       ))}
     </div>
