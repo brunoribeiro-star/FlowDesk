@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import HeaderProfile from "@/components/HeaderProfile";
 import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList } from "@/components/Skeleton";
-import { formatarData, formatarDataCurta, tempoRelativo } from "@/lib/utils";
+import { formatarDataCurta, tempoRelativo } from "@/lib/utils";
 import { Send, X } from "lucide-react";
 import PageTour from "@/components/PageTour";
 import type { Step } from "react-joyride";
@@ -218,277 +218,298 @@ export default function PagamentosPage() {
 
   const total = pagamentos.length;
 
+  const AVATAR_TINTS = [
+    'radial-gradient(130% 130% at 30% 20%, #1b5e75, #0c2d39)',
+    'radial-gradient(130% 130% at 30% 20%, #176a86, #0c2f3a)',
+    'radial-gradient(130% 130% at 30% 20%, #134a5c, #0b2a33)',
+    'radial-gradient(130% 130% at 30% 20%, #20586a, #0d3038)',
+  ];
+
   return (
     <>
       <PageTour name="pagamentos" steps={PAGAMENTOS_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 gap-8 pr-6 py-8 overflow-hidden">
-        <header className="w-full flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 px-3 py-2 border border-primary-700 text-gray-300 rounded-lg hover:bg-primary-800 transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              <span className="text-[14px]">Voltar</span>
-            </button>
+      <div
+        className="relative flex flex-col flex-1 gap-[22px] overflow-hidden"
+        style={{ padding: '28px 40px 36px' }}
+      >
+        <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 520, height: 520, right: -180, top: -180, background: 'radial-gradient(circle, rgba(30,182,232,0.12), transparent 70%)', filter: 'blur(100px)' }} />
+        <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 460, height: 460, right: -160, bottom: -200, background: 'radial-gradient(circle, rgba(16,66,83,0.5), transparent 70%)', filter: 'blur(100px)' }} />
 
-            <div className="flex flex-col">
-              <h1 className="text-[28px] md:text-[32px] font-semibold text-gray-100">
-                Pagamentos
-              </h1>
-              <p className="text-[15px] md:text-[16px] text-gray-300">
-                Overview geral dos pagamentos dos seus projetos.
-              </p>
-            </div>
-          </div>
-
+        <header className="relative z-10 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="flex items-center gap-[11px] cursor-pointer transition-colors duration-200"
+            style={{ height: 46, padding: '0 18px', borderRadius: 13, border: '1px solid var(--gray-700)', background: 'none', color: 'var(--gray-300)', fontSize: 16, fontWeight: 500 }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-500)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+            </svg>
+            Voltar
+          </button>
           <HeaderProfile />
         </header>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-gray-400">
-            <span className="inline-block w-2 h-2 rounded-full bg-primary-500" />
-            <span>
-              {total === 0
-                ? "Nenhum pagamento cadastrado"
-                : total === 1
-                ? "1 pagamento cadastrado"
-                : `${total} pagamentos cadastrados`}
-            </span>
-          </div>
+        <div className="relative z-10">
+          <h1 className="m-0 font-bold text-white" style={{ fontSize: 38, letterSpacing: '-0.02em' }}>Pagamentos</h1>
+          <p className="m-0 mt-[10px]" style={{ fontSize: 16.5, color: 'var(--gray-400)' }}>Overview geral dos pagamentos dos seus projetos.</p>
+        </div>
 
-          <div className="flex-1" />
+        <div className="relative z-10 flex items-center justify-between">
+          <span className="flex items-center gap-[11px]" style={{ fontSize: 16, color: 'var(--gray-400)' }}>
+            <span
+              className="rounded-full flex-none"
+              style={{ width: 9, height: 9, display: 'inline-block', background: 'var(--primary-400)', boxShadow: '0 0 10px -1px var(--primary-500)' }}
+            />
+            <strong className="text-white font-bold">{total}</strong>&nbsp;pagamento{total !== 1 ? 's' : ''} cadastrado{total !== 1 ? 's' : ''}
+          </span>
 
           <div className="relative">
             <select
               value={filtroStatus}
               onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
-              className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 pr-10 text-[13px] text-gray-100 appearance-none"
+              className="appearance-none cursor-pointer outline-none transition-colors duration-200"
+              style={{ height: 48, padding: '0 44px 0 18px', borderRadius: 13, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', color: 'var(--gray-200)', fontSize: 15, fontFamily: 'inherit' }}
             >
               <option value="">Todos os status</option>
               <option value="pendentes">Pendentes</option>
               <option value="pagos">Pagos</option>
             </select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">
-              ▼
-            </span>
+            <svg className="pointer-events-none absolute" style={{ right: 16, top: '50%', transform: 'translateY(-50%)', color: 'var(--gray-500)' }} width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
           </div>
         </div>
 
-        <section className="flex-1 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden flex flex-col">
-          <div className="px-6 py-3 border-b border-primary-700 text-[13px] text-gray-400 grid grid-cols-7 gap-4">
-            <div>Cliente</div>
-            <div>Projeto</div>
-            <div>Status</div>
-            <div>Valor</div>
-            <div>Vencimento / Pagamento</div>
-            <div>Criação</div>
-            <div className="text-right">Ações</div>
+        <div
+          className="relative z-10 flex-1 min-h-0 flex flex-col overflow-hidden"
+          style={{ borderRadius: 22, border: '1px solid var(--gray-700)', background: 'linear-gradient(180deg, rgba(20,40,48,0.36), rgba(8,34,42,0.2))' }}
+        >
+          <div
+            className="grid items-center flex-none"
+            style={{ padding: '20px 30px', borderBottom: '1px solid var(--gray-700)', gap: 20, gridTemplateColumns: '1.7fr 1.7fr 1fr 1fr 1.3fr 0.9fr 1.4fr' }}
+          >
+            {['Cliente', 'Projeto', 'Status', 'Valor', 'Vencimento / Pagamento', 'Criação', 'Ações'].map((h, i) => (
+              <span key={i} className={i === 6 ? 'text-right' : ''} style={{ fontSize: 13, fontWeight: 500, color: 'var(--gray-400)' }}>{h}</span>
+            ))}
           </div>
 
-          <div className="flex-1 overflow-y-auto payments-scroll">
+          <div className="flex-1 overflow-y-auto payments-scroll flex flex-col">
             {loading ? (
               <SkeletonList rows={6} cols={7} />
             ) : erro ? (
-              <div className="py-16 text-center text-red-400 text-sm">{erro}</div>
+              <div className="py-16 text-center text-sm" style={{ color: 'var(--error-medium)' }}>{erro}</div>
             ) : pagamentosFiltrados.length === 0 ? (
-              <div className="py-16 text-center text-gray-500 text-sm">
-                Nenhum pagamento encontrado.
-              </div>
+              <div className="py-16 text-center text-sm" style={{ color: 'var(--gray-500)' }}>Nenhum pagamento encontrado.</div>
             ) : (
-              <div className="divide-y divide-primary-800">
-                {pagamentosFiltrados.map((p) => {
-                  const status = statusVisual(p);
-                  const cliente = clienteInfo(p.projeto_id);
-                  const foto = cliente?.foto_url || "/cliente_placeholder.svg";
-                  const tipo = classificarPagamento(p);
-                  const dataRef =
-                    tipo === "pago" ? p.data_pagamento : p.data_prevista;
+              pagamentosFiltrados.map((p) => {
+                const tipo = classificarPagamento(p);
+                const cliente = clienteInfo(p.projeto_id);
+                const foto = cliente?.foto_url || null;
+                const dataRef = tipo === 'pago' ? p.data_pagamento : p.data_prevista;
 
-                  return (
-                    <div
-                      key={p.id}
-                      className="grid grid-cols-7 gap-4 px-6 py-4 hover:bg-primary-800/70 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full overflow-hidden border border-primary-700 flex-shrink-0">
-                          <Image
-                            src={foto}
-                            alt="Cliente"
-                            width={40}
-                            height={40}
-                            className="object-cover w-full h-full"
-                          />
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="text-[14px] text-gray-100">
-                            {cliente?.nome || "Cliente"}
-                          </span>
-                          <span className="text-[12px] text-gray-400">
-                            {cliente?.empresa || ""}
-                          </span>
-                        </div>
-                      </div>
+                const nomeCliente = cliente?.nome || 'C';
+                const iniciais = nomeCliente.split(' ').filter(Boolean).slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
+                const tintIdx = nomeCliente.charCodeAt(0) % 4;
 
-                      <div className="flex items-center text-gray-100 text-[15px]">
-                        {projetoNome(p.projeto_id)}
-                      </div>
+                const statusBadge = tipo === 'pago'
+                  ? { label: 'Pago',     color: 'var(--success-medium)', bg: 'rgba(102,187,106,0.10)', border: 'rgba(102,187,106,0.35)' }
+                  : tipo === 'atrasado'
+                  ? { label: 'Atrasado', color: 'var(--error-medium)',   bg: 'rgba(239,83,80,0.10)',   border: 'rgba(239,83,80,0.35)' }
+                  : { label: 'Pendente', color: 'var(--alert-medium)',   bg: 'rgba(255,167,38,0.10)',  border: 'rgba(255,167,38,0.35)' };
 
-                      <div className="flex items-center">
-                        <span
-                          className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-medium ${status.bg} ${status.text}`}
-                        >
-                          {status.label}
+                return (
+                  <div
+                    key={p.id}
+                    className="grid items-center transition-colors duration-200"
+                    style={{ padding: '16px 30px', borderBottom: '1px solid rgba(29,38,40,0.7)', gap: 20, gridTemplateColumns: '1.7fr 1.7fr 1fr 1fr 1.3fr 0.9fr 1.4fr' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(148,169,173,0.04)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                  >
+                    <div className="flex items-center min-w-0" style={{ gap: 14 }}>
+                      <span
+                        className="flex-none grid place-items-center rounded-full overflow-hidden"
+                        style={{ width: 46, height: 46, border: '1px solid rgba(255,255,255,0.08)', fontSize: 15, fontWeight: 700, color: 'var(--primary-100)', background: foto ? undefined : AVATAR_TINTS[tintIdx], flexShrink: 0 }}
+                      >
+                        {foto
+                          ? <Image src={foto} alt="Cliente" width={46} height={46} className="object-cover w-full h-full" />
+                          : iniciais}
+                      </span>
+                      <div className="flex flex-col min-w-0" style={{ gap: 3 }}>
+                        <span className="truncate font-semibold text-white" style={{ fontSize: 16 }}>{nomeCliente}</span>
+                        <span className="flex items-center gap-[6px] truncate" style={{ fontSize: 13, color: 'var(--gray-500)' }}>
+                          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                            <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h.01"/><path d="M15 7h.01"/><path d="M9 11h.01"/><path d="M15 11h.01"/><path d="M9 15h6"/>
+                          </svg>
+                          {cliente?.empresa || '—'}
                         </span>
                       </div>
+                    </div>
 
-                      <div className="flex items-center text-[14px] text-gray-100">
-                        {p.valor
-                          ? p.valor.toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })
-                          : "—"}
-                      </div>
+                    <span className="truncate" style={{ fontSize: 15.5, fontWeight: 500, color: 'var(--gray-100)', lineHeight: 1.35 }}>
+                      {projetoNome(p.projeto_id)}
+                    </span>
 
-                      <div className="flex items-center text-[13px] text-gray-100">
-                        {tipo === "pago"
-                          ? `Pago em ${formatarDataCurta(dataRef)}`
-                          : dataRef
-                          ? `Vence em ${formatarDataCurta(dataRef)}`
-                          : "Vencimento não definido"}
-                      </div>
+                    <div>
+                      <span
+                        className="inline-flex items-center gap-2 font-semibold"
+                        style={{ fontSize: 14, padding: '6px 12px', borderRadius: 10, border: `1px solid ${statusBadge.border}`, background: statusBadge.bg, color: statusBadge.color }}
+                      >
+                        <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: 'currentColor', display: 'inline-block' }} />
+                        {statusBadge.label}
+                      </span>
+                    </div>
 
-                      <div className="flex items-center text-[13px] text-gray-400">
-                        {tempoRelativo(p.created_at)}
-                      </div>
+                    <span className="font-bold text-white" style={{ fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>
+                      {p.valor ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
+                    </span>
 
-                      <div className="flex items-center justify-end gap-3">
-                        {tipo !== "pago" && (
-                          <button
-                            onClick={() => abrirCobrancaModal(p)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-500 text-[12px] text-primary-100"
+                    <span style={{ fontSize: 14.5, fontVariantNumeric: 'tabular-nums', color: tipo === 'atrasado' ? 'var(--error-medium)' : 'var(--gray-300)' }}>
+                      {tipo === 'pago'
+                        ? `Pago em ${formatarDataCurta(dataRef)}`
+                        : dataRef
+                        ? `Vence em ${formatarDataCurta(dataRef)}`
+                        : 'Vencimento não definido'}
+                    </span>
+
+                    <span style={{ fontSize: 14, color: 'var(--gray-500)' }}>{tempoRelativo(p.created_at)}</span>
+
+                    <div className="flex items-center justify-end gap-2">
+                      {tipo !== 'pago' && (
+                        <button
+                          type="button"
+                          onClick={() => abrirCobrancaModal(p)}
+                          className="inline-flex items-center gap-2 cursor-pointer transition-all duration-200"
+                          style={{ height: 38, padding: '0 16px', borderRadius: 11, border: '1px solid rgba(30,182,232,0.4)', background: 'rgba(30,182,232,0.07)', color: 'var(--primary-300)', fontSize: 14.5, fontWeight: 600 }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.16)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-200)'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.07)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-300)'; }}
+                        >
+                          <Send size={16} />
+                          {p.notificado_em ? 'Reenviar' : 'Cobrar'}
+                        </button>
+                      )}
+
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenMenuId((cur) => (cur === p.id ? null : p.id))}
+                          className="grid place-items-center cursor-pointer transition-colors duration-200"
+                          style={{ width: 38, height: 38, borderRadius: 10, border: 0, background: 'none', color: 'var(--gray-400)' }}
+                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(148,169,173,0.10)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-100)'; }}
+                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-400)'; }}
+                        >
+                          <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
+                          </svg>
+                        </button>
+
+                        {openMenuId === p.id && (
+                          <div
+                            className="absolute right-0 mt-2 z-20 p-2 flex flex-col"
+                            style={{ width: 180, borderRadius: 16, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
                           >
-                            <Send size={12} />
-                            {p.notificado_em ? "Reenviar cobrança" : "Cobrar"}
-                          </button>
-                        )}
-
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setOpenMenuId((cur) => (cur === p.id ? null : p.id))
-                            }
-                            className="p-1.5 rounded-lg hover:bg-primary-700 text-gray-400"
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-5 h-5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
+                            <button
+                              type="button"
+                              onClick={() => { setOpenMenuId(null); if (p.projeto_id) router.push(`/dashboard/projetos/${p.projeto_id}`); }}
+                              className="w-full text-left px-4 py-3 rounded-[10px] text-[14px] text-gray-100 bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)]"
                             >
-                              <circle cx="12" cy="5" r="1" />
-                              <circle cx="12" cy="12" r="1" />
-                              <circle cx="12" cy="19" r="1" />
-                            </svg>
-                          </button>
-
-                          {openMenuId === p.id && (
-                            <div className="absolute right-0 mt-2 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20">
-                              <button
-                                onClick={() => {
-                                  setOpenMenuId(null);
-                                  if (p.projeto_id)
-                                    router.push(`/dashboard/projetos/${p.projeto_id}`);
-                                }}
-                                className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 rounded-t-xl"
-                              >
-                                Ver projeto
-                              </button>
-
-                              <button
-                                onClick={() => excluirPagamento(p.id)}
-                                className="w-full text-left px-4 py-2.5 text-[13px] text-red-400 hover:bg-primary-700 rounded-b-xl"
-                              >
-                                Excluir
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                              Ver projeto
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setOpenMenuId(null); excluirPagamento(p.id); }}
+                              className="w-full text-left px-4 py-3 rounded-[10px] text-[14px] bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
+                              style={{ color: 'var(--error-medium)' }}
+                            >
+                              Excluir
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                );
+              })
             )}
           </div>
-        </section>
+        </div>
 
         {cobrancaModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl bg-primary-800 border border-primary-700 shadow-2xl overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-primary-700">
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(4,12,16,0.72)', backdropFilter: 'blur(4px)' }}>
+            <div
+              className="w-full max-w-md flex flex-col overflow-hidden"
+              style={{ borderRadius: 24, border: '1px solid var(--gray-600)', background: 'linear-gradient(180deg, rgba(16,40,50,0.98), rgba(7,28,36,0.98))', boxShadow: '0 50px 110px -34px rgba(0,0,0,0.85), 0 0 0 1px rgba(30,182,232,0.10)' }}
+            >
+              <div className="flex items-center justify-between" style={{ padding: '24px 28px 20px', borderBottom: '1px solid var(--gray-700)' }}>
                 <div>
-                  <div className="text-[16px] font-semibold text-gray-100">Enviar cobrança</div>
-                  <div className="text-[12px] text-gray-400 mt-0.5">
+                  <div className="font-semibold text-white" style={{ fontSize: 18 }}>Enviar cobrança</div>
+                  <div className="mt-1" style={{ fontSize: 13, color: 'var(--gray-400)' }}>
                     {cobrancaModal.valor
-                      ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(cobrancaModal.valor)
-                      : "—"} · {projetoNome(cobrancaModal.projeto_id)}
+                      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cobrancaModal.valor)
+                      : '—'} · {projetoNome(cobrancaModal.projeto_id)}
                   </div>
                 </div>
-                <button onClick={() => setCobrancaModal(null)} className="p-2 rounded-lg hover:bg-primary-700 text-gray-400">
+                <button
+                  type="button"
+                  onClick={() => setCobrancaModal(null)}
+                  className="grid place-items-center cursor-pointer transition-colors duration-200"
+                  style={{ width: 40, height: 40, borderRadius: 10, border: '1px solid var(--gray-700)', background: 'rgba(20,40,48,0.4)', color: 'var(--gray-400)' }}
+                >
                   <X size={18} />
                 </button>
               </div>
 
-              <div className="px-6 py-5 flex flex-col gap-4">
+              <div className="flex flex-col gap-4" style={{ padding: '24px 28px 28px' }}>
                 <div>
-                  <label className="block text-[13px] text-gray-300 mb-1.5">Chave PIX (opcional)</label>
+                  <label className="block mb-[6px]" style={{ fontSize: 13, color: 'var(--gray-300)' }}>Chave PIX (opcional)</label>
                   <input
                     type="text"
                     value={pixInput}
                     onChange={(e) => setPixInput(e.target.value)}
                     placeholder="CPF, e-mail, telefone ou chave aleatória"
-                    className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 outline-none"
+                    className="w-full outline-none transition-colors duration-200"
+                    style={{ borderRadius: 13, border: '1px solid var(--gray-700)', background: 'rgba(6,25,31,0.6)', color: 'var(--gray-100)', fontSize: 14, padding: '14px 18px' }}
+                    onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary-500)'; }}
+                    onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; }}
                   />
-                  <p className="text-[11px] text-gray-500 mt-1">Se informada, a chave será exibida no portal do cliente e no e-mail.</p>
+                  <p className="mt-[6px] m-0" style={{ fontSize: 12, color: 'var(--gray-500)' }}>Se informada, a chave será exibida no portal do cliente e no e-mail.</p>
                 </div>
 
                 {cobrancaFeedback && (
-                  <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-[13px] ${cobrancaFeedback.ok ? "bg-third-500/10 text-third-400 border border-third-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                  <div
+                    className="flex items-center gap-2 rounded-[11px] text-[13px]"
+                    style={{
+                      padding: '12px 16px',
+                      background: cobrancaFeedback.ok ? 'rgba(102,187,106,0.08)' : 'rgba(239,83,80,0.08)',
+                      border: `1px solid ${cobrancaFeedback.ok ? 'rgba(102,187,106,0.3)' : 'rgba(239,83,80,0.3)'}`,
+                      color: cobrancaFeedback.ok ? 'var(--success-medium)' : 'var(--error-medium)',
+                    }}
+                  >
                     {cobrancaFeedback.msg}
                   </div>
                 )}
 
-                <div className="flex items-center gap-3 pt-1">
+                <div className="flex items-center gap-3 mt-1">
                   <button
+                    type="button"
                     onClick={() => setCobrancaModal(null)}
-                    className="flex-1 py-2.5 rounded-xl border border-primary-600 text-[14px] text-gray-300 hover:bg-primary-700 transition-colors"
+                    className="flex-1 cursor-pointer transition-colors duration-200"
+                    style={{ height: 48, borderRadius: 13, border: '1px solid var(--gray-700)', background: 'none', color: 'var(--gray-300)', fontSize: 14, fontWeight: 500 }}
                   >
                     Cancelar
                   </button>
                   <button
+                    type="button"
                     onClick={enviarCobranca}
                     disabled={enviandoCobranca}
-                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary-500 hover:bg-primary-400 disabled:opacity-60 text-[14px] font-semibold text-primary-900 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                    style={{ height: 48, borderRadius: 13, border: 0, background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', fontSize: 15, fontWeight: 700, boxShadow: '0 12px 28px -12px rgba(30,182,232,0.8)' }}
                   >
-                    <Send size={14} />
-                    {enviandoCobranca ? "Enviando..." : "Enviar cobrança"}
+                    <Send size={16} />
+                    {enviandoCobranca ? 'Enviando...' : 'Enviar cobrança'}
                   </button>
                 </div>
               </div>
@@ -497,37 +518,9 @@ export default function PagamentosPage() {
         )}
 
         <style jsx global>{`
-          .payments-scroll::-webkit-scrollbar {
-            width: 10px;
-          }
-          .payments-scroll::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.9);
-          }
-          .payments-scroll::-webkit-scrollbar-thumb {
-            background: var(--primary-500);
-            border-radius: 999px;
-            border: 2px solid rgba(15, 23, 42, 0.9);
-          }
-          .payments-scroll::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-400);
-          }
-          .payments-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary-500) rgba(15, 23, 42, 0.9);
-          }
-          .animate-fade-in {
-            animation: fadeIn 0.15s ease-out forwards;
-          }
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-              transform: translateY(-4px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
+          .payments-scroll::-webkit-scrollbar { width: 8px; }
+          .payments-scroll::-webkit-scrollbar-thumb { background: var(--primary-600); border-radius: 8px; }
+          .payments-scroll { scrollbar-width: thin; scrollbar-color: var(--primary-600) transparent; }
         `}</style>
       </div>
     </>

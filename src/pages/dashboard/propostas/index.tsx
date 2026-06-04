@@ -3,24 +3,19 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { 
-  Plus, 
-  Search, 
-  FileText, 
-  Calendar, 
-  User, 
-  ChevronDown, 
-  LayoutList, 
-  LayoutGrid, 
+import {
+  Plus,
+  Search,
+  LayoutList,
+  LayoutGrid,
   ArrowLeft,
-  MoreHorizontal,
   Trash2,
-  ExternalLink,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  MessageCircle,
-  AlertCircle
+  Eye,
+  Pencil,
+  MoreVertical,
+  Briefcase,
+  Calendar,
+  User,
 } from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
 import Image from "next/image";
@@ -50,45 +45,20 @@ type Proposal = {
   };
 };
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; border: string; icon: any }> = {
-  analisando: { 
-    label: "Analisando", 
-    color: "text-blue-400 bg-blue-400/10", 
-    border: "border-blue-400/20",
-    icon: Clock 
-  },
-  negociando: { 
-    label: "Negociando", 
-    color: "text-amber-400 bg-amber-400/10", 
-    border: "border-amber-400/20",
-    icon: MessageCircle 
-  },
-  aceita: { 
-    label: "Aceita", 
-    color: "text-emerald-400 bg-emerald-400/10", 
-    border: "border-emerald-400/20",
-    icon: CheckCircle2 
-  },
-  recusada: { 
-    label: "Recusada", 
-    color: "text-rose-400 bg-rose-400/10", 
-    border: "border-rose-400/20",
-    icon: XCircle 
-  },
-  em_espera: { 
-    label: "Em espera", 
-    color: "text-purple-400 bg-purple-400/10", 
-    border: "border-purple-400/20",
-    icon: AlertCircle 
-  },
+const STATUS_CONFIG: Record<string, { label: string; tone: string }> = {
+  analisando: { label: "Analisando", tone: "primary" },
+  negociando: { label: "Negociando", tone: "alert"   },
+  aceita:     { label: "Aceita",     tone: "success"  },
+  recusada:   { label: "Recusada",   tone: "error"    },
+  em_espera:  { label: "Em espera",  tone: "neutral"  },
 };
 
 const COLUMNS: { id: ProposalStatus; label: string }[] = [
   { id: "analisando", label: "Analisando" },
   { id: "negociando", label: "Negociando" },
-  { id: "aceita", label: "Aceita" },
-  { id: "recusada", label: "Recusada" },
-  { id: "em_espera", label: "Em espera" },
+  { id: "aceita",     label: "Aceita"     },
+  { id: "recusada",   label: "Recusada"   },
+  { id: "em_espera",  label: "Em espera"  },
 ];
 
 export default function ProposalsList() {
@@ -97,19 +67,18 @@ export default function ProposalsList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
-  
+
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const draggingIdRef = useRef<string | null>(null);
 
   const [openBoardMenuId, setOpenBoardMenuId] = useState<string | null>(null);
+  const [openListMenuId, setOpenListMenuId] = useState<string | null>(null);
   const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
 
   useEffect(() => {
     const savedView = localStorage.getItem("proposalsViewMode");
-    if (savedView === "list" || savedView === "board") {
-      setViewMode(savedView);
-    }
+    if (savedView === "list" || savedView === "board") setViewMode(savedView);
   }, []);
 
   useEffect(() => {
@@ -118,7 +87,10 @@ export default function ProposalsList() {
       const insideMenu =
         target.closest("[data-board-menu]") ||
         target.closest("[data-board-menu-trigger]");
-      if (!insideMenu) setOpenBoardMenuId(null);
+      if (!insideMenu) {
+        setOpenBoardMenuId(null);
+        setOpenListMenuId(null);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -129,35 +101,18 @@ export default function ProposalsList() {
       setLoading(true);
       const { data: auth } = await supabase.auth.getUser();
       const user = auth?.user;
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
+      if (!user) { setLoading(false); return; }
 
       const { data, error } = await supabase
         .from("proposals")
-        .select(`
-          id,
-          title,
-          status,
-          due_date,
-          cover_url,
-          created_at,
-          client_id,
-          description
-        `)
+        .select("id, title, status, due_date, cover_url, created_at, client_id, description")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Erro ao carregar propostas:", error);
-      } else {
-        setProposals(data as any);
-      }
+      if (error) console.error("Erro ao carregar propostas:", error);
+      else setProposals(data as any);
       setLoading(false);
     }
-
     loadProposals();
   }, []);
 
@@ -167,13 +122,8 @@ export default function ProposalsList() {
   };
 
   async function handleStatusChange(id: string, newStatus: string) {
-    setProposals((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
-    );
-    const { error } = await supabase
-      .from("proposals")
-      .update({ status: newStatus })
-      .eq("id", id);
+    setProposals((prev) => prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
+    const { error } = await supabase.from("proposals").update({ status: newStatus }).eq("id", id);
     if (error) console.error("Erro ao atualizar status:", error);
   }
 
@@ -203,20 +153,15 @@ export default function ProposalsList() {
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setDragOverColumn(null);
-    }
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverColumn(null);
   };
 
   const handleDrop = (e: React.DragEvent, targetStatus: ProposalStatus) => {
     e.preventDefault();
     const id = e.dataTransfer.getData("text/plain") || draggingIdRef.current || draggingId;
     if (!id) return;
-
-    const proposal = proposals.find(p => p.id === id);
-    if (proposal && proposal.status !== targetStatus) {
-      handleStatusChange(id, targetStatus);
-    }
+    const proposal = proposals.find((p) => p.id === id);
+    if (proposal && proposal.status !== targetStatus) handleStatusChange(id, targetStatus);
     draggingIdRef.current = null;
     setDraggingId(null);
     setDragOverColumn(null);
@@ -224,223 +169,252 @@ export default function ProposalsList() {
 
   const filteredProposals = useMemo(() => {
     if (!search) return proposals;
-    const lowerSearch = search.toLowerCase();
-    return proposals.filter(p => 
-      p.title.toLowerCase().includes(lowerSearch) ||
-      p.description?.clientName?.toLowerCase().includes(lowerSearch)
+    const q = search.toLowerCase();
+    return proposals.filter(
+      (p) =>
+        p.title.toLowerCase().includes(q) ||
+        p.description?.clientName?.toLowerCase().includes(q)
     );
   }, [proposals, search]);
 
   function formatDate(dateStr: string | null) {
     if (!dateStr) return "—";
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("pt-BR");
+    return new Date(dateStr).toLocaleDateString("pt-BR");
   }
 
+  const renderListView = () => (
+    <div className="pr-table flex-1 flex flex-col min-h-0">
+      <div className="pr-th">
+        <span>Projeto / Cliente</span>
+        <span>Status</span>
+        <span>Data</span>
+        <span className="pr-th-act">Ações</span>
+      </div>
+      <div className="pr-rows">
+        {filteredProposals.length === 0 ? (
+          <div className="flex items-center justify-center py-12 text-sm" style={{ color: "var(--gray-500)" }}>
+            Nenhuma proposta encontrada
+          </div>
+        ) : (
+          filteredProposals.map((p) => {
+            const st = STATUS_CONFIG[p.status] || STATUS_CONFIG.analisando;
+            return (
+              <div
+                key={p.id}
+                className="pr-row"
+                onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+              >
+                <div className="pr-proj">
+                  <span className="pr-cover">
+                    <Briefcase size={20} />
+                  </span>
+                  <span className="pr-proj-txt">
+                    <span className="pr-proj-name">{p.title}</span>
+                    {p.description?.clientName && (
+                      <span className="pr-proj-cli">
+                        <User size={14} />
+                        {p.description.clientName}
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <div>
+                  <span className={`st st-${st.tone}`}>{st.label}</span>
+                </div>
+
+                <span className="pr-date">
+                  <Calendar size={15} />
+                  {formatDate(p.created_at)}
+                </span>
+
+                <div className="pr-actions" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    className="pr-iconmini"
+                    title="Ver proposta"
+                    onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+                  >
+                    <Eye size={18} />
+                  </button>
+                  <button
+                    className="pr-iconmini"
+                    title="Editar proposta"
+                    onClick={() => router.push(`/dashboard/propostas/${p.id}?edit=true`)}
+                  >
+                    <Pencil size={17} />
+                  </button>
+                  <div className="relative">
+                    <button
+                      data-board-menu-trigger
+                      className="pr-iconmini"
+                      onClick={() =>
+                        setOpenListMenuId((cur) => (cur === p.id ? null : p.id))
+                      }
+                    >
+                      <MoreVertical size={18} />
+                    </button>
+                    {openListMenuId === p.id && (
+                      <div
+                        data-board-menu
+                        className="absolute right-0 z-30 w-36 rounded-xl shadow-xl overflow-hidden"
+                        style={{
+                          top: "calc(100% + 6px)",
+                          background: "var(--primary-800)",
+                          border: "1px solid var(--primary-700)",
+                        }}
+                      >
+                        <button
+                          onClick={() => {
+                            setOpenListMenuId(null);
+                            setDeleteModalId(p.id);
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2 transition-colors"
+                          style={{ color: "var(--error-medium)" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-700)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                        >
+                          <Trash2 size={13} />
+                          Excluir
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+
   const renderBoardView = () => (
-    <div className="flex-1 overflow-y-auto custom-scrollbar">
-      <div className="flex gap-4 w-full overflow-x-auto pb-4 px-1">
+    <div className="flex-1 overflow-y-auto overflow-x-auto pr-board-scroll">
+      <div className="pr-board" style={{ minWidth: "900px" }}>
         {COLUMNS.map((col) => {
           const colProposals = filteredProposals.filter(
             (p) => (p.status || "analisando") === col.id
           );
-          const config = STATUS_CONFIG[col.id];
+          const st = STATUS_CONFIG[col.id];
           const isOver = dragOverColumn === col.id;
 
           return (
-            <div
+            <section
               key={col.id}
+              className={`pr-bcol${isOver ? " pr-bcol-over" : ""}`}
               onDragOver={(e) => handleDragOver(e, col.id)}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, col.id)}
-              className={`flex-1 min-w-0 flex flex-col gap-4 rounded-xl transition-colors`}
             >
-              <div className="py-4 flex items-center justify-between border-b border-gray-700 mb-2">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${config.color.split(' ')[0].replace('text-', 'bg-')}`} />
-                  <span className="font-semibold text-sm text-gray-200">{col.label}</span>
-                  <span className="text-xs text-gray-500 ml-1">{colProposals.length}</span>
-                </div>
+              <div className="pr-bcol-head">
+                <span className={`pr-bdot tone-${st.tone}`} />
+                <span className="pr-bcol-title">{col.label}</span>
+                <span className="pr-bcol-count">{colProposals.length}</span>
               </div>
 
-              <div className="flex flex-col gap-4 min-h-[200px]">
-                {colProposals.map((proposal) => (
-                  <div
-                    key={proposal.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, proposal.id)}
-                    onDragEnd={handleDragEnd}
-                    onClick={() => router.push(`/dashboard/propostas/${proposal.id}`)}
-                    className={`w-full bg-primary-900/40 border border-gray-700 rounded-2xl overflow-hidden cursor-pointer hover:border-primary-500 transition-colors group ${
-                      draggingId === proposal.id ? 'opacity-60 border-primary-500' : ''
-                    }`}
-                  >
-                    <div className="relative w-full h-[120px] bg-primary-900 border-b border-gray-700">
-                      <Image
-                        src={proposal.cover_url || "/project-cover-placeholder.jpg"}
-                        alt="Cover"
-                        fill
-                        draggable={false}
-                        className="object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-primary-900/70 via-primary-900/10 to-transparent" />
-
-                      <div
-                        className="absolute top-2 right-2 z-10"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <button
-                          data-board-menu-trigger
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenBoardMenuId((cur) =>
-                              cur === proposal.id ? null : proposal.id
-                            );
-                          }}
-                          className="p-1.5 rounded-lg bg-primary-900/60 backdrop-blur-sm hover:bg-primary-800 text-gray-300 hover:text-white transition-colors"
-                        >
-                          <MoreHorizontal size={15} />
-                        </button>
-
-                        {openBoardMenuId === proposal.id && (
-                          <div
-                            data-board-menu
-                            className="absolute right-0 top-8 z-30 w-36 bg-primary-800 border border-primary-700 rounded-xl shadow-xl overflow-hidden"
-                          >
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenBoardMenuId(null);
-                                router.push(`/dashboard/propostas/${proposal.id}`);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
-                            >
-                              <ExternalLink size={13} /> Ver
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenBoardMenuId(null);
-                                router.push(`/dashboard/propostas/${proposal.id}?edit=true`);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
-                            >
-                              <FileText size={13} /> Editar
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setOpenBoardMenuId(null);
-                                setDeleteModalId(proposal.id);
-                              }}
-                              className="w-full text-left px-4 py-2.5 text-[13px] text-rose-400 hover:bg-primary-700 flex items-center gap-2"
-                            >
-                              <Trash2 size={13} /> Excluir
-                            </button>
-                          </div>
+              <div className="pr-bcards">
+                {colProposals.length === 0 ? (
+                  <div className="pr-bempty">—</div>
+                ) : (
+                  colProposals.map((p) => (
+                    <article
+                      key={p.id}
+                      className={`pr-bcard${draggingId === p.id ? " pr-bcard-dragging" : ""}`}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, p.id)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+                    >
+                      <div className="pr-bcover">
+                        {p.cover_url && (
+                          <Image
+                            src={p.cover_url}
+                            alt=""
+                            fill
+                            draggable={false}
+                            className="object-cover"
+                            style={{ opacity: 0.75 }}
+                          />
                         )}
-                      </div>
-                    </div>
+                        {!p.cover_url && <Briefcase size={26} />}
 
-                    <div className="p-4">
-                      <div className="flex items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-[15px] text-gray-100 font-medium line-clamp-2 mb-1">
-                            {proposal.title}
-                          </h3>
-                          {proposal.description?.clientName && (
-                            <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-3">
-                              <User size={12} className="shrink-0" />
-                              <span className="truncate">{proposal.description.clientName}</span>
+                        <div
+                          className="absolute top-3 right-3 z-10"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            data-board-menu-trigger
+                            className="pr-bcard-menu"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenBoardMenuId((cur) =>
+                                cur === p.id ? null : p.id
+                              );
+                            }}
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {openBoardMenuId === p.id && (
+                            <div
+                              data-board-menu
+                              className="absolute right-0 z-30 w-36 rounded-xl shadow-xl overflow-hidden"
+                              style={{
+                                top: "calc(100% + 6px)",
+                                background: "var(--primary-800)",
+                                border: "1px solid var(--primary-700)",
+                              }}
+                            >
+                              {[
+                                { label: "Ver", icon: <Eye size={13} />, action: () => router.push(`/dashboard/propostas/${p.id}`) },
+                                { label: "Editar", icon: <Pencil size={13} />, action: () => router.push(`/dashboard/propostas/${p.id}?edit=true`) },
+                              ].map(({ label, icon, action }) => (
+                                <button
+                                  key={label}
+                                  onClick={(e) => { e.stopPropagation(); setOpenBoardMenuId(null); action(); }}
+                                  className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2 transition-colors"
+                                  style={{ color: "var(--gray-100)" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-700)")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                >
+                                  {icon} {label}
+                                </button>
+                              ))}
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOpenBoardMenuId(null); setDeleteModalId(p.id); }}
+                                className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2 transition-colors"
+                                style={{ color: "var(--error-medium)" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-700)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                              >
+                                <Trash2 size={13} /> Excluir
+                              </button>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="mt-3 flex items-center justify-between pt-3 border-t border-gray-700">
-                        <div className="flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
-                          <Calendar size={12} />
-                          <span>{formatDate(proposal.created_at)}</span>
+                      <div className="pr-bcard-body">
+                        <h3 className="pr-bcard-title">{p.title}</h3>
+                        {p.description?.clientName && (
+                          <span className="pr-bcard-cli">
+                            <User size={14} />
+                            {p.description.clientName}
+                          </span>
+                        )}
+                        <div className="pr-bcard-foot">
+                          <Calendar size={14} />
+                          {formatDate(p.created_at)}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </article>
+                  ))
+                )}
               </div>
-            </div>
+            </section>
           );
         })}
       </div>
-    </div>
-  );
-
-  const renderListView = () => (
-    <div className="bg-primary-900/40 border border-gray-700 rounded-2xl overflow-hidden shadow-sm flex-1 flex flex-col min-h-0">
-        <div className="overflow-auto custom-scrollbar flex-1">
-            <table className="w-full">
-                <thead className="sticky top-0 z-10 bg-primary-900 shadow-sm">
-                    <tr className="border-b border-gray-700">
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider w-[40%]">Projeto / Cliente</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Data</th>
-                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Ações</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700">
-                    {filteredProposals.map((proposal) => {
-                         const config = STATUS_CONFIG[proposal.status] || STATUS_CONFIG['analisando'];
-                         const StatusIcon = config.icon;
-
-                         return (
-                            <tr 
-                                key={proposal.id} 
-                                className="group hover:bg-primary-800/40 transition-colors cursor-pointer"
-                                onClick={() => router.push(`/dashboard/propostas/${proposal.id}`)}
-                            >
-                                <td className="px-6 py-4">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="font-medium text-gray-100 text-[15px]">{proposal.title}</span>
-                                        {proposal.description?.clientName && (
-                                            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                                                <User size={12} />
-                                                <span>{proposal.description.clientName}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${config.color} ${config.border} bg-opacity-10`}>
-                                        <StatusIcon size={12} />
-                                        <span>{config.label}</span>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className="text-sm text-gray-400">{formatDate(proposal.created_at)}</span>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <button 
-                                        className="p-2 text-gray-400 hover:text-white hover:bg-primary-800 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            router.push(`/dashboard/propostas/${proposal.id}`);
-                                        }}
-                                    >
-                                        <ExternalLink size={16} />
-                                    </button>
-                                </td>
-                            </tr>
-                         )
-                    })}
-                    {filteredProposals.length === 0 && (
-                        <tr>
-                            <td colSpan={4} className="px-6 py-12 text-center text-gray-500">
-                                Nenhuma proposta encontrada
-                            </td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
-        </div>
     </div>
   );
 
@@ -448,116 +422,121 @@ export default function ProposalsList() {
     <>
       <PageTour name="propostas" steps={PROPOSTAS_TOUR_STEPS} />
 
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="h-16 border-b border-gray-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
-            <div className="flex items-center gap-4">
-                <button
-                    onClick={() => router.push("/dashboard")}
-                    className="p-2 -ml-2 text-gray-400 hover:text-gray-100 hover:bg-primary-800 rounded-xl transition-all"
-                    title="Voltar"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="w-px h-6 bg-gray-700" />
-                <h1 className="text-xl font-bold text-gray-100 tracking-tight">Propostas</h1>
-            </div>
+      <div className="pr-page relative flex flex-col flex-1 h-full overflow-hidden">
+        <div className="pr-glow pr-glow-a" />
+        <div className="pr-glow pr-glow-b" />
 
-            <div className="flex items-center gap-4">
-                <HeaderProfile />
-            </div>
+        <header className="relative z-30 flex items-center gap-5 px-8 xl:px-11 py-[26px] border-b" style={{ borderColor: "var(--gray-700)" }}>
+          <button
+            type="button"
+            className="pr-back-btn"
+            onClick={() => router.push("/dashboard")}
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <span className="text-[26px] font-bold tracking-tight" style={{ color: "var(--gray-100)" }}>
+            Propostas
+          </span>
+          <div className="ml-auto">
+            <HeaderProfile />
+          </div>
         </header>
 
-        <div className="px-6 md:px-8 py-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-            <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
-                <input 
-                    type="text"
-                    placeholder="Buscar propostas..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 bg-primary-900 border border-gray-700 rounded-xl text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 transition-all"
-                />
-            </div>
+        <div className="relative z-20 flex items-center gap-4 px-8 xl:px-11 pt-6 pb-5">
+          <label className="pr-search-bar" style={{ flex: 1 }}>
+            <Search size={19} />
+            <input
+              type="text"
+              placeholder="Buscar propostas…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </label>
 
-            <div className="flex items-center gap-3">
-                <div className="flex items-center bg-primary-900 border border-gray-700 rounded-xl p-1">
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => handleViewChange("list")}
-                            className={`p-2 rounded-lg transition-all ${
-                                viewMode === "list" 
-                                    ? "bg-primary-800 text-gray-100 shadow-sm" 
-                                    : "text-gray-400 hover:text-gray-200 hover:bg-primary-800/50"
-                            }`}
-                            title="Visualização em Lista"
-                        >
-                            <LayoutList size={18} />
-                        </button>
-                        <button
-                            onClick={() => handleViewChange("board")}
-                            className={`p-2 rounded-lg transition-all ${
-                                viewMode === "board" 
-                                    ? "bg-primary-800 text-gray-100 shadow-sm" 
-                                    : "text-gray-400 hover:text-gray-200 hover:bg-primary-800/50"
-                            }`}
-                            title="Visualização em Quadros"
-                        >
-                            <LayoutGrid size={18} />
-                        </button>
-                    </div>
-                </div>
+          <div className="pr-seg-ctrl">
+            <button
+              type="button"
+              className={`pr-seg-btn${viewMode === "list" ? " is-on" : ""}`}
+              onClick={() => handleViewChange("list")}
+              title="Visualização em lista"
+            >
+              <LayoutList size={19} />
+            </button>
+            <button
+              type="button"
+              className={`pr-seg-btn${viewMode === "board" ? " is-on" : ""}`}
+              onClick={() => handleViewChange("board")}
+              title="Visualização em quadros"
+            >
+              <LayoutGrid size={19} />
+            </button>
+          </div>
 
-                <div className="w-px h-8 bg-gray-700" />
-
-                <button
-                    id="tour-add-btn"
-                    onClick={() => router.push("/dashboard/propostas/nova")}
-                    className="px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl text-sm font-medium transition-all shadow-lg shadow-primary-900/20 flex items-center gap-2"
-                >
-                    <Plus size={18} />
-                    <span className="hidden sm:inline">Nova Proposta</span>
-                </button>
-            </div>
+          <button
+            id="tour-add-btn"
+            type="button"
+            className="pr-nova-btn"
+            onClick={() => router.push("/dashboard/propostas/nova")}
+          >
+            <Plus size={19} />
+            Nova Proposta
+          </button>
         </div>
 
-        <main className="flex-1 overflow-hidden px-6 md:px-8 pb-8 flex flex-col">
-            {loading ? (
-                <div className="flex items-center justify-center h-40">
-                    <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                </div>
-            ) : (
-                viewMode === "list" ? renderListView() : renderBoardView()
-            )}
+        <main className="relative z-10 flex-1 px-8 xl:px-11 pb-8 min-h-0 flex flex-col overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center h-40">
+              <div
+                className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
+                style={{ borderColor: "var(--primary-500)", borderTopColor: "transparent" }}
+              />
+            </div>
+          ) : viewMode === "list" ? (
+            renderListView()
+          ) : (
+            renderBoardView()
+          )}
         </main>
       </div>
 
       {deleteModalId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-sm mx-4 bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl p-6 flex flex-col gap-5">
+          <div
+            className="w-full max-w-sm mx-4 rounded-2xl shadow-2xl p-6 flex flex-col gap-5"
+            style={{ background: "var(--primary-900)", border: "1px solid var(--primary-700)" }}
+          >
             <div className="flex flex-col items-center gap-3 text-center">
-              <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center">
-                <Trash2 size={22} className="text-rose-400" />
+              <div
+                className="w-12 h-12 rounded-full flex items-center justify-center"
+                style={{ background: "rgba(239,83,80,0.10)", border: "1px solid rgba(239,83,80,0.30)" }}
+              >
+                <Trash2 size={22} style={{ color: "var(--error-medium)" }} />
               </div>
               <div>
-                <h2 className="text-[16px] font-medium text-gray-100">
+                <h2 className="text-[16px] font-medium" style={{ color: "var(--gray-100)" }}>
                   Excluir proposta
                 </h2>
-                <p className="text-[13px] text-gray-400 mt-1">
+                <p className="text-[13px] mt-1" style={{ color: "var(--gray-400)" }}>
                   Esta ação não pode ser desfeita. A proposta será removida permanentemente.
                 </p>
               </div>
             </div>
-
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteModalId(null)}
-                className="flex-1 py-2.5 rounded-xl border border-primary-700 bg-primary-800 text-gray-200 text-[14px] hover:bg-primary-700 transition-colors"
+                className="flex-1 py-2.5 rounded-xl text-[14px] transition-colors"
+                style={{
+                  border: "1px solid var(--primary-700)",
+                  background: "var(--primary-800)",
+                  color: "var(--gray-200)",
+                }}
               >
                 Cancelar
               </button>
               <button
                 onClick={() => deleteProposal(deleteModalId)}
-                className="flex-1 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-[14px] transition-colors font-medium"
+                className="flex-1 py-2.5 rounded-xl text-white text-[14px] font-medium transition-colors"
+                style={{ background: "var(--error-medium)" }}
               >
                 Excluir
               </button>
@@ -566,22 +545,506 @@ export default function ProposalsList() {
         </div>
       )}
 
-       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
+      <style jsx global>{`
+        /* ── Page wrapper ── */
+        .pr-page {
+          background: radial-gradient(
+            120% 80% at 50% -10%,
+            var(--primary-800) 0%,
+            var(--primary-900) 55%,
+            var(--primary-900) 100%
+          );
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Glow effects ── */
+        .pr-glow {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(100px);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .pr-glow-a {
+          width: 520px;
+          height: 520px;
+          right: -180px;
+          top: -180px;
+          background: radial-gradient(circle, rgba(30, 182, 232, 0.12), transparent 70%);
+        }
+        .pr-glow-b {
+          width: 460px;
+          height: 460px;
+          right: -160px;
+          bottom: -200px;
+          background: radial-gradient(circle, rgba(16, 66, 83, 0.5), transparent 70%);
+        }
+
+        /* ── Back button ── */
+        .pr-back-btn {
+          display: grid;
+          place-items: center;
+          width: 46px;
+          height: 46px;
+          border-radius: 13px;
+          flex: none;
+          border: 1px solid var(--gray-700);
+          background: var(--primary-800);
+          color: var(--gray-200);
+          cursor: pointer;
+          transition: 0.2s;
+        }
+        .pr-back-btn:hover {
+          border-color: var(--primary-500);
+          color: var(--primary-300);
+        }
+
+        /* ── Search bar ── */
+        .pr-search-bar {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          height: 52px;
+          padding: 0 18px;
+          border-radius: 14px;
+          color: var(--gray-400);
+          background: var(--primary-800);
+          border: 1px solid var(--gray-700);
+          transition: 0.2s;
+        }
+        .pr-search-bar:focus-within {
+          border-color: var(--primary-500);
+        }
+        .pr-search-bar input {
+          flex: 1;
+          background: none;
+          border: 0;
+          outline: none;
+          color: var(--gray-100);
+          font-family: inherit;
+          font-size: 15.5px;
+        }
+        .pr-search-bar input::placeholder {
+          color: var(--gray-500);
+        }
+
+        /* ── Segmented control ── */
+        .pr-seg-ctrl {
+          display: flex;
+          gap: 4px;
+          padding: 5px;
+          border-radius: 13px;
+          background: var(--primary-800);
+          border: 1px solid var(--gray-700);
+        }
+        .pr-seg-ctrl .pr-seg-btn {
+          display: grid;
+          place-items: center;
+          width: 44px;
+          height: 40px;
+          border-radius: 10px;
+          border: 0;
+          background: none;
+          color: var(--gray-400);
+          cursor: pointer;
+          transition: 0.2s;
+        }
+        .pr-seg-ctrl .pr-seg-btn:hover {
+          color: var(--primary-300);
+        }
+        /* var(--primary-900) = escuro no dark, claro no light — contraste garantido em ambos */
+        .pr-seg-ctrl .pr-seg-btn.is-on {
+          color: var(--primary-900);
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500));
+          box-shadow: 0 6px 16px -6px rgba(30, 182, 232, 0.7);
+        }
+
+        /* ── Nova Proposta button ── */
+        .pr-nova-btn {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          height: 52px;
+          padding: 0 24px;
+          font-family: inherit;
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--primary-900);
+          cursor: pointer;
+          border: 0;
+          border-radius: 14px;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 12px 28px -12px rgba(30, 182, 232, 0.8);
+          transition: 0.2s;
+          white-space: nowrap;
+        }
+        .pr-nova-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 34px -10px rgba(30, 182, 232, 0.9);
+        }
+
+        /* ── List table ── */
+        .pr-table {
+          display: flex;
+          flex-direction: column;
+          border: 1px solid var(--gray-700);
+          border-radius: 22px;
+          overflow: hidden;
+          background: var(--primary-800);
+        }
+        .pr-th,
+        .pr-row {
+          display: grid;
+          align-items: center;
+          gap: 20px;
+          grid-template-columns: 2.6fr 1.2fr 1fr 1fr;
+        }
+        .pr-th {
+          padding: 20px 30px;
+          border-bottom: 1px solid var(--gray-700);
+        }
+        .pr-th span {
+          font-size: 13px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--gray-400);
+        }
+        .pr-th-act {
+          text-align: right;
+        }
+        .pr-rows {
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+        }
+        .pr-rows::-webkit-scrollbar {
+          width: 8px;
+        }
+        .pr-rows::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .pr-rows::-webkit-scrollbar-thumb {
+          background: var(--primary-600);
+          border-radius: 8px;
+          border: 3px solid transparent;
+          background-clip: padding-box;
+        }
+        .pr-row {
+          padding: 18px 30px;
+          border-bottom: 1px solid var(--gray-700);
+          transition: background 0.2s;
+          cursor: pointer;
+        }
+        .pr-row:last-child {
+          border-bottom: 0;
+        }
+        .pr-row:hover {
+          background: var(--primary-700);
+        }
+        .pr-proj {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          min-width: 0;
+        }
+        .pr-cover {
+          flex: none;
+          display: grid;
+          place-items: center;
+          width: 50px;
+          height: 50px;
+          border-radius: 14px;
+          color: var(--primary-200);
+          border: 1px solid var(--gray-700);
+          background: radial-gradient(130% 130% at 30% 20%, var(--primary-600), var(--primary-700));
+        }
+        .pr-proj-txt {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+        .pr-proj-name {
+          font-size: 17px;
+          font-weight: 600;
+          color: var(--gray-100);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .pr-proj-cli {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 14px;
+          color: var(--gray-400);
+        }
+        .pr-proj-cli svg {
+          flex: none;
+          color: var(--gray-500);
+        }
+        .pr-date {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          font-size: 14.5px;
+          color: var(--gray-300);
+          font-variant-numeric: tabular-nums;
+        }
+        .pr-date svg {
+          flex: none;
+          color: var(--gray-500);
+        }
+        .pr-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 4px;
+        }
+        .pr-iconmini {
+          display: grid;
+          place-items: center;
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          border: 0;
+          background: none;
+          color: var(--gray-400);
+          cursor: pointer;
+          transition: 0.2s;
+        }
+        .pr-iconmini:hover {
+          background: var(--primary-700);
+          color: var(--gray-100);
+        }
+
+        /* ── Status badges ── */
+        .st {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: 1px solid currentColor;
+          white-space: nowrap;
+        }
+        .st::before {
+          content: "";
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 8px currentColor;
+          flex: none;
+        }
+        .st-primary {
+          color: var(--primary-300);
+          background: rgba(30, 182, 232, 0.1);
+          border-color: rgba(30, 182, 232, 0.35);
+        }
+        .st-alert {
+          color: var(--alert-medium);
+          background: rgba(255, 167, 38, 0.1);
+          border-color: rgba(255, 167, 38, 0.35);
+        }
+        .st-error {
+          color: var(--error-medium);
+          background: rgba(239, 83, 80, 0.1);
+          border-color: rgba(239, 83, 80, 0.35);
+        }
+        .st-success {
+          color: var(--success-medium);
+          background: rgba(102, 187, 106, 0.1);
+          border-color: rgba(102, 187, 106, 0.35);
+        }
+        .st-neutral {
+          color: var(--gray-300);
+          background: rgba(148, 169, 173, 0.1);
+          border-color: rgba(148, 169, 173, 0.35);
+        }
+
+        /* ── Board ── */
+        .pr-board-scroll::-webkit-scrollbar {
           width: 8px;
           height: 8px;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background-color: var(--primary-900);
-          border-radius: 4px;
+        .pr-board-scroll::-webkit-scrollbar-track {
+          background: transparent;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background-color: var(--primary-500);
-          border-radius: 4px;
-          border: 2px solid var(--primary-900);
+        .pr-board-scroll::-webkit-scrollbar-thumb {
+          background: var(--primary-600);
+          border-radius: 8px;
+          border: 3px solid transparent;
+          background-clip: padding-box;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background-color: var(--primary-400);
+        .pr-board {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 18px;
+          align-items: start;
+          padding-bottom: 8px;
+        }
+        .pr-bcol {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+        .pr-bcol-over > .pr-bcards {
+          background: var(--primary-700);
+          border-radius: 14px;
+        }
+        .pr-bcol-head {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0 4px 14px;
+          border-bottom: 1px solid var(--gray-700);
+        }
+        .pr-bdot {
+          width: 9px;
+          height: 9px;
+          border-radius: 50%;
+          flex: none;
+        }
+        .pr-bdot.tone-primary {
+          background: var(--primary-400);
+          box-shadow: 0 0 10px -1px var(--primary-500);
+        }
+        .pr-bdot.tone-alert {
+          background: var(--alert-medium);
+          box-shadow: 0 0 10px -1px var(--alert-medium);
+        }
+        .pr-bdot.tone-success {
+          background: var(--success-medium);
+          box-shadow: 0 0 10px -1px var(--success-medium);
+        }
+        .pr-bdot.tone-error {
+          background: var(--error-medium);
+          box-shadow: 0 0 10px -1px var(--error-medium);
+        }
+        .pr-bdot.tone-neutral {
+          background: var(--gray-500);
+        }
+        .pr-bcol-title {
+          flex: 1;
+          font-size: 15.5px;
+          font-weight: 600;
+          color: var(--gray-100);
+        }
+        .pr-bcol-count {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: var(--gray-400);
+          min-width: 24px;
+          height: 24px;
+          padding: 0 7px;
+          border-radius: 7px;
+          display: grid;
+          place-items: center;
+          background: var(--primary-700);
+        }
+        .pr-bcards {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          min-height: 60px;
+          transition: background 0.2s;
+        }
+        .pr-bempty {
+          padding: 24px;
+          border-radius: 14px;
+          border: 1px dashed var(--gray-700);
+          text-align: center;
+          color: var(--gray-400);
+        }
+        .pr-bcard {
+          border-radius: 18px;
+          border: 1px solid var(--gray-700);
+          overflow: hidden;
+          background: var(--primary-800);
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+          transition: 0.2s;
+          cursor: pointer;
+        }
+        .pr-bcard:hover {
+          border-color: var(--primary-500);
+          transform: translateY(-3px);
+          box-shadow: 0 12px 32px -16px rgba(0, 0, 0, 0.3);
+        }
+        .pr-bcard-dragging {
+          opacity: 0.5;
+          border-color: var(--primary-500) !important;
+        }
+        .pr-bcover {
+          position: relative;
+          height: 96px;
+          display: grid;
+          place-items: center;
+          color: var(--primary-200);
+          background: radial-gradient(130% 130% at 30% 20%, var(--primary-600), var(--primary-700));
+        }
+        .pr-bcard-menu {
+          position: absolute;
+          top: 12px;
+          right: 12px;
+          display: grid;
+          place-items: center;
+          width: 32px;
+          height: 32px;
+          border-radius: 9px;
+          border: 0;
+          background: var(--primary-900);
+          color: var(--gray-100);
+          cursor: pointer;
+          backdrop-filter: blur(4px);
+          transition: 0.2s;
+        }
+        .pr-bcard-menu:hover {
+          background: var(--primary-800);
+        }
+        .pr-bcard-body {
+          padding: 16px 18px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .pr-bcard-title {
+          margin: 0;
+          font-size: 16.5px;
+          font-weight: 600;
+          color: var(--gray-100);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .pr-bcard-cli {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 13.5px;
+          color: var(--gray-400);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .pr-bcard-cli svg {
+          flex: none;
+          color: var(--gray-500);
+        }
+        .pr-bcard-foot {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-top: 4px;
+          padding-top: 12px;
+          border-top: 1px solid var(--gray-700);
+          font-size: 13px;
+          color: var(--gray-500);
+          font-variant-numeric: tabular-nums;
         }
       `}</style>
     </>

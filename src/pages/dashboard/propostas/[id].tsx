@@ -9,6 +9,7 @@ import Template2 from "@/components/proposals/Template2";
 import Template3 from "@/components/proposals/Template3";
 import Toast, { ToastType } from "@/components/Toast";
 import HeaderProfile from "@/components/HeaderProfile";
+import { ArrowLeft } from "lucide-react";
 
 export default function ProposalDetail() {
   const router = useRouter();
@@ -114,66 +115,53 @@ export default function ProposalDetail() {
 
   return (
     <>
-        {toast && <Toast message={toast.message} type={toast.type} />}
+      {toast && <Toast message={toast.message} type={toast.type} />}
 
-        <div className="flex flex-col flex-1 min-w-0 gap-6 pr-6 py-8 overflow-y-auto">
-          <header className="flex items-center justify-between no-print">
+      <div className="pd-page no-print-layout relative flex flex-col flex-1 h-full overflow-hidden">
+        <div className="pd-glow pd-glow-a" />
+
+        <header className="relative z-30 no-print flex items-center gap-5 px-8 xl:px-11 py-[22px] border-b" style={{ borderColor: "var(--gray-700)" }}>
+          <button
+            type="button"
+            className="pd-back-btn"
+            onClick={() => router.push("/dashboard/propostas")}
+          >
+            <ArrowLeft size={18} />
+          </button>
+
+          <h1 className="flex-1 text-center text-[22px] font-bold tracking-tight" style={{ color: "var(--gray-100)", letterSpacing: "-0.01em" }}>
+            {proposal.title}
+          </h1>
+
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => router.push("/dashboard/propostas")}
-              className="px-4 py-2 border border-primary-700 rounded-lg text-gray-300 hover:bg-primary-800"
+              onClick={handleDownloadPDF}
+              disabled={generatingPdf}
+              className="pd-pdf-btn"
             >
-              Voltar
+              {generatingPdf ? (
+                <>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                  Gerando PDF...
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  Baixar PDF
+                </>
+              )}
             </button>
+            <HeaderProfile />
+          </div>
+        </header>
 
-            <h1 className="text-[24px] font-semibold">{proposal.title}</h1>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleDownloadPDF}
-                disabled={generatingPdf}
-                className="bg-primary-500 hover:bg-primary-400 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {generatingPdf ? (
-                  <>
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="20"
-                      height="20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="animate-spin"
-                    >
-                      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                    </svg>
-                    Gerando PDF...
-                  </>
-                ) : (
-                  <>
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="20"
-                      height="20"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="7 10 12 15 17 10" />
-                      <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    Baixar PDF
-                  </>
-                )}
-              </button>
-              <HeaderProfile />
-            </div>
-          </header>
-
+        <div className="relative z-10 flex-1 overflow-y-auto py-8 px-6">
           <div className="flex justify-center">
             {(() => {
               const tpl = proposal.description?.template;
@@ -202,8 +190,77 @@ export default function ProposalDetail() {
             })()}
           </div>
         </div>
+      </div>
 
       <style jsx global>{`
+        /* ── Detail page wrapper ── */
+        .pd-page {
+          background: radial-gradient(
+            120% 80% at 50% -10%,
+            var(--primary-800) 0%,
+            var(--primary-900) 55%,
+            var(--primary-900) 100%
+          );
+          -webkit-font-smoothing: antialiased;
+        }
+        .pd-glow {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(100px);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .pd-glow-a {
+          width: 520px;
+          height: 520px;
+          right: -180px;
+          top: -180px;
+          background: radial-gradient(circle, rgba(30, 182, 232, 0.12), transparent 70%);
+        }
+        .pd-back-btn {
+          display: grid;
+          place-items: center;
+          width: 46px;
+          height: 46px;
+          border-radius: 13px;
+          flex: none;
+          border: 1px solid var(--gray-700);
+          background: var(--primary-800);
+          color: var(--gray-200);
+          cursor: pointer;
+          transition: 0.2s;
+        }
+        .pd-back-btn:hover {
+          border-color: var(--primary-500);
+          color: var(--primary-300);
+        }
+        .pd-pdf-btn {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          height: 46px;
+          padding: 0 22px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--primary-900);
+          cursor: pointer;
+          border: 0;
+          border-radius: 13px;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 10px 24px -10px rgba(30, 182, 232, 0.8);
+          transition: 0.2s;
+          white-space: nowrap;
+        }
+        .pd-pdf-btn:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 14px 30px -10px rgba(30, 182, 232, 0.9);
+        }
+        .pd-pdf-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         @media print {
           html,
           body {
