@@ -5,8 +5,8 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import {
-  Pencil, SlidersHorizontal, Crown, ChevronDown, ChevronUp, Trash2, MoreVertical,
-  ClipboardList, FileText, Calendar, Copy, Send, Eye, Plus, Search, CheckSquare, Square, X,
+  Pencil, Trash2, MoreVertical, ChevronDown,
+  ClipboardList, FileText, Calendar, Copy, Send, Eye, Plus, X,
   Star, Heart, Zap, Flag, Bookmark, MessageCircle, Hash, Link, Info, AlertCircle, Settings,
   User, Users, Briefcase, Folder, Image as ImageIcon, Clock, MapPin, Globe, Sun, Moon, Smile,
   ThumbsUp, Award, Layout, LayoutGrid, List, Target, TrendingUp, PieChart, BarChart, Activity,
@@ -155,14 +155,27 @@ export default function BriefingsPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const saved = localStorage.getItem("briefingsActiveTab");
+    if (saved === "modelos" || saved === "envios") {
+      setActiveTab(saved as ActiveTab);
+    }
+  }, []);
+
   const changeViewMode = (mode: ViewMode) => {
     setViewMode(mode);
     localStorage.setItem("briefingsViewMode", mode);
   };
 
+  const changeActiveTab = (tab: ActiveTab) => {
+    setActiveTab(tab);
+    localStorage.setItem("briefingsActiveTab", tab);
+  };
+
 
 
   const [openMenuEnvioId, setOpenMenuEnvioId] = useState<string | null>(null);
+  const [boardMenuCoords, setBoardMenuCoords] = useState<{ top?: number; bottom?: number; right: number } | null>(null);
 
   const [openMenuTemplateId, setOpenMenuTemplateId] = useState<string | null>(
     null
@@ -801,38 +814,20 @@ export default function BriefingsPage() {
   }
 
   function renderBoardView() {
-    const colunas = [
-      { id: "pendente", title: "Enviado", color: "bg-blue-500" },
-      { id: "respondido", title: "Respondido", color: "bg-emerald-500" },
-    ];
-
     const enviosPorColuna = {
-      pendente: enviosFiltrados.filter((e) => {
-        const status = classificarEnvio(e, respostasPorProjeto);
-        return status === "pendente";
-      }),
-      respondido: enviosFiltrados.filter((e) => {
-        const status = classificarEnvio(e, respostasPorProjeto);
-        return status === "respondido";
-      }),
+      pendente: enviosFiltrados.filter((e) => classificarEnvio(e, respostasPorProjeto) === "pendente"),
+      respondido: enviosFiltrados.filter((e) => classificarEnvio(e, respostasPorProjeto) === "respondido"),
     };
 
     const handleDrop = (e: React.DragEvent, targetCol: string) => {
       e.preventDefault();
       const envioId = e.dataTransfer.getData("application/x-envio-id");
       if (!envioId) return;
-
       const envio = envios.find((ev) => ev.id === envioId);
       if (!envio) return;
-
       const currentStatus = classificarEnvio(envio, respostasPorProjeto);
       if (currentStatus === targetCol) return;
-
-      if (targetCol === "respondido") {
-        updateEnvioStatus(envioId, "respondido");
-      } else {
-        updateEnvioStatus(envioId, "pendente");
-      }
+      updateEnvioStatus(envioId, targetCol === "respondido" ? "respondido" : "pendente");
     };
 
     const EnvioBoardCard = ({ envio }: { envio: BriefingEnvio }) => {
@@ -840,148 +835,150 @@ export default function BriefingsPage() {
       const cliente = projeto?.clientes || null;
       const foto = cliente?.foto_url || null;
       const enviadoEm = formatarDataCurta(envio.created_at);
-      const prazoResStr = envio.prazo_resposta
-        ? formatarDataCurta(envio.prazo_resposta)
-        : null;
-
-       const status = statusEnvioVisual(envio);
+      const prazoResStr = envio.prazo_resposta ? formatarDataCurta(envio.prazo_resposta) : null;
+      const isRespondido = classificarEnvio(envio, respostasPorProjeto) === "respondido";
 
       return (
         <div
           draggable
-          onDragStart={(e) => {
-            e.dataTransfer.setData("application/x-envio-id", envio.id);
-          }}
-          className="bg-primary-800 border border-primary-700 rounded-xl p-4 shadow-sm hover:border-primary-500 transition-colors cursor-move group relative"
+          onDragStart={(e) => e.dataTransfer.setData("application/x-envio-id", envio.id)}
+          className="group relative rounded-2xl border border-gray-700 p-5 cursor-move transition-colors duration-200 hover:border-primary-600"
+          style={{ background: 'var(--primary-800)' }}
         >
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full border border-primary-600 bg-primary-700 flex items-center justify-center shrink-0 overflow-hidden">
-                {foto ? (
-                  <Image src={foto} alt="Cliente" width={28} height={28} className="object-cover w-full h-full" />
-                ) : (
-                  <User size={14} className="text-primary-300" />
-                )}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[13px] font-medium text-gray-100 line-clamp-1">
-                  {cliente?.nome || "Cliente"}
-                </span>
-                <span className="text-[11px] text-gray-400 line-clamp-1">
-                  {cliente?.empresa}
-                </span>
-              </div>
+          <div className="flex items-center gap-3 mb-3.5">
+            <div
+              className="flex-none grid place-items-center w-9 h-9 rounded-full overflow-hidden border"
+              style={{ color: 'var(--primary-300)', background: 'rgba(30,182,232,0.08)', borderColor: 'rgba(30,182,232,0.22)' }}
+            >
+              {foto ? (
+                <Image src={foto} alt="Cliente" width={36} height={36} className="object-cover w-full h-full" />
+              ) : (
+                <User size={18} />
+              )}
             </div>
-             <div className="relative">
-                <button
+            <span className="flex-1 text-[16px] font-semibold text-gray-100 truncate">
+              {cliente?.nome || "Cliente"}
+            </span>
+            <span
+              className="w-2.5 h-2.5 rounded-full flex-none"
+              style={isRespondido
+                ? { background: 'var(--success-medium)', boxShadow: '0 0 10px -1px var(--success-medium)' }
+                : { background: 'var(--alert-medium)', boxShadow: '0 0 10px -1px var(--alert-medium)' }
+              }
+            />
+          </div>
+
+          <p className="m-0 mb-4 text-[16px] font-medium text-gray-100 truncate">
+            {envio.template?.titulo || "Briefing"}
+          </p>
+
+          <div className="flex items-center justify-between pt-3.5 border-t border-gray-700">
+            <div className="flex flex-col gap-[3px] text-[13.5px] text-gray-500">
+              <span>Enviado: <strong className="text-gray-300 font-semibold">{enviadoEm}</strong></span>
+              {prazoResStr && <span>Prazo: <strong className="text-gray-300 font-semibold">{prazoResStr}</strong></span>}
+            </div>
+            <div className="relative" data-envio-menu-trigger>
+              <button
+                type="button"
                 onClick={(e) => {
-                    e.stopPropagation();
-                    setOpenMenuEnvioId((cur) =>
-                    cur === envio.id ? null : envio.id
-                    );
+                  e.stopPropagation();
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  const newId = openMenuEnvioId === envio.id ? null : envio.id;
+                  if (newId) {
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    const dropdownH = 220;
+                    if (spaceBelow < dropdownH + 16) {
+                      setBoardMenuCoords({ bottom: window.innerHeight - rect.top + 6, right: window.innerWidth - rect.right });
+                    } else {
+                      setBoardMenuCoords({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                    }
+                  }
+                  setOpenMenuEnvioId(newId);
                 }}
-                className="p-1 hover:bg-primary-700 rounded-md text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
+                className="grid place-items-center w-[34px] h-[34px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors opacity-0 group-hover:opacity-100 hover:bg-white/10 hover:text-gray-100"
+              >
                 <MoreVertical size={16} />
-                </button>
-                    {openMenuEnvioId === envio.id && (
-                        <div className="absolute right-0 top-6 w-44 bg-primary-800 border border-primary-700 rounded shadow-xl z-20 flex flex-col py-1">
-                             {(envio.status === 'respondido' || envio.respondido_em) && (
-                                <button
-                                onClick={() => {
-                                  setOpenMenuEnvioId(null);
-                                  router.push(
-                                    `/dashboard/briefings/${envio.id}/respostas`
-                                  )
-                                }}
-                                className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-primary-700 flex items-center gap-2"
-                                >
-                                <Eye size={13} /> Ver respostas
-                                </button>
-                             )}
-                            <button
-                            onClick={() => {
-                                setOpenMenuEnvioId(null);
-                                enviarEmailBriefing(envio);
-                            }}
-                            className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-primary-700 flex items-center gap-2"
-                            >
-                            <Send size={13} /> {envio.email_enviado ? "Reenviar e-mail" : "Enviar e-mail"}
-                            </button>
-                            <button
-                            onClick={() => {
-                                setOpenMenuEnvioId(null);
-                                copiarLinkBriefing(envio);
-                            }}
-                            className="px-4 py-2 text-left text-xs text-gray-200 hover:bg-primary-700 flex items-center gap-2"
-                            >
-                            <Copy size={13} /> Copiar link
-                            </button>
-                            <button
-                            onClick={() => {
-                                setOpenMenuEnvioId(null);
-                                excluirEnvio(envio.id);
-                            }}
-                            className="px-4 py-2 text-left text-xs text-red-400 hover:bg-primary-700 flex items-center gap-2"
-                            >
-                            <Trash2 size={13} /> Excluir
-                            </button>
-                        </div>
-                    )}
+              </button>
+              {openMenuEnvioId === envio.id && boardMenuCoords && (
+                <div
+                  className="w-[200px] p-2 rounded-2xl border border-gray-600 animate-fade-in"
+                  style={{ position: 'fixed', ...(boardMenuCoords.top !== undefined ? { top: boardMenuCoords.top } : { bottom: boardMenuCoords.bottom }), right: boardMenuCoords.right, zIndex: 9999, background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
+                  data-envio-menu
+                >
+                  {isRespondido && (
+                    <button
+                      type="button"
+                      onClick={() => { setOpenMenuEnvioId(null); router.push(`/dashboard/briefings/${envio.id}/respostas`); }}
+                      className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[14.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                    >
+                      <Eye size={16} className="text-gray-400" /> Ver respostas
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setOpenMenuEnvioId(null); enviarEmailBriefing(envio); }}
+                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[14.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                  >
+                    <Send size={15} className="text-gray-400" /> {envio.email_enviado ? "Reenviar e-mail" : "Enviar e-mail"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setOpenMenuEnvioId(null); copiarLinkBriefing(envio); }}
+                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[14.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                  >
+                    <Copy size={15} className="text-gray-400" /> Copiar link
+                  </button>
+                  <div className="h-px my-1.5 mx-2 bg-gray-700" />
+                  <button
+                    type="button"
+                    onClick={() => { setOpenMenuEnvioId(null); excluirEnvio(envio.id); }}
+                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[14.5px] font-medium text-error-medium border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
+                  >
+                    <Trash2 size={15} /> Excluir
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-
-          <div className="mb-3">
-             <div className="text-[13px] text-gray-200 font-medium mb-0.5">
-                {envio.template?.titulo || "Briefing"}
-             </div>
-             <div className="text-[12px] text-primary-400">
-                {projeto?.titulo}
-             </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-3 border-t border-primary-700">
-             <div className="flex flex-col text-[11px] text-gray-400">
-                <span>Enviado: {enviadoEm}</span>
-                {prazoResStr && <span>Prazo: {prazoResStr}</span>}
-             </div>
-              <span className={`w-2 h-2 rounded-full ${status.bg.replace('bg-opacity-10', 'bg-opacity-100')}`} title={status.label} />
           </div>
         </div>
       );
     };
 
-    return (
-      <div className="flex-1 overflow-x-auto overflow-y-hidden">
-        <div className="h-full flex gap-4 min-w-[600px] px-1 pb-2">
-          {colunas.map((col) => (
-            <div
-              key={col.id}
-              className="flex-1 flex flex-col min-w-[280px] bg-primary-800/20 rounded-xl border border-primary-800 h-full backdrop-blur-sm"
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-              }}
-              onDrop={(e) => handleDrop(e, col.id)}
-            >
-              <div className="p-3 flex items-center justify-between border-b border-primary-800">
-                <div className="flex items-center gap-2">
-                   <div className={`w-2 h-2 rounded-full ${col.color}`} />
-                   <span className="text-[13px] font-medium text-gray-200">{col.title}</span>
-                   <span className="text-[11px] text-gray-500 bg-primary-800 px-1.5 py-0.5 rounded-full">
-                     {enviosPorColuna[col.id as keyof typeof enviosPorColuna]?.length || 0}
-                   </span>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3 briefings-scroll">
-                {enviosPorColuna[col.id as keyof typeof enviosPorColuna]?.map((envio) => (
-                    <EnvioBoardCard key={envio.id} envio={envio} />
-                ))}
-              </div>
-            </div>
+    const BoardCol = ({ id, title, isPrimary }: { id: "pendente" | "respondido"; title: string; isPrimary: boolean }) => (
+      <section
+        className="flex-1 flex flex-col gap-4 p-[18px] rounded-[18px] border border-gray-700 min-w-[260px]"
+        style={{ background: 'var(--primary-900)' }}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+        onDrop={(e) => handleDrop(e, id)}
+      >
+        <div className="flex items-center gap-2.5 pb-3.5 border-b border-gray-700">
+          <span
+            className="w-[9px] h-[9px] rounded-full flex-none"
+            style={isPrimary
+              ? { background: 'var(--primary-400)', boxShadow: '0 0 10px -1px var(--primary-500)' }
+              : { background: 'var(--success-medium)', boxShadow: '0 0 10px -1px var(--success-medium)' }
+            }
+          />
+          <span className="flex-1 text-[16.5px] font-semibold text-gray-100">{title}</span>
+          <span
+            className="text-[14px] font-semibold text-gray-400 min-w-[26px] h-[26px] px-2 rounded-[8px] grid place-items-center"
+            style={{ background: 'rgba(148,169,173,0.08)' }}
+          >
+            {enviosPorColuna[id].length}
+          </span>
+        </div>
+        <div className="flex flex-col gap-3.5">
+          {enviosPorColuna[id].map((envio) => (
+            <EnvioBoardCard key={envio.id} envio={envio} />
           ))}
         </div>
+      </section>
+    );
+
+    return (
+      <div className="grid grid-cols-2 gap-6 items-start">
+        <BoardCol id="pendente" title="Enviado" isPrimary={true} />
+        <BoardCol id="respondido" title="Respondido" isPrimary={false} />
       </div>
     );
   }
@@ -1192,278 +1189,237 @@ export default function BriefingsPage() {
     <>
       <PageTour name="briefings" steps={BRIEFINGS_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 gap-6 pr-6 py-8 overflow-hidden">
-        <header className="w-full flex items-center justify-between gap-4 mb-2">
-          <div className="flex items-center gap-4">
+      <div className="relative flex flex-col flex-1 gap-6 pr-6 py-8 overflow-hidden">
+        <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 520, height: 520, right: -180, top: -180, background: 'radial-gradient(circle, rgba(30,182,232,0.10), transparent 70%)', filter: 'blur(100px)' }} />
+        <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 460, height: 460, right: -160, bottom: -200, background: 'radial-gradient(circle, rgba(16,66,83,0.45), transparent 70%)', filter: 'blur(100px)' }} />
+
+        <header className="relative z-20 flex items-center gap-5">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard")}
+            className="grid place-items-center flex-none w-[46px] h-[46px] rounded-[13px] border border-gray-700 text-gray-200 transition-all duration-200 hover:border-primary-500 hover:text-primary-300"
+            style={{ background: 'var(--primary-800)' }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+            </svg>
+          </button>
+
+          <div className="flex gap-1.5 p-1.5 rounded-[15px] border border-gray-700" style={{ background: 'var(--primary-800)' }}>
             <button
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 px-3 py-2 border border-primary-700 text-gray-300 rounded-lg hover:bg-primary-800 transition-colors"
+              type="button"
+              onClick={() => changeActiveTab("modelos")}
+              className={`px-5 py-[11px] rounded-[11px] text-[15.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "modelos" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
+              style={activeTab === "modelos" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)', boxShadow: '0 6px 16px -6px rgba(30,182,232,0.7)' } : {}}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+              Modelos de briefing
             </button>
-
-
+            <button
+              type="button"
+              onClick={() => changeActiveTab("envios")}
+              className={`px-5 py-[11px] rounded-[11px] text-[15.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "envios" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
+              style={activeTab === "envios" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)', boxShadow: '0 6px 16px -6px rgba(30,182,232,0.7)' } : {}}
+            >
+              Briefings enviados
+            </button>
           </div>
 
-
-
-          <div className="flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-3.5">
             <button
               id="tour-add-btn"
+              type="button"
               onClick={() => router.push("/dashboard/briefings/novo")}
-              className="bg-primary-500 hover:bg-primary-400 text-white font-semibold rounded-lg px-5 py-2.5 text-[14px] flex items-center gap-2 shadow-lg shadow-primary-500/20 transition-all"
+              className="flex items-center gap-[9px] flex-none h-[50px] px-6 rounded-[14px] text-[16px] font-semibold border-0 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+              style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', boxShadow: '0 12px 28px -12px rgba(30,182,232,0.8)' }}
             >
-              <Plus size={18} />
+              <Plus size={19} />
               Criar briefing
             </button>
-
             <HeaderProfile />
           </div>
         </header>
 
-        <div className="flex p-1 bg-primary-900 border border-primary-700 rounded-xl w-fit">
-          <button
-            type="button"
-            onClick={() => setActiveTab("modelos")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === "modelos"
-                ? "bg-primary-500 text-primary-900 shadow-sm"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            Modelos de briefing
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab("envios")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
-              activeTab === "envios"
-                ? "bg-primary-500 text-primary-900 shadow-sm"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            Briefings enviados
-          </button>
-        </div>
-
-        <section className="flex-1 min-h-0 flex flex-col gap-4">
+        <section className="relative z-10 flex-1 min-h-0 flex flex-col gap-4">
           {activeTab === "modelos" && (
-            <div className="flex-1 bg-primary-900 border border-primary-800 rounded-2xl flex flex-col">
-              <div className="px-6 py-4 border-b border-primary-800 flex items-center justify-between gap-4">
-                 <div className="flex items-center gap-2">
-                    <span className="text-[14px] text-gray-400">
-                      Mostrando {templates.length} modelos
-                    </span>
-                 </div>
-
-                 {totalTemplates > 0 && (
-                   <button
-                     onClick={() => {
-                       setSelectionMode((prev) => {
-                         if (prev) setSelectedTemplateIds([]);
-                         return !prev;
-                       });
-                     }}
-                     className={`ml-2 p-1.5 rounded-md border transition-colors ${
-                       selectionMode
-                         ? "bg-primary-700 border-primary-500 text-primary-100"
-                         : "bg-primary-800 border-primary-700 text-gray-400 hover:border-primary-500"
-                     }`}
-                     title={selectionMode ? "Sair da seleção" : "Selecionar vários"}
-                   >
-                     {selectionMode ? (
-                       <CheckSquare size={16} />
-                     ) : (
-                       <Square size={16} />
-                     )}
-                   </button>
-                 )}
+            <div
+              className="flex-1 flex flex-col gap-[22px] rounded-3xl border border-gray-700 min-h-0"
+              style={{ padding: '26px 30px 30px', background: 'var(--primary-900)' }}
+            >
+              <div className="flex items-center justify-between gap-4 flex-none">
+                <span className="text-[16px] text-gray-400">
+                  Mostrando <strong className="text-gray-100 font-semibold">{templates.length}</strong> modelos
+                </span>
+                {totalTemplates > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectionMode((prev) => {
+                        if (prev) setSelectedTemplateIds([]);
+                        return !prev;
+                      });
+                    }}
+                    className="grid place-items-center w-10 h-10 rounded-[11px] border border-gray-700 cursor-pointer transition-colors hover:border-primary-500"
+                    style={{ background: 'var(--primary-800)' }}
+                    title={selectionMode ? "Sair da seleção" : "Selecionar vários"}
+                  >
+                    <span className={`w-4 h-4 rounded-[5px] border-[1.5px] transition-colors ${selectionMode ? 'bg-primary-500 border-primary-500' : 'border-gray-500'}`} />
+                  </button>
+                )}
               </div>
 
-              <div className="flex-1 max-h-full overflow-y-auto briefings-scroll px-6 py-4">
+              <div className="flex-1 overflow-y-auto briefings-scroll min-h-0">
                 {loading ? (
                   <SkeletonList rows={5} cols={3} />
                 ) : erro ? (
-                  <div className="py-16 text-center text-red-400 text-sm">
-                    {erro}
-                  </div>
+                  <div className="py-16 text-center text-red-400 text-sm">{erro}</div>
                 ) : templates.length === 0 ? (
                   <div className="py-16 text-center text-gray-500 text-sm">
                     Nenhum modelo de briefing criado ainda.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {templates.map((t) => {
+                    {templates.map((t, i) => {
                       const selected = selectedTemplateIds.includes(t.id);
                       const isMenuOpen = openMenuTemplateId === t.id;
+
+                      const COVER_GRADIENTS = [
+                        'linear-gradient(150deg, var(--primary-500), var(--primary-600))',
+                        'linear-gradient(150deg, var(--primary-400), var(--primary-700))',
+                        'linear-gradient(150deg, var(--primary-300), #156479)',
+                      ];
+                      const isDefaultColor = !t.card_bg_color || t.card_bg_color.toLowerCase() === '#0f172a';
+                      const coverBg = isDefaultColor
+                        ? COVER_GRADIENTS[i % 3]
+                        : `linear-gradient(150deg, ${t.card_bg_color}, var(--primary-700))`;
 
                       return (
                         <div
                           key={t.id}
-                          className="group bg-primary-800 border border-primary-700 rounded-xl hover:border-primary-500 transition-all flex flex-col relative"
+                          className="group rounded-[20px] border border-gray-700 overflow-visible relative transition-colors duration-200 hover:border-primary-600"
+                          style={{ background: 'var(--primary-800)' }}
                         >
                           <div
-                            className="h-40 relative rounded-t-xl cursor-pointer overflow-hidden"
+                            className="absolute inset-0 z-[1] cursor-pointer rounded-[20px]"
                             onClick={() => abrirModalVisualizar(t.id)}
-                            style={{
-                              backgroundColor: t.card_bg_color || "#0f172a",
-                            }}
+                          />
+
+                          <div
+                            className="relative h-[188px] rounded-[19px_19px_0_0] grid place-items-center overflow-hidden"
+                            style={{ background: coverBg }}
                           >
-                            <div className="absolute inset-0 flex items-center justify-center opacity-30 group-hover:opacity-40 transition-opacity">
+                            <span style={{ color: 'rgba(255,255,255,0.55)' }}>
                               {(() => {
                                 const IconComp = t.cover_icon ? ICON_LIST[t.cover_icon] : null;
                                 return IconComp
-                                  ? <IconComp size={48} style={{ color: t.cover_icon_color || t.card_text_color || "#ffffff" }} />
-                                  : <ClipboardList size={48} color={t.card_text_color || "#ffffff"} />;
+                                  ? <IconComp size={40} style={{ color: t.cover_icon_color || 'rgba(255,255,255,0.55)' }} />
+                                  : <ClipboardList size={40} />;
                               })()}
-                            </div>
+                            </span>
 
                             {selectionMode && (
                               <button
                                 type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleTemplateSelecionado(t.id);
-                                }}
-                                className={`absolute top-3 left-3 z-30 w-6 h-6 rounded-md border flex items-center justify-center text-[11px] transition-colors ${
-                                  selected
-                                    ? "border-primary-300 bg-primary-500 text-primary-900"
-                                    : "border-primary-700 bg-primary-900/60 text-gray-400 hover:bg-primary-800/60"
+                                onClick={(e) => { e.stopPropagation(); toggleTemplateSelecionado(t.id); }}
+                                className={`absolute top-3 left-3 z-[10] w-6 h-6 rounded-md border flex items-center justify-center text-[11px] transition-colors ${
+                                  selected ? "border-primary-300 bg-primary-500" : "border-primary-700 bg-primary-900/60 text-gray-400 hover:bg-primary-800/60"
                                 }`}
+                                style={selected ? { color: 'var(--primary-900)' } : {}}
                               >
                                 {selected ? "✓" : ""}
                               </button>
                             )}
-
                           </div>
 
                           <div
-                            className="absolute top-3 right-3 z-30"
+                            className="absolute top-4 right-4 z-[10]"
                             data-template-menu-trigger
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
-                              onClick={() =>
-                                setOpenMenuTemplateId(
-                                  isMenuOpen ? null : t.id
-                                )
-                              }
-                              className="w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-sm flex items-center justify-center text-white transition-colors"
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setOpenMenuTemplateId(isMenuOpen ? null : t.id); }}
+                              className="grid place-items-center w-[38px] h-[38px] rounded-full border-0 text-white cursor-pointer transition-colors"
+                              style={{ background: 'var(--primary-700)', backdropFilter: 'blur(4px)' }}
                             >
-                              <MoreVertical size={16} />
+                              <MoreVertical size={18} />
                             </button>
 
                             {isMenuOpen && (
                               <div
-                                className="absolute right-0 mt-2 w-48 bg-primary-800 border border-primary-600 rounded-lg shadow-xl py-1 z-50 animate-fade-in overflow-hidden"
+                                className="absolute top-[calc(100%+8px)] right-0 z-[10] w-[220px] p-2 rounded-2xl border border-gray-600 animate-fade-in"
+                                style={{ background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
                                 data-template-menu
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 <button
-                                  onClick={() => {
-                                    setOpenMenuTemplateId(null);
-                                    abrirModalVisualizar(t.id);
-                                  }}
-                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                  type="button"
+                                  onClick={() => { setOpenMenuTemplateId(null); abrirModalVisualizar(t.id); }}
+                                  className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
                                 >
-                                  <Eye size={14} className="text-gray-400" />
+                                  <Eye size={18} className="text-gray-400" />
                                   Visualizar
                                 </button>
-
                                 <button
-                                  onClick={() => {
-                                    setOpenMenuTemplateId(null);
-                                    router.push(
-                                      `/dashboard/briefings/novo?edit=${t.id}`
-                                    );
-                                  }}
-                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                  type="button"
+                                  onClick={() => { setOpenMenuTemplateId(null); router.push(`/dashboard/briefings/novo?edit=${t.id}`); }}
+                                  className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
                                 >
-                                  <Pencil size={14} className="text-gray-400" />
+                                  <Pencil size={17} className="text-gray-400" />
                                   Editar
                                 </button>
-
                                 <button
-                                  onClick={() => {
-                                    setOpenMenuTemplateId(null);
-                                    abrirModalEnvio(t.id);
-                                  }}
-                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                  type="button"
+                                  onClick={() => { setOpenMenuTemplateId(null); abrirModalEnvio(t.id); }}
+                                  className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
                                 >
-                                  <Send size={14} className="text-gray-400" />
+                                  <Send size={17} className="text-gray-400" />
                                   Enviar
                                 </button>
-
                                 <button
-                                  onClick={() => {
-                                    setOpenMenuTemplateId(null);
-                                    duplicarTemplate(t.id);
-                                  }}
-                                  className="w-full text-left px-3 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                  type="button"
+                                  onClick={() => { setOpenMenuTemplateId(null); duplicarTemplate(t.id); }}
+                                  className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
                                 >
-                                  <Copy size={14} className="text-gray-400" />
+                                  <Copy size={17} className="text-gray-400" />
                                   Duplicar
                                 </button>
-
-                                <div className="h-px bg-primary-700 my-1 mx-2" />
-
+                                <div className="h-px my-1.5 mx-2 bg-gray-700" />
                                 <button
-                                  onClick={() => {
-                                    setOpenMenuTemplateId(null);
-                                    abrirModalExcluirModelos([t.id]);
-                                  }}
-                                  className="w-full text-left px-3 py-2.5 text-[13px] text-rose-300 hover:bg-rose-500/10 flex items-center gap-2"
+                                  type="button"
+                                  onClick={() => { setOpenMenuTemplateId(null); abrirModalExcluirModelos([t.id]); }}
+                                  className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-error-medium border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
                                 >
-                                  <Trash2 size={14} />
+                                  <Trash2 size={17} />
                                   Excluir
                                 </button>
                               </div>
                             )}
                           </div>
 
-                          <div
-                            className="p-5 flex flex-col gap-3 flex-1 cursor-pointer rounded-b-xl"
-                            onClick={() => abrirModalVisualizar(t.id)}
-                          >
-                            <div>
-                              <h3 className="font-semibold text-lg leading-tight group-hover:text-primary-400 transition-colors line-clamp-2 text-gray-100">
-                                {t.titulo}
-                              </h3>
-                              {t.descricao ? (
-                                <p className="text-slate-400 text-xs mt-2 line-clamp-2 min-h-[32px]">
-                                  {t.descricao}
-                                </p>
-                              ) : (
-                                <p className="text-slate-500 text-xs mt-2 italic min-h-[32px]">
-                                  Sem descrição definida.
-                                </p>
-                              )}
-                            </div>
+                          <div className="px-[22px] pt-[22px] pb-0">
+                            <h3 className="m-0 text-[20px] font-bold text-gray-100 leading-tight tracking-tight line-clamp-2">
+                              {t.titulo}
+                            </h3>
+                            {t.descricao ? (
+                              <p className="mt-2 text-[14.5px] text-gray-400 line-clamp-2 min-h-[38px]">
+                                {t.descricao}
+                              </p>
+                            ) : (
+                              <p className="mt-2 text-[14.5px] text-gray-500 italic min-h-[38px]">
+                                Sem descrição definida.
+                              </p>
+                            )}
+                          </div>
 
-                            <div className="mt-auto pt-4 border-t border-primary-700 flex items-center justify-between text-xs text-slate-500">
-                              <div className="flex items-center gap-1.5" title="Quantidade de campos">
-                                <FileText className="w-3.5 h-3.5" />
-                                <span>{t.campos_count ?? 0} campos</span>
-                              </div>
-                              <div className="flex items-center gap-1.5" title="Data de atualização">
-                                <Calendar className="w-3.5 h-3.5" />
-                                <span>
-                                  {t.updated_at
-                                    ? formatarDataCurta(t.updated_at)
-                                    : formatarDataCurta(t.created_at)}
-                                </span>
-                              </div>
-                            </div>
+                          <div className="flex items-center justify-between px-[22px] py-[20px] mt-[18px] border-t border-gray-700">
+                            <span className="flex items-center gap-2 text-[14px] text-gray-400">
+                              <FileText size={16} className="text-gray-500" />
+                              {t.campos_count ?? 0} campos
+                            </span>
+                            <span className="flex items-center gap-2 text-[14px] text-gray-400">
+                              <Calendar size={16} className="text-gray-500" />
+                              {t.updated_at ? formatarDataCurta(t.updated_at) : formatarDataCurta(t.created_at)}
+                            </span>
                           </div>
                         </div>
                       );
@@ -1475,309 +1431,224 @@ export default function BriefingsPage() {
           )}
 
           {activeTab === "envios" && (
-            <div className="flex-1 bg-primary-900 border border-primary-800 rounded-2xl overflow-hidden flex flex-col">
-              <div className="px-6 py-4 border-b border-primary-800 flex items-center justify-between gap-4">
+            <div
+              className="flex-1 flex flex-col gap-[22px] rounded-3xl border border-gray-700 min-h-0"
+              style={{ padding: '26px 30px 30px', background: 'var(--primary-900)' }}
+            >
+              <div className="flex items-center justify-between gap-4 flex-none pb-5 border-b border-gray-700">
                 <div className="flex items-center gap-4">
-                  <span className="text-[15px] text-gray-100 font-medium">
-                    Briefings enviados
-                  </span>
-
-                  <div className="flex bg-primary-800 rounded-lg p-1 border border-primary-700">
+                  <h2 className="m-0 text-[20px] font-bold text-gray-100">Briefings enviados</h2>
+                  <div className="flex gap-1 p-1 rounded-[12px] border border-gray-700" style={{ background: 'var(--primary-800)' }}>
                     <button
+                      type="button"
                       onClick={() => changeViewMode("list")}
-                      className={`p-1.5 rounded-md transition-all ${
-                        viewMode === "list"
-                          ? "bg-primary-600 text-gray-100 shadow-sm"
-                          : "text-gray-400 hover:text-gray-200"
-                      }`}
                       title="Lista"
+                      className={`grid place-items-center w-10 h-[34px] rounded-[9px] border-0 cursor-pointer transition-colors duration-200 ${viewMode === "list" ? "" : "bg-transparent text-gray-400 hover:text-primary-300"}`}
+                      style={viewMode === "list" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)' } : {}}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="8" y1="6" x2="21" y2="6" />
-                        <line x1="8" y1="12" x2="21" y2="12" />
-                        <line x1="8" y1="18" x2="21" y2="18" />
-                        <line x1="3" y1="6" x2="3.01" y2="6" />
-                        <line x1="3" y1="12" x2="3.01" y2="12" />
-                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3.5" cy="6" r="0.5" fill="currentColor"/><circle cx="3.5" cy="12" r="0.5" fill="currentColor"/><circle cx="3.5" cy="18" r="0.5" fill="currentColor"/>
                       </svg>
                     </button>
                     <button
+                      type="button"
                       onClick={() => changeViewMode("board")}
-                      className={`p-1.5 rounded-md transition-all ${
-                        viewMode === "board"
-                          ? "bg-primary-600 text-gray-100 shadow-sm"
-                          : "text-gray-400 hover:text-gray-200"
-                      }`}
                       title="Quadros"
+                      className={`grid place-items-center w-10 h-[34px] rounded-[9px] border-0 cursor-pointer transition-colors duration-200 ${viewMode === "board" ? "" : "bg-transparent text-gray-400 hover:text-primary-300"}`}
+                      style={viewMode === "board" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)' } : {}}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="3" width="7" height="9" />
-                        <rect x="14" y="3" width="7" height="5" />
-                        <rect x="14" y="12" width="7" height="9" />
-                        <rect x="3" y="16" width="7" height="5" />
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="5" rx="1.5"/><rect x="14" y="15" width="7" height="5" rx="1.5"/>
                       </svg>
                     </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="text-[13px] text-gray-400">
-                    {totalEnvios === 0
-                      ? "Nenhum envio"
-                      : totalEnvios === 1
-                      ? "1 envio"
-                      : `${totalEnvios} envios`}
-                  </div>
-
+                <div className="flex items-center gap-3.5">
+                  <span className="text-[15px] text-gray-400">
+                    {totalEnvios === 0 ? "Nenhum envio" : totalEnvios === 1 ? "1 envio" : `${totalEnvios} envios`}
+                  </span>
                   <div className="relative">
                     <select
                       value={filtroEnvioStatus}
-                      onChange={(e) =>
-                        setFiltroEnvioStatus(
-                          e.target.value as FiltroEnvioStatus
-                        )
-                      }
-                      className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 pr-10 text-[13px] text-gray-100 appearance-none"
+                      onChange={(e) => setFiltroEnvioStatus(e.target.value as FiltroEnvioStatus)}
+                      className="h-[46px] pl-4 pr-9 rounded-[12px] border border-gray-700 text-[14.5px] text-gray-200 appearance-none cursor-pointer transition-colors hover:border-gray-500"
+                      style={{ background: 'var(--primary-800)' }}
                     >
                       <option value="">Todos</option>
                       <option value="pendente">Pendentes</option>
                       <option value="respondido">Respondidos</option>
                     </select>
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">
-                      ▼
-                    </span>
+                    <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   </div>
-
                   <div className="relative">
                     <select
                       value={filtroEmail}
                       onChange={(e) => setFiltroEmail(e.target.value as FiltroEmail)}
-                      className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 pr-10 text-[13px] text-gray-100 appearance-none"
+                      className="h-[46px] pl-4 pr-9 rounded-[12px] border border-gray-700 text-[14.5px] text-gray-200 appearance-none cursor-pointer transition-colors hover:border-gray-500"
+                      style={{ background: 'var(--primary-800)' }}
                     >
                       <option value="">E-mail: Todos</option>
                       <option value="com_email">E-mail enviado</option>
                       <option value="sem_email">Sem e-mail</option>
                     </select>
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">
-                      ▼
-                    </span>
+                    <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   </div>
                 </div>
               </div>
 
               {viewMode === "list" && (
-                <div className="px-6 py-3 border-b border-primary-800 text-[13px] text-gray-400 grid grid-cols-[2.2fr,1.4fr,1.2fr,1fr,1.2fr] gap-4">
-                  <div>Cliente</div>
-                  <div>Projeto</div>
-                  <div>Briefing</div>
-                  <div>Status</div>
-                  <div className="text-right">Enviado / Prazo / Ações</div>
+                <div className="grid gap-5 px-2 pb-4 flex-none" style={{ gridTemplateColumns: '1.5fr 1.3fr 1.4fr 1fr 1.5fr' }}>
+                  <span className="text-[13px] font-medium text-gray-400">Cliente</span>
+                  <span className="text-[13px] font-medium text-gray-400">Projeto</span>
+                  <span className="text-[13px] font-medium text-gray-400">Briefing</span>
+                  <span className="text-[13px] font-medium text-gray-400">Status</span>
+                  <span className="text-[13px] font-medium text-gray-400 text-right">Enviado / Prazo / Ações</span>
                 </div>
               )}
-              <div className="flex-1 overflow-y-auto briefings-scroll">
+
+              <div className="flex-1 overflow-y-auto briefings-scroll min-h-0">
                 {loading ? (
-                  <div className="py-16 text-center text-gray-400 text-sm">
-                    Carregando envios...
-                  </div>
+                  <div className="py-16 text-center text-gray-400 text-sm">Carregando envios...</div>
                 ) : erro ? (
-                  <div className="py-16 text-center text-red-400 text-sm">
-                    {erro}
-                  </div>
+                  <div className="py-16 text-center text-red-400 text-sm">{erro}</div>
                 ) : enviosFiltrados.length === 0 ? (
-                  <div className="py-16 text-center text-gray-500 text-sm">
-                    Nenhum envio encontrado com os filtros atuais.
-                  </div>
+                  <div className="py-16 text-center text-gray-500 text-sm">Nenhum envio encontrado com os filtros atuais.</div>
                 ) : viewMode === "board" ? (
                   renderBoardView()
                 ) : (
-                  <div className="divide-y divide-primary-800">
+                  <div className="flex flex-col">
                     {enviosFiltrados.map((envio) => {
-                      const status = statusEnvioVisual(envio);
-                      const tipoEnvio = classificarEnvio(
-                        envio,
-                        respostasPorProjeto
-                      );
+                      const tipoEnvio = classificarEnvio(envio, respostasPorProjeto);
                       const projeto = projetoDoEnvio(envio);
                       const cliente = projeto?.clientes || null;
                       const foto = cliente?.foto_url || null;
                       const enviadoEm = formatarDataCurta(envio.created_at);
-                      const totalRespostas =
-                        envio.projeto_id &&
-                        (respostasPorProjeto[envio.projeto_id] || 0);
-                      const prazoResStr = envio.prazo_resposta
-                        ? formatarDataCurta(envio.prazo_resposta)
-                        : null;
-                      
+                      const prazoResStr = envio.prazo_resposta ? formatarDataCurta(envio.prazo_resposta) : null;
                       const isRespondido = tipoEnvio === "respondido";
 
                       return (
                         <div
                           key={envio.id}
-                          className="grid grid-cols-[2.2fr,1.4fr,1.2fr,1fr,1.2fr] gap-4 px-6 py-4 items-center hover:bg-primary-800/60 transition-colors"
+                          className="grid gap-5 px-2 py-[18px] items-center transition-colors duration-200 hover:bg-gray-700/30 border-t border-gray-700"
+                          style={{ gridTemplateColumns: '1.5fr 1.3fr 1.4fr 1fr 1.5fr' }}
                         >
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full border border-primary-700 bg-primary-700 flex items-center justify-center shrink-0 overflow-hidden">
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <div
+                              className="flex-none grid place-items-center w-11 h-11 rounded-full overflow-hidden border"
+                              style={{ color: 'var(--primary-300)', background: 'rgba(30,182,232,0.08)', borderColor: 'rgba(30,182,232,0.22)' }}
+                            >
                               {foto ? (
-                                <Image src={foto} alt="Cliente" width={40} height={40} className="object-cover w-full h-full" />
+                                <Image src={foto} alt="Cliente" width={44} height={44} className="object-cover w-full h-full" />
                               ) : (
-                                <User size={18} className="text-primary-300" />
+                                <User size={20} />
                               )}
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-[14px] text-gray-100">
-                                {cliente?.nome || "Cliente não informado"}
-                              </span>
-                              <span className="text-[12px] text-gray-400">
-                                {cliente?.empresa || ""}
-                              </span>
-                            </div>
+                            <span className="text-[15.5px] font-semibold text-gray-100 truncate">
+                              {cliente?.nome || "Cliente não informado"}
+                            </span>
                           </div>
 
-                          <div className="text-[14px] text-gray-100">
+                          <span className="text-[15px] text-gray-500 truncate">
                             {projeto?.titulo || "Projeto não definido"}
-                          </div>
+                          </span>
 
-                          <div className="text-[14px] text-gray-100">
+                          <span className="text-[15.5px] font-medium text-gray-100 truncate">
                             {envio.template?.titulo || "Briefing"}
-                          </div>
+                          </span>
 
-                          <div className="flex flex-col gap-1.5">
+                          <div className="flex flex-col gap-2 items-start">
                             <span
-                              className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[11px] font-medium w-fit ${status.bg} ${status.text}`}
+                              className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold"
+                              style={isRespondido
+                                ? { background: 'rgba(102,187,106,0.15)', color: 'var(--success-medium)', border: '1px solid rgba(102,187,106,0.3)' }
+                                : { background: 'rgba(255,167,38,0.15)', color: 'var(--alert-medium)', border: '1px solid rgba(255,167,38,0.3)' }
+                              }
                             >
-                              {status.label}
+                              {isRespondido ? "Respondido" : "Pendente"}
                             </span>
                             {envio.email_enviado && (
-                              <span className="inline-flex items-center gap-1 text-[11px] text-blue-400">
-                                <Send size={10} />
+                              <span className="inline-flex items-center gap-1.5 text-[13px] text-primary-400">
+                                <Send size={13} />
                                 E-mail enviado
                               </span>
                             )}
-                            {totalRespostas ? (
-                              <span className="text-[11px] text-gray-300">
-                                ({totalRespostas} resposta
-                                {totalRespostas > 1 ? "s" : ""})
-                              </span>
-                            ) : null}
                           </div>
 
-                          <div className="flex items-center justify-end gap-3 text-[12px] text-gray-300">
-                            <div className="flex flex-col text-right">
-                              <span>Enviado: {enviadoEm}</span>
-                              {prazoResStr && (
-                                <span>Prazo: {prazoResStr}</span>
-                              )}
+                          <div className="flex items-center justify-end gap-3.5">
+                            <div className="flex flex-col gap-[3px] text-right text-[13px] text-gray-400">
+                              <span>Enviado: <strong className="text-gray-200 font-semibold">{enviadoEm}</strong></span>
+                              {prazoResStr && <span>Prazo: <strong className="text-gray-200 font-semibold">{prazoResStr}</strong></span>}
                             </div>
 
-                            {tipoEnvio === "respondido" && (
+                            {isRespondido ? (
                               <button
-                                onClick={() =>
-                                  router.push(
-                                    `/dashboard/briefings/${envio.id}/respostas`
-                                  )
-                                }
-                                className="px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-500 text-[12px] text-primary-100"
+                                type="button"
+                                onClick={() => router.push(`/dashboard/briefings/${envio.id}/respostas`)}
+                                className="flex-none text-[14px] font-semibold border-0 cursor-pointer px-[18px] py-[10px] rounded-[11px] transition-all duration-200 hover:-translate-y-px"
+                                style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', boxShadow: '0 10px 22px -12px rgba(30,182,232,0.8)' }}
                               >
                                 Ver respostas
                               </button>
-                            )}
-
-                            {tipoEnvio === "pendente" && (
+                            ) : (
                               <button
+                                type="button"
                                 onClick={() => reenviarEnvio(envio)}
-                                className="px-3 py-1.5 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-500 text-[12px] text-primary-100"
+                                className="flex-none text-[14px] font-semibold cursor-pointer px-[18px] py-[10px] rounded-[11px] transition-colors duration-200"
+                                style={{ color: 'var(--primary-300)', border: '1px solid rgba(30,182,232,0.4)', background: 'rgba(30,182,232,0.06)' }}
                               >
                                 Reenviar
                               </button>
                             )}
 
-                            <div
-                              className="relative"
-                              data-envio-menu-trigger
-                            >
+                            <div className="relative" data-envio-menu-trigger>
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setOpenMenuEnvioId((cur) =>
-                                    cur === envio.id ? null : envio.id
-                                  );
-                                }}
-                                className="p-1.5 hover:bg-primary-700 rounded-md transition-colors"
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setOpenMenuEnvioId((cur) => cur === envio.id ? null : envio.id); }}
+                                className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-white/10 hover:text-gray-100"
                               >
-                                <MoreVertical size={16} className="text-gray-400" />
+                                <MoreVertical size={18} />
                               </button>
 
                               {openMenuEnvioId === envio.id && (
-                                <div className="absolute right-8 top-8 w-48 bg-primary-800 border border-primary-600 rounded-xl shadow-xl z-20 flex flex-col overflow-hidden animate-fade-in">
-                                  {isRespondido &&
-                                    envio.projeto_id &&
-                                    envio.template_id && (
-                                      <button
-                                        onClick={() => {
-                                          setOpenMenuEnvioId(null);
-                                          abrirModalVisualizar(envio.template_id);
-                                        }}
-                                        className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2 border-b border-primary-700"
-                                      >
-                                        <Eye
-                                          size={14}
-                                          className="text-gray-400"
-                                        />
-                                        Ver respostas
-                                      </button>
-                                    )}
-
+                                <div
+                                  className="absolute right-0 top-[calc(100%+6px)] z-50 w-[220px] p-2 rounded-2xl border border-gray-600 animate-fade-in"
+                                  style={{ background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
+                                  data-envio-menu
+                                >
+                                  {isRespondido && envio.projeto_id && envio.template_id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setOpenMenuEnvioId(null); router.push(`/dashboard/briefings/${envio.id}/respostas`); }}
+                                      className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                                    >
+                                      <Eye size={18} className="text-gray-400" />
+                                      Ver respostas
+                                    </button>
+                                  )}
                                   <button
-                                    onClick={() => {
-                                      setOpenMenuEnvioId(null);
-                                      enviarEmailBriefing(envio);
-                                    }}
-                                    className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                    type="button"
+                                    onClick={() => { setOpenMenuEnvioId(null); enviarEmailBriefing(envio); }}
+                                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
                                   >
-                                    <Send size={14} className="text-gray-400" />
+                                    <Send size={17} className="text-gray-400" />
                                     {envio.email_enviado ? "Reenviar e-mail" : "Enviar por e-mail"}
                                   </button>
-
                                   <button
-                                    onClick={() => {
-                                      setOpenMenuEnvioId(null);
-                                      copiarLinkBriefing(envio);
-                                    }}
-                                    className="w-full text-left px-4 py-3 text-[13px] text-gray-100 hover:bg-primary-700 flex items-center gap-2"
+                                    type="button"
+                                    onClick={() => { setOpenMenuEnvioId(null); copiarLinkBriefing(envio); }}
+                                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
                                   >
-                                    <Copy
-                                      size={14}
-                                      className="text-gray-400"
-                                    />
+                                    <Copy size={17} className="text-gray-400" />
                                     Copiar link
                                   </button>
-
+                                  <div className="h-px my-1.5 mx-2 bg-gray-700" />
                                   <button
-                                    onClick={() => {
-                                      setOpenMenuEnvioId(null);
-                                      excluirEnvio(envio.id);
-                                    }}
-                                    className="w-full text-left px-4 py-3 text-[13px] text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 border-t border-primary-700"
+                                    type="button"
+                                    onClick={() => { setOpenMenuEnvioId(null); excluirEnvio(envio.id); }}
+                                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-error-medium border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
                                   >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={17} />
                                     Excluir envio
                                   </button>
                                 </div>
@@ -2133,128 +2004,202 @@ export default function BriefingsPage() {
         )}
 
         {viewModalOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-full max-w-3xl max-h-[85vh] bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-              <div className="px-6 py-5 border-b border-primary-800 flex items-start justify-between gap-4 bg-primary-900/50">
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-3">
-                     <span className="p-2 rounded-lg bg-primary-800 text-primary-200">
-                        <FileText size={20} />
-                     </span>
-                     <span className="text-[18px] font-semibold text-gray-100">
-                       {viewTemplate?.titulo || "Modelo de briefing"}
-                     </span>
-                  </div>
+          <div
+            className="fixed inset-0 z-40 grid place-items-center"
+            style={{ padding: 40, background: 'rgba(4,12,16,0.72)', backdropFilter: 'blur(4px)' }}
+          >
+            <div
+              className="w-full flex flex-col overflow-hidden"
+              style={{
+                maxWidth: 920,
+                maxHeight: 'calc(100vh - 80px)',
+                borderRadius: 26,
+                border: '1px solid var(--gray-600)',
+                background: 'linear-gradient(180deg, rgba(16,40,50,0.98), rgba(7,28,36,0.98))',
+                boxShadow: '0 50px 110px -34px rgba(0,0,0,0.85), 0 0 0 1px rgba(30,182,232,0.10), 0 0 100px -40px rgba(30,182,232,0.4)',
+              }}
+            >
+              <header
+                className="flex items-start gap-[18px] flex-none"
+                style={{ padding: '30px 34px 26px', borderBottom: '1px solid var(--gray-700)' }}
+              >
+                <span
+                  className="flex-none grid place-items-center"
+                  style={{
+                    width: 54, height: 54, borderRadius: 16,
+                    color: 'var(--primary-300)',
+                    background: 'rgba(30,182,232,0.12)',
+                    border: '1px solid rgba(30,182,232,0.30)',
+                  }}
+                >
+                  <FileText size={24} strokeWidth={1.7} />
+                </span>
+
+                <div className="flex-1 min-w-0">
+                  <h2
+                    className="m-0 font-bold text-white"
+                    style={{ fontSize: 27, letterSpacing: '-0.02em' }}
+                  >
+                    {viewTemplate?.titulo || "Modelo de briefing"}
+                  </h2>
                   {viewTemplate?.descricao && (
-                    <span className="ml-[52px] text-[14px] text-gray-400 leading-relaxed max-w-xl">
+                    <p className="m-0 mt-[6px]" style={{ fontSize: 15, color: 'var(--gray-400)' }}>
                       {viewTemplate.descricao}
-                    </span>
+                    </p>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                   <button
-                     type="button"
-                     onClick={() => {
-                        fecharModalVisualizar();
-                        if (viewTemplate?.id) {
-                            router.push(`/dashboard/briefings/novo?edit=${viewTemplate.id}`);
-                        }
-                     }}
-                     className="p-2.5 rounded-xl hover:bg-primary-800 text-gray-400 hover:text-primary-100 transition-colors"
-                     title="Editar este modelo"
-                   >
-                     <Pencil size={18} />
-                   </button>
-                   <button
-                     type="button"
-                     onClick={fecharModalVisualizar}
-                     className="p-2.5 rounded-xl hover:bg-primary-800 text-gray-400 hover:text-gray-100 transition-colors"
-                   >
-                     <X size={20} />
-                   </button>
+                <div className="flex gap-2 flex-none">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fecharModalVisualizar();
+                      if (viewTemplate?.id) router.push(`/dashboard/briefings/novo?edit=${viewTemplate.id}`);
+                    }}
+                    className="grid place-items-center cursor-pointer transition-all duration-200"
+                    style={{
+                      width: 44, height: 44, borderRadius: 12,
+                      border: '1px solid var(--gray-700)',
+                      background: 'rgba(20,40,48,0.4)',
+                      color: 'var(--gray-300)',
+                    }}
+                    title="Editar este modelo"
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary-500)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-300)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-300)'; }}
+                  >
+                    <Pencil size={19} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fecharModalVisualizar}
+                    className="grid place-items-center cursor-pointer transition-all duration-200"
+                    style={{
+                      width: 44, height: 44, borderRadius: 12,
+                      border: '1px solid var(--gray-700)',
+                      background: 'rgba(20,40,48,0.4)',
+                      color: 'var(--gray-300)',
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-500)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-300)'; }}
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
-              </div>
+              </header>
 
               {viewError && (
-                <div className="m-6 px-4 py-3 rounded-xl bg-rose-900/20 border border-rose-500/50 text-rose-200 text-[13px] flex items-center gap-2">
-                   <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                   {viewError}
+                <div
+                  className="mx-[34px] mt-5 flex-none flex items-center gap-2 rounded-[13px] text-[13px]"
+                  style={{ padding: '14px 18px', background: 'rgba(239,83,80,0.08)', border: '1px solid rgba(239,83,80,0.3)', color: 'var(--error-light)' }}
+                >
+                  <div className="w-[6px] h-[6px] rounded-full shrink-0" style={{ background: 'var(--error-medium)' }} />
+                  {viewError}
                 </div>
               )}
 
-              <div className="flex-1 overflow-y-auto briefings-scroll p-6 bg-primary-950/30">
+              <div
+                className="flex-1 overflow-y-auto briefings-view-scroll flex flex-col min-h-0"
+                style={{ padding: '26px 34px 32px', gap: 20 }}
+              >
                 {viewLoading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-3">
                     <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                    <span className="text-gray-400 text-sm">Carregando formulário...</span>
+                    <span style={{ color: 'var(--gray-400)', fontSize: 14 }}>Carregando formulário...</span>
                   </div>
                 ) : viewCampos.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-500">
-                    <ClipboardList size={32} strokeWidth={1.5} className="opacity-50" />
-                    <span className="text-sm">Nenhuma pergunta configurada neste modelo.</span>
+                  <div className="flex flex-col items-center justify-center py-20 gap-3" style={{ color: 'var(--gray-500)' }}>
+                    <ClipboardList size={32} strokeWidth={1.5} style={{ opacity: 0.5 }} />
+                    <span style={{ fontSize: 14 }}>Nenhuma pergunta configurada neste modelo.</span>
                   </div>
                 ) : (
-                  <div className="max-w-2xl mx-auto flex flex-col gap-6">
-                    {viewCampos.map((campo) => (
-                      <div
-                        key={campo.id}
-                        className="group bg-primary-900 border border-primary-800 hover:border-primary-700 rounded-2xl p-5 shadow-sm transition-all"
-                      >
-                        <div className="flex flex-col gap-3">
-                           <div className="flex items-start justify-between gap-4">
-                              <span className="text-[16px] text-gray-100 font-medium leading-tight">
-                                {campo.titulo_pergunta}
-                                {campo.obrigatorio && (
-                                  <span className="text-rose-400 ml-1" title="Obrigatório">*</span>
-                                )}
-                              </span>
-                              
-                              <span className="shrink-0 text-[11px] uppercase tracking-wider font-semibold text-primary-400 bg-primary-950/50 px-2 py-1 rounded-md border border-primary-700">
-                                {labelTipoCampo(campo.tipo)}
-                              </span>
-                           </div>
-                           
-                           {campo.descricao_pergunta && (
-                             <span className="text-[13px] text-gray-400 -mt-1">
-                               {campo.descricao_pergunta}
-                             </span>
-                           )}
-
-                           <div className="pt-2">
-                              {campo.tipo === "short_text" && (
-                                <div className="w-full h-11 rounded-xl border border-primary-700 bg-primary-950/50 px-4 flex items-center text-[13px] text-gray-500 italic pointer-events-none">
-                                  Resposta curta...
-                                </div>
-                              )}
-
-                              {campo.tipo === "long_text" && (
-                                <div className="w-full h-24 rounded-xl border border-primary-700 bg-primary-950/50 px-4 py-3 text-[13px] text-gray-500 italic pointer-events-none">
-                                  Resposta longa...
-                                </div>
-                              )}
-
-                              {(campo.tipo === "multiple_choice" || campo.tipo === "checkboxes") && (
-                                <div className="flex flex-col gap-2.5">
-                                  {campo.opcoes && campo.opcoes.length > 0 ? (
-                                    campo.opcoes.map((op, i) => (
-                                      <div key={i} className="flex items-center gap-3">
-                                        <div className={`w-5 h-5 rounded flex items-center justify-center border border-primary-600 bg-primary-800/50 ${campo.tipo === "multiple_choice" ? "rounded-full" : "rounded-md"}`} />
-                                        <span className="text-[14px] text-gray-300">{op}</span>
-                                      </div>
-                                    ))
-                                  ) : (
-                                    <span className="text-[12px] text-gray-500 italic">
-                                      Sem opções definidas.
-                                    </span>
-                                  )}
-                                </div>
-                              )}
-                           </div>
-                        </div>
+                  viewCampos.map((campo) => (
+                    <div
+                      key={campo.id}
+                      style={{
+                        padding: '26px 28px',
+                        borderRadius: 18,
+                        border: '1px solid var(--gray-700)',
+                        background: 'rgba(8,34,42,0.4)',
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-4" style={{ marginBottom: 18 }}>
+                        <span className="font-bold text-white" style={{ fontSize: 20, letterSpacing: '-0.01em' }}>
+                          {campo.titulo_pergunta}
+                          {campo.obrigatorio && (
+                            <span style={{ color: 'var(--error-medium)', marginLeft: 4 }}>*</span>
+                          )}
+                        </span>
+                        <span
+                          className="flex-none font-bold uppercase"
+                          style={{
+                            fontSize: 12.5, letterSpacing: '0.1em',
+                            color: 'var(--primary-300)',
+                            padding: '8px 14px', borderRadius: 10,
+                            background: 'rgba(30,182,232,0.10)',
+                            border: '1px solid rgba(30,182,232,0.30)',
+                          }}
+                        >
+                          {labelTipoCampo(campo.tipo)}
+                        </span>
                       </div>
-                    ))}
-                  </div>
+
+                      {campo.descricao_pergunta && (
+                        <p className="m-0 mb-4" style={{ fontSize: 14, color: 'var(--gray-400)' }}>
+                          {campo.descricao_pergunta}
+                        </p>
+                      )}
+
+                      {campo.tipo === "short_text" && (
+                        <div style={{
+                          padding: '18px 20px', borderRadius: 13,
+                          border: '1px solid var(--gray-600)',
+                          background: 'rgba(6,25,31,0.5)',
+                          fontSize: 16, fontStyle: 'italic',
+                          color: 'var(--gray-500)',
+                        }}>
+                          Resposta curta…
+                        </div>
+                      )}
+
+                      {campo.tipo === "long_text" && (
+                        <div style={{
+                          padding: '18px 20px', borderRadius: 13,
+                          border: '1px solid var(--gray-600)',
+                          background: 'rgba(6,25,31,0.5)',
+                          fontSize: 16, fontStyle: 'italic',
+                          color: 'var(--gray-500)',
+                          minHeight: 120,
+                        }}>
+                          Resposta longa…
+                        </div>
+                      )}
+
+                      {(campo.tipo === "multiple_choice" || campo.tipo === "checkboxes") && (
+                        <div className="flex flex-col" style={{ gap: 16 }}>
+                          {campo.opcoes && campo.opcoes.length > 0 ? (
+                            campo.opcoes.map((op, i) => (
+                              <label key={i} className="flex items-center" style={{ gap: 14, cursor: 'pointer' }}>
+                                <span
+                                  className="flex-none"
+                                  style={{
+                                    width: 26, height: 26,
+                                    border: '2px solid var(--gray-500)',
+                                    borderRadius: campo.tipo === "multiple_choice" ? '50%' : 8,
+                                    display: 'block',
+                                  }}
+                                />
+                                <span style={{ fontSize: 17, color: 'var(--gray-200)' }}>{op}</span>
+                              </label>
+                            ))
+                          ) : (
+                            <span className="italic" style={{ fontSize: 12, color: 'var(--gray-500)' }}>
+                              Sem opções definidas.
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))
                 )}
               </div>
             </div>
@@ -2354,6 +2299,15 @@ export default function BriefingsPage() {
             background: var(--primary-500);
             border-radius: 999px;
             border: 2px solid rgba(15, 23, 42, 0.9);
+          }
+          .briefings-view-scroll::-webkit-scrollbar {
+            width: 10px;
+          }
+          .briefings-view-scroll::-webkit-scrollbar-thumb {
+            background: var(--primary-600);
+            border-radius: 8px;
+            border: 3px solid transparent;
+            background-clip: padding-box;
           }
           .briefings-scroll::-webkit-scrollbar-thumb:hover {
             background: var(--primary-400);

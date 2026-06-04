@@ -263,6 +263,30 @@ export default function NovoBriefingPage() {
   }, [router, editId]);
 
   useEffect(() => {
+    if (editId) return;
+    try {
+      const saved = sessionStorage.getItem("briefingDraftNew");
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      if (draft.titulo) setTitulo(draft.titulo);
+      if (draft.descricao !== undefined) setDescricao(draft.descricao);
+      if (draft.cardBgColor) setCardBgColor(draft.cardBgColor);
+      if (draft.cardTextColor) setCardTextColor(draft.cardTextColor);
+      if (draft.coverIcon) setCoverIcon(draft.coverIcon);
+      if (draft.coverIconColor) setCoverIconColor(draft.coverIconColor);
+      if (draft.questions && Array.isArray(draft.questions) && draft.questions.length > 0) {
+        setQuestions(draft.questions);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (editId) return;
+    const draft = { titulo, descricao, cardBgColor, cardTextColor, coverIcon, coverIconColor, questions };
+    sessionStorage.setItem("briefingDraftNew", JSON.stringify(draft));
+  }, [titulo, descricao, cardBgColor, cardTextColor, coverIcon, coverIconColor, questions, editId]);
+
+  useEffect(() => {
     function outside(e: MouseEvent) {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
@@ -522,6 +546,7 @@ export default function NovoBriefingPage() {
         });
       }
 
+      sessionStorage.removeItem("briefingDraftNew");
       setShowSuccessModal(true);
       setSaving(false);
     } catch (err: any) {
@@ -532,55 +557,52 @@ export default function NovoBriefingPage() {
 
   if (loadingUser) {
     return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex items-center justify-center text-[18px]">
-        <div className="flex flex-col items-center gap-3 animate-pulse">
-            <div className="w-8 h-8 rounded-full border-2 border-primary-500 border-t-transparent animate-spin"/>
-            <span className="text-gray-400 text-sm">Carregando editor...</span>
+      <div className="flex-1 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />
+          <span className="text-gray-400 text-sm">Carregando editor...</span>
         </div>
       </div>
     );
   }
+
+  const TIPO_LABEL: Record<QuestionType, string> = {
+    short: "Resposta Curta",
+    long: "Parágrafo",
+    single: "Múltipla Escolha",
+    multi: "Caixas de Seleção",
+  };
 
   return (
     <>
       {showSuccessModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fade-in">
           <div className="bg-primary-900 border border-primary-700 rounded-2xl p-8 w-[90%] max-w-md text-center flex flex-col gap-6 shadow-2xl">
-            <div className="w-16 h-16 rounded-full bg-primary-500/10 flex items-center justify-center mx-auto mb-2 text-primary-400">
-                <CheckSquare size={32} />
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2 text-primary-400" style={{ background: 'rgba(30,182,232,0.10)' }}>
+              <CheckSquare size={32} />
             </div>
-            
             <div className="flex flex-col gap-2">
-                <h2 className="text-[22px] font-semibold text-gray-100">
-                Briefing {editId ? "atualizado" : "criado"}!
-                </h2>
-                <p className="text-gray-400 text-sm">
-                    {editId 
-                        ? "As alterações foram salvas com sucesso." 
-                        : "Seu novo modelo de briefing está pronto para uso."}
-                </p>
+              <h2 className="text-[22px] font-semibold text-gray-100">Briefing {editId ? "atualizado" : "criado"}!</h2>
+              <p className="text-gray-400 text-sm">
+                {editId ? "As alterações foram salvas com sucesso." : "Seu novo modelo de briefing está pronto para uso."}
+              </p>
             </div>
-
             {projetoId ? (
               <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => router.push(`/dashboard/projetos/${projetoId}`)}
-                  className="w-full px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-white font-semibold transition-all shadow-lg shadow-primary-500/20"
-                >
+                <button onClick={() => router.push(`/dashboard/projetos/${projetoId}`)}
+                  className="w-full px-6 py-3 rounded-xl text-primary-900 font-semibold transition-all"
+                  style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', boxShadow: '0 12px 28px -12px rgba(30,182,232,0.8)' }}>
                   Voltar ao projeto
                 </button>
-                <button
-                  onClick={() => router.push("/dashboard/briefings")}
-                  className="w-full px-6 py-3 rounded-xl bg-transparent hover:bg-primary-800 text-gray-400 text-[13px] transition-all"
-                >
+                <button onClick={() => router.push("/dashboard/briefings")}
+                  className="w-full px-6 py-3 rounded-xl bg-transparent hover:bg-primary-800 text-gray-400 text-[13px] transition-all">
                   Ver todos os briefings
                 </button>
               </div>
             ) : (
-              <button
-                onClick={() => router.push("/dashboard/briefings")}
-                className="w-full px-6 py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-white font-semibold transition-all shadow-lg shadow-primary-500/20"
-              >
+              <button onClick={() => router.push("/dashboard/briefings")}
+                className="w-full px-6 py-3 rounded-xl text-primary-900 font-semibold transition-all"
+                style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', boxShadow: '0 12px 28px -12px rgba(30,182,232,0.8)' }}>
                 Voltar para a lista
               </button>
             )}
@@ -588,371 +610,307 @@ export default function NovoBriefingPage() {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-            <header className="h-16 border-b border-primary-700 bg-primary-900/50 backdrop-blur-md flex items-center justify-between px-6 md:px-8 z-10 shrink-0">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => router.push(projetoId ? `/dashboard/projetos/${projetoId}` : "/dashboard/briefings")}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-800 text-gray-400 hover:text-gray-200 transition-colors"
-                        title="Voltar"
-                    >
-                        <ChevronDown className="rotate-90" size={20} />
-                    </button>
-                    
-                    <div className="h-6 w-px bg-primary-800 mx-1" />
+      <div className="flex-1 flex flex-col h-full overflow-hidden relative bg-primary-900">
+        <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 520, height: 520, right: -180, top: -180, background: 'radial-gradient(circle, rgba(30,182,232,0.10), transparent 70%)', filter: 'blur(100px)' }} />
+        <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 460, height: 460, right: -160, bottom: -200, background: 'radial-gradient(circle, rgba(16,66,83,0.45), transparent 70%)', filter: 'blur(100px)' }} />
 
-                    <h1 className="text-[16px] font-medium text-gray-200">
-                         {editId ? "Editar Briefing" : "Novo Modelo de Briefing"}
-                    </h1>
+        <header className="relative z-10 flex items-center gap-5 px-10 py-[22px] border-b border-gray-700 flex-none">
+          <div className="flex items-center gap-[18px]">
+            <button
+              type="button"
+              onClick={() => router.push(projetoId ? `/dashboard/projetos/${projetoId}` : "/dashboard/briefings")}
+              className="grid place-items-center flex-none w-[46px] h-[46px] rounded-[13px] border border-gray-700 text-gray-200 transition-all duration-200 hover:border-primary-500 hover:text-primary-300"
+              style={{ background: 'var(--primary-800)' }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+              </svg>
+            </button>
+            <span className="text-[19px] font-semibold text-gray-100">
+              {editId ? "Editar Briefing" : "Novo Modelo de Briefing"}
+            </span>
+          </div>
+
+          <div className="ml-auto flex items-center gap-3.5">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 flex-none h-12 px-6 rounded-[14px] text-[16px] font-semibold border-0 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', boxShadow: '0 12px 28px -12px rgba(30,182,232,0.8)' }}
+            >
+              {saving ? (
+                <><div className="w-4 h-4 border-2 border-primary-900/40 border-t-primary-900 rounded-full animate-spin" /> Salvando...</>
+              ) : "Salvar alterações"}
+            </button>
+
+            <div className="relative" ref={profileRef}>
+              <button
+                type="button"
+                onClick={() => setProfileOpen((v) => !v)}
+                className="flex items-center gap-2 p-1 rounded-full border border-gray-600 transition-all hover:border-primary-500"
+                style={{ background: 'var(--primary-800)' }}
+              >
+                <UserAvatar src={avatarSrc} name={avatarName} size={38} />
+              </button>
+              {profileOpen && (
+                <div className="absolute right-0 mt-3 w-52 p-2 rounded-2xl border border-gray-600 z-50 animate-fade-in-down flex flex-col gap-1"
+                  style={{ background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8)' }}>
+                  <button onClick={() => { setProfileOpen(false); router.push("/dashboard/configuracoes"); }}
+                    className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-[10px] text-[14px] text-gray-100 bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)]">
+                    <Pencil size={16} className="text-gray-400" /> Editar perfil
+                  </button>
+                  <div className="h-px my-1 mx-2 bg-gray-700" />
+                  <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }}
+                    className="flex items-center gap-3 w-full px-3.5 py-2.5 rounded-[10px] text-[14px] text-error-medium bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]">
+                    <Trash2 size={16} /> Sair
+                  </button>
                 </div>
+              )}
+            </div>
+          </div>
+        </header>
 
-                <div className="flex items-center gap-3">
-                     <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className={`px-5 py-2 rounded-lg text-[13px] font-medium transition-all flex items-center gap-2 ${
-                        saving
-                            ? "bg-primary-800 text-gray-500 cursor-not-allowed"
-                            : "bg-primary-500 hover:bg-primary-400 text-white shadow-lg shadow-primary-500/20"
-                        }`}
-                    >
-                        {saving ? (
-                            <>
-                                <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                Salvando...
-                            </>
-                        ) : (
-                            "Salvar alterações"
-                        )}
-                    </button>
+        <main className="relative z-10 flex-1 overflow-y-auto novo-briefing-scroll">
+          <div className="max-w-[1180px] w-full mx-auto flex flex-col gap-[26px] px-10 py-[34px] pb-[44px]">
 
-                    <div className="relative" ref={profileRef}>
-                        <button
+            {formError && (
+              <div className="px-5 py-4 rounded-xl border text-[14px] flex items-center gap-3 animate-fade-in"
+                style={{ background: 'rgba(239,83,80,0.08)', borderColor: 'rgba(239,83,80,0.3)', color: 'var(--error-light)' }}>
+                <div className="w-2 h-2 rounded-full bg-error-medium shrink-0" />
+                {formError}
+              </div>
+            )}
+
+            <section className="relative rounded-[22px] border border-gray-700 px-10 pt-[36px] pb-10"
+              style={{ background: 'var(--primary-800)' }}>
+              <div className="absolute top-0 left-0 right-0 h-1 rounded-t-[22px]" style={{ background: 'linear-gradient(90deg, var(--primary-300), var(--primary-500) 50%, transparent)' }} />
+
+              <input
+                value={titulo}
+                onChange={(e) => setTitulo(e.target.value)}
+                placeholder="Título do Briefing"
+                className="w-full bg-transparent outline-none border-none p-0 font-bold text-gray-100"
+                style={{ fontSize: 42, letterSpacing: '-0.02em', caretColor: 'var(--primary-500)' }}
+              />
+              <input
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                placeholder="Adicione uma descrição ou instruções para o cliente preencher este briefing…"
+                className="w-full bg-transparent outline-none border-none p-0 text-gray-200 mt-[18px]"
+                style={{ fontSize: 18 }}
+              />
+
+              <div className="h-px my-7 bg-gray-700" />
+
+              <div className="grid gap-11 relative z-20" style={{ gridTemplateColumns: '1fr 1.1fr' }}>
+                <div className="flex flex-col gap-[22px]">
+                  <div className="flex gap-4">
+                    <div className="flex flex-col gap-[11px]">
+                      <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-gray-400">Cor de fundo</span>
+                      <ColorPicker value={cardBgColor} onChange={setCardBgColor} />
+                    </div>
+                    <div className="flex flex-col gap-[11px]">
+                      <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-gray-400">Cor do texto</span>
+                      <ColorPicker value={cardTextColor} onChange={setCardTextColor} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-[11px] relative z-30">
+                    <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-gray-400">Ícone da capa</span>
+                    <div className="flex gap-3 relative">
+                      <button
                         type="button"
-                        onClick={() => setProfileOpen((v) => !v)}
-                        className="rounded-full border border-primary-700 hover:border-primary-500 transition-colors"
-                        >
-                          <UserAvatar src={avatarSrc} name={avatarName} size={36} />
-                        </button>
-                         {profileOpen && (
-                            <div className="absolute right-0 mt-3 w-56 bg-primary-900 border border-primary-700 rounded-xl shadow-2xl p-2 flex flex-col gap-1 z-50 animate-fade-in-down origin-top-right">
-                                <button
-                                    className="w-full text-left px-3 py-2 text-[13px] text-gray-300 hover:text-gray-100 hover:bg-primary-700/50 rounded-lg transition-colors flex items-center gap-2"
-                                    onClick={() => {
-                                        setProfileOpen(false);
-                                        router.push("/dashboard/perfil");
-                                    }}
-                                >
-                                    <Pencil size={14} /> Editar perfil
+                        onClick={() => setIconPickerOpen(!iconPickerOpen)}
+                        className="flex items-center gap-[10px] flex-1 h-[52px] px-4 rounded-[13px] border border-gray-600 text-gray-100 cursor-pointer transition-colors hover:border-gray-400"
+                        style={{ background: 'var(--primary-800)', fontSize: 15 }}
+                      >
+                        {ICON_LIST[coverIcon as keyof typeof ICON_LIST] ? (
+                          (() => {
+                            const Ic = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
+                            return <><Ic size={17} style={{ color: 'var(--primary-300)' }} /><span>{coverIcon}</span></>;
+                          })()
+                        ) : <span className="text-gray-500">Selecionar</span>}
+                        <ChevronDown size={15} className="ml-auto text-gray-500" />
+                      </button>
+
+                      <ColorPicker value={coverIconColor} onChange={setCoverIconColor} />
+
+                      {iconPickerOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setIconPickerOpen(false)} />
+                          <div className="absolute top-full mt-2 left-0 w-[360px] border border-gray-700 shadow-2xl rounded-xl p-4 z-50 grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto novo-briefing-scroll animate-fade-in-down"
+                            style={{ background: 'var(--primary-800)' }}>
+                            {Object.keys(ICON_LIST).map((iconName) => {
+                              const IconComp = ICON_LIST[iconName as keyof typeof ICON_LIST];
+                              return (
+                                <button key={iconName} type="button"
+                                  onClick={() => { setCoverIcon(iconName); setIconPickerOpen(false); }}
+                                  className={`p-2 rounded-lg flex items-center justify-center transition-colors ${coverIcon === iconName ? "bg-primary-700 text-gray-100 ring-2 ring-primary-500" : "text-gray-400 hover:bg-primary-800 hover:text-gray-100"}`}
+                                  title={iconName}>
+                                  <IconComp size={20} />
                                 </button>
-                                <button
-                                    className="w-full text-left px-3 py-2 text-[13px] text-rose-400 hover:text-rose-300 hover:bg-rose-900/10 rounded-lg transition-colors flex items-center gap-2 border-t border-primary-700 mt-1 pt-2"
-                                    onClick={async () => {
-                                        await supabase.auth.signOut();
-                                        router.push("/login");
-                                    }}
-                                >
-                                    <Trash2 size={14} /> Sair
-                                </button>
-                            </div>
-                         )}
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
                     </div>
+                  </div>
                 </div>
-            </header>
 
-            <main className="flex-1 overflow-y-auto novo-briefing-scroll p-6 md:p-8">
-                <div className="max-w-4xl mx-auto flex flex-col gap-8 pb-20">
-                    
-                    {formError && (
-                        <div className="px-5 py-4 rounded-xl bg-rose-950/30 border border-rose-500/30 text-rose-200 text-[14px] flex items-center gap-3 animate-fade-in">
-                            <div className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                            {formError}
-                        </div>
-                    )}
+                <div className="flex flex-col items-center justify-center gap-[18px] min-h-[300px] p-10 rounded-[20px] transition-all duration-300"
+                  style={{ background: cardBgColor, color: cardTextColor, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)' }}>
+                  {coverIcon && ICON_LIST[coverIcon as keyof typeof ICON_LIST] && (() => {
+                    const Ic = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
+                    return <Ic size={48} strokeWidth={1.6} style={{ color: coverIconColor }} />;
+                  })()}
+                  <h3 className="m-0 text-[30px] font-bold text-center leading-tight" style={{ letterSpacing: '-0.01em' }}>
+                    {titulo || "Título do Briefing"}
+                  </h3>
+                  <span className="text-[13px] font-semibold opacity-70" style={{ letterSpacing: '0.28em' }}>BRIEFING</span>
+                </div>
+              </div>
+            </section>
 
-                    <div className="bg-primary-900 border border-primary-700 rounded-2xl shadow-sm group focus-within:border-primary-600 transition-colors">
-                        <div className="h-2 bg-gradient-to-r from-primary-600 to-primary-400 rounded-t-2xl" />
-                        <div className="p-6 md:p-8 flex flex-col gap-6">
-                            <input
-                                value={titulo}
-                                onChange={(e) => setTitulo(e.target.value)}
-                                placeholder="Título do Briefing"
-                                className="w-full bg-transparent text-[32px] font-bold text-gray-100 placeholder-gray-600 outline-none border-none p-0 focus:ring-0"
-                            />
-                            <textarea
-                                value={descricao}
-                                onChange={(e) => setDescricao(e.target.value)}
-                                placeholder="Adicione uma descrição ou instruções para o cliente preencher este briefing..."
-                                rows={2}
-                                className="w-full bg-transparent text-[15px] text-gray-300 placeholder-gray-500 outline-none border-none p-0 focus:ring-0 resize-none"
-                            />
-
-                            <div className="w-full h-px bg-gray-700 my-2" />
-
-                            <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-8 relative z-20">
-                                
-                                <div className="flex flex-col justify-center gap-6 w-fit h-full">
-                                     
-                                     <div className="flex flex-col gap-6">
-                                        
-                                        <div className="flex items-center gap-6">
-                                            <div className="flex flex-col gap-2">
-                                                <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Cor de Fundo</label>
-                                                <ColorPicker value={cardBgColor} onChange={setCardBgColor} />
-                                            </div>
-
-                                            <div className="flex flex-col gap-2">
-                                                <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Cor do Texto</label>
-                                                <ColorPicker value={cardTextColor} onChange={setCardTextColor} />
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col gap-2 relative z-30">
-                                            <label className="text-[12px] font-medium text-gray-400 uppercase tracking-wider">Ícone da Capa</label>
-                                            <div className="flex gap-2 relative">
-                                                <button
-                                                    onClick={() => setIconPickerOpen(!iconPickerOpen)}
-                                                    className="h-[46px] px-3 bg-transparent border border-primary-700 hover:border-primary-500 rounded-lg flex items-center gap-2 text-gray-300 transition-colors min-w-[140px] justify-between"
-                                                >
-                                                    <div className="flex items-center gap-2">
-                                                        {ICON_LIST[coverIcon as keyof typeof ICON_LIST] ? (
-                                                            <>
-                                                                {(() => {
-                                                                    const SelectedIcon = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
-                                                                    return <SelectedIcon size={18} style={{ color: coverIconColor }} />;
-                                                                })()}
-                                                                <span className="text-[13px]">{coverIcon}</span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-[13px] text-gray-500">Selecionar</span>
-                                                        )}
-                                                    </div>
-                                                    <ChevronDown size={14} className="text-gray-500" />
-                                                </button>
-
-                                                <ColorPicker value={coverIconColor} onChange={setCoverIconColor} />
-
-                                                {iconPickerOpen && (
-                                                    <>
-                                                        <div className="fixed inset-0 z-40" onClick={() => setIconPickerOpen(false)} />
-                                                        <div className="absolute top-full mt-2 left-0 w-[360px] bg-primary-900 border border-primary-700 shadow-2xl rounded-xl p-4 z-50 grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto novo-briefing-scroll animate-fade-in-down">
-                                                            {Object.keys(ICON_LIST).map((iconName) => {
-                                                                const IconComp = ICON_LIST[iconName as keyof typeof ICON_LIST];
-                                                                return (
-                                                                    <button
-                                                                        key={iconName}
-                                                                        onClick={() => {
-                                                                            setCoverIcon(iconName);
-                                                                            setIconPickerOpen(false);
-                                                                        }}
-                                                                        className={`p-2 rounded-lg flex items-center justify-center transition-colors ${
-                                                                            coverIcon === iconName 
-                                                                                ? "bg-primary-700 text-white ring-2 ring-primary-500" 
-                                                                                : "text-gray-400 hover:bg-primary-800 hover:text-white"
-                                                                        }`}
-                                                                        title={iconName}
-                                                                    >
-                                                                        <IconComp size={20} />
-                                                                    </button>
-                                                                )
-                                                            })}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                     </div>
-                                </div>
-                                
-                                <div className="h-full flex flex-col justify-center relative">
-                                     <div 
-                                        className="w-full h-full min-h-[220px] rounded-xl shadow-lg flex flex-col items-center justify-center gap-3 p-6 text-center transition-all duration-300"
-                                        style={{ backgroundColor: cardBgColor, color: cardTextColor }}
-                                     >
-                                        {coverIcon && ICON_LIST[coverIcon as keyof typeof ICON_LIST] && (
-                                            (() => {
-                                                const IconComp = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
-                                                return <IconComp size={48} style={{ color: coverIconColor }} />;
-                                            })()
-                                        )}
-                                        <div className="font-bold text-[24px] leading-tight line-clamp-2 max-w-[80%]">
-                                            {titulo || "Título do Briefing"}
-                                        </div>
-                                        <div className="text-[13px] opacity-80 uppercase tracking-wider font-medium mt-1">Briefing</div>
-                                    </div>
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-col gap-6">
-                        {questions.map((q, idx) => (
-                            <div 
-                                key={q.id}
-                                className="bg-primary-900 border border-primary-700 rounded-2xl transition-all duration-200 hover:border-primary-500 hover:shadow-lg group"
-                            >
-                                <div className="p-6 md:p-8 flex flex-col gap-6">
-                                    <div className="flex flex-col md:flex-row gap-4 items-start">
-                                        <div className="bg-primary-800/50 w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-bold text-gray-400 border border-primary-700 shrink-0 mt-1">
-                                            {idx + 1}
-                                        </div>
-
-                                        <div className="flex-1 w-full flex flex-col gap-4">
-                                            <div className="flex flex-col md:flex-row gap-4">
-                                                <input 
-                                                    value={q.titulo}
-                                                    onChange={(e) => updateQuestion(q.id, { titulo: e.target.value })}
-                                                    placeholder="Digite a pergunta aqui"
-                                                    className="flex-1 bg-transparent border border-primary-700 rounded-xl px-4 py-3 text-[15px] text-gray-100 placeholder-gray-500 focus:border-primary-500 focus:ring-1 focus:ring-primary-500/20 outline-none transition-all"
-                                                />
-                                                
-                                                <div className="relative md:w-64 shrink-0">
-                                                    <select
-                                                        value={q.tipo}
-                                                        onChange={(e) => handleChangeTipo(q.id, e.target.value)}
-                                                        className="w-full bg-transparent border border-primary-700 rounded-xl px-4 py-3 pr-10 text-[14px] text-gray-200 outline-none focus:border-primary-500 appearance-none cursor-pointer hover:bg-primary-700/20 transition-colors"
-                                                    >
-                                                        <option value="short" className="bg-primary-900">Resposta Curta</option>
-                                                        <option value="long" className="bg-primary-900">Parágrafo</option>
-                                                        <option value="single" className="bg-primary-900">Múltipla Escolha</option>
-                                                        <option value="multi" className="bg-primary-900">Caixas de Seleção</option>
-                                                    </select>
-                                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
-                                                </div>
-                                            </div>
-
-                                            <input 
-                                                value={q.descricao}
-                                                onChange={(e) => updateQuestion(q.id, { descricao: e.target.value })}
-                                                placeholder="Descrição auxiliar (opcional)"
-                                                className="text-[13px] bg-transparent border-none p-0 text-gray-400 placeholder-gray-600 focus:ring-0 w-full"
-                                            />
-
-                                            {(q.tipo === "single" || q.tipo === "multi") && (
-                                                <div className="mt-2 flex flex-col gap-2 pl-1">
-                                                    {q.opcoes.map((op, opIdx) => (
-                                                        <div key={opIdx} className="flex items-center gap-3 group/opt">
-                                                            {q.tipo === "single" 
-                                                                ? <div className="w-4 h-4 rounded-full border border-primary-600 shrink-0" />
-                                                                : <div className="w-4 h-4 rounded-sm border border-primary-600 shrink-0" />
-                                                            }
-                                                            <input 
-                                                                value={op}
-                                                                onChange={(e) => updateOpcao(q.id, opIdx, e.target.value)}
-                                                                placeholder={`Opção ${opIdx + 1}`}
-                                                                className="flex-1 bg-transparent border-b border-transparent hover:border-primary-700 focus:border-primary-500 text-[14px] text-gray-200 py-1 outline-none transition-colors"
-                                                            />
-                                                            <button 
-                                                                onClick={() => removeOpcao(q.id, opIdx)}
-                                                                className="opacity-0 group-hover/opt:opacity-100 p-1.5 text-rose-400 hover:bg-rose-900/20 rounded-lg transition-all"
-                                                                title="Remover opção"
-                                                            >
-                                                                <X size={14} />
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    <button 
-                                                        onClick={() => addOpcao(q.id)}
-                                                        className="mt-2 w-fit flex items-center gap-2 text-[13px] font-medium text-primary-400 hover:text-primary-300 px-2 py-1 -ml-2 rounded-lg hover:bg-primary-800/50 transition-colors"
-                                                    >
-                                                        <Plus size={16} /> Adicionar Opção
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-4 mt-2 border-t border-primary-700 flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                             <button 
-                                                onClick={() => handleDuplicateQuestion(q.id)}
-                                                className="p-2 text-gray-400 hover:text-primary-200 hover:bg-primary-800 rounded-lg transition-colors"
-                                                title="Duplicar pergunta"
-                                             >
-                                                <Copy size={18} />
-                                             </button>
-                                             <button 
-                                                onClick={() => handleRemoveQuestion(q.id)}
-                                                className="p-2 text-gray-400 hover:text-rose-300 hover:bg-rose-900/20 rounded-lg transition-colors"
-                                                title="Excluir pergunta"
-                                             >
-                                                <Trash2 size={18} />
-                                             </button>
-                                             <div className="w-px h-4 bg-gray-700 mx-1" />
-                                              <div className="flex items-center gap-1">
-                                                 <button 
-                                                    onClick={() => handleMoveUp(q.id)}
-                                                    className="p-2 text-gray-500 hover:text-gray-300 hover:bg-primary-800 rounded-lg"
-                                                    title="Mover para cima"
-                                                >
-                                                    <ChevronUp size={18} />
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleMoveDown(q.id)}
-                                                    className="p-2 text-gray-500 hover:text-gray-300 hover:bg-primary-800 rounded-lg"
-                                                    title="Mover para baixo"
-                                                >
-                                                    <ChevronDown size={18} />
-                                                </button>
-                                              </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-3 pl-4 border-l border-primary-700">
-                                            <label className="text-[13px] text-gray-300 cursor-pointer select-none" htmlFor={`req-${q.id}`}>Obrigatória</label>
-                                            <button
-                                                id={`req-${q.id}`}
-                                                type="button"
-                                                onClick={() => updateQuestion(q.id, { obrigatorio: !q.obrigatorio })}
-                                                className={`w-10 h-6 rounded-full flex items-center px-1 transition-colors duration-200 ${
-                                                    q.obrigatorio ? "bg-primary-500" : "bg-primary-700"
-                                                }`}
-                                            >
-                                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${
-                                                    q.obrigatorio ? "translate-x-4" : "translate-x-0"
-                                                }`} />
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <button
-                        onClick={handleAddQuestion}
-                        className="w-full py-4 border-2 border-dashed border-primary-700 hover:border-primary-500 rounded-2xl text-gray-400 hover:text-primary-300 hover:bg-primary-800/30 transition-all flex items-center justify-center gap-2 group"
+            {questions.map((q, idx) => (
+              <section
+                key={q.id}
+                className="rounded-[20px] border border-gray-700 px-8 py-7"
+                style={{ background: 'var(--primary-800)' }}
+              >
+                <div className="flex items-center gap-4">
+                  <span
+                    className="flex-none grid place-items-center w-11 h-11 rounded-[12px] text-[17px] font-bold text-primary-300"
+                    style={{ background: 'rgba(30,182,232,0.10)', border: '1px solid rgba(30,182,232,0.28)' }}
+                  >
+                    {idx + 1}
+                  </span>
+                  <input
+                    value={q.titulo}
+                    onChange={(e) => updateQuestion(q.id, { titulo: e.target.value })}
+                    placeholder="Digite a pergunta aqui"
+                    className="flex-1 h-14 px-5 rounded-[14px] border border-gray-600 bg-primary-800 text-gray-100 text-[17px] outline-none transition-all focus:border-primary-500"
+                    style={{ caretColor: 'var(--primary-500)' }}
+                  />
+                  <div className="relative flex-none w-[240px]">
+                    <select
+                      value={q.tipo}
+                      onChange={(e) => handleChangeTipo(q.id, e.target.value)}
+                      className="w-full h-14 px-4 pr-10 rounded-[14px] border border-gray-600 text-gray-100 text-[15px] outline-none appearance-none cursor-pointer transition-colors hover:border-gray-400 focus:border-primary-500"
+                      style={{ background: 'var(--primary-800)' }}
                     >
-                        <div className="w-8 h-8 rounded-full bg-primary-800 group-hover:bg-primary-600 flex items-center justify-center text-gray-300 group-hover:text-white transition-colors">
-                            <Plus size={18} />
-                        </div>
-                        <span className="font-medium">Adicionar nova pergunta</span>
-                    </button>
-
+                      <option value="short" className="bg-primary-900">Resposta Curta</option>
+                      <option value="long" className="bg-primary-900">Parágrafo</option>
+                      <option value="single" className="bg-primary-900">Múltipla Escolha</option>
+                      <option value="multi" className="bg-primary-900">Caixas de Seleção</option>
+                    </select>
+                    <ChevronDown size={15} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                  </div>
                 </div>
-            </main>
-        </div>
+
+                <input
+                  value={q.descricao}
+                  onChange={(e) => updateQuestion(q.id, { descricao: e.target.value })}
+                  placeholder="Descrição auxiliar (opcional)"
+                  className="w-full mt-4 px-1 py-2 bg-transparent outline-none text-gray-400 text-[15px] border-0 transition-colors"
+                  style={{ caretColor: 'var(--primary-500)' }}
+                />
+
+                {(q.tipo === "single" || q.tipo === "multi") && (
+                  <div className="mt-4 flex flex-col gap-2 pl-1">
+                    {q.opcoes.map((op, opIdx) => (
+                      <div key={opIdx} className="flex items-center gap-3 group/opt">
+                        <div className={`w-4 h-4 shrink-0 border border-gray-600 ${q.tipo === "single" ? "rounded-full" : "rounded-sm"}`} />
+                        <input
+                          value={op}
+                          onChange={(e) => updateOpcao(q.id, opIdx, e.target.value)}
+                          placeholder={`Opção ${opIdx + 1}`}
+                          className="flex-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-primary-500 text-[14px] text-gray-200 py-1 outline-none transition-colors"
+                        />
+                        <button type="button" onClick={() => removeOpcao(q.id, opIdx)}
+                          className="opacity-0 group-hover/opt:opacity-100 p-1.5 rounded-lg transition-all text-error-medium hover:bg-[rgba(239,83,80,0.10)]">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    <button type="button" onClick={() => addOpcao(q.id)}
+                      className="mt-2 w-fit flex items-center gap-2 text-[13px] font-medium text-primary-400 hover:text-primary-300 px-2 py-1 -ml-2 rounded-lg hover:bg-[rgba(30,182,232,0.06)] transition-colors">
+                      <Plus size={16} /> Adicionar opção
+                    </button>
+                  </div>
+                )}
+
+                <div className="mt-[22px] mb-[2px] h-px bg-gray-700" />
+                <div className="mt-[18px] flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" onClick={() => handleDuplicateQuestion(q.id)}
+                      className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-[rgba(148,169,173,0.10)] hover:text-gray-100" title="Duplicar">
+                      <Copy size={18} />
+                    </button>
+                    <button type="button" onClick={() => handleRemoveQuestion(q.id)}
+                      className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)] hover:text-error-medium" title="Excluir">
+                      <Trash2 size={18} />
+                    </button>
+                    <span className="w-px h-6 bg-gray-700 mx-2" />
+                    <button type="button" onClick={() => handleMoveUp(q.id)}
+                      className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-[rgba(148,169,173,0.10)] hover:text-gray-100" title="Mover para cima">
+                      <ChevronUp size={18} />
+                    </button>
+                    <button type="button" onClick={() => handleMoveDown(q.id)}
+                      className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-[rgba(148,169,173,0.10)] hover:text-gray-100" title="Mover para baixo">
+                      <ChevronDown size={18} />
+                    </button>
+                  </div>
+
+                  <label className="flex items-center gap-3.5 text-[15.5px] font-medium text-gray-200 cursor-pointer select-none">
+                    Obrigatória
+                    <button
+                      type="button"
+                      onClick={() => updateQuestion(q.id, { obrigatorio: !q.obrigatorio })}
+                      className="relative w-[50px] h-7 rounded-full border-0 cursor-pointer transition-all duration-200 flex-none"
+                      style={q.obrigatorio
+                        ? { background: 'linear-gradient(135deg, var(--primary-400), var(--primary-500))', boxShadow: '0 0 14px -3px var(--primary-500)' }
+                        : { background: 'var(--gray-600)' }}
+                    >
+                      <span
+                        className="absolute top-[3px] w-[22px] h-[22px] rounded-full bg-white shadow-sm transition-all duration-200"
+                        style={{ left: q.obrigatorio ? 25 : 3 }}
+                      />
+                    </button>
+                  </label>
+                </div>
+              </section>
+            ))}
+
+            <button
+              type="button"
+              onClick={handleAddQuestion}
+              className="flex items-center justify-center gap-3 w-full h-20 rounded-[18px] text-[17px] font-semibold text-gray-300 border-0 cursor-pointer transition-all duration-200 hover:text-primary-200"
+              style={{ border: '1.5px dashed var(--gray-600)', background: 'rgba(30,182,232,0.02)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary-500)'; (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.06)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-600)'; (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.02)'; }}
+            >
+              <span className="grid place-items-center w-10 h-10 rounded-full border text-primary-300"
+                style={{ background: 'rgba(30,182,232,0.10)', borderColor: 'rgba(30,182,232,0.30)' }}>
+                <Plus size={20} />
+              </span>
+              Adicionar nova pergunta
+            </button>
+
+          </div>
+        </main>
+      </div>
 
       <style jsx global>{`
-        .novo-briefing-scroll::-webkit-scrollbar {
-          width: 8px;
-        }
-        .novo-briefing-scroll::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .novo-briefing-scroll::-webkit-scrollbar-thumb {
-          background: var(--primary-700);
-          border-radius: 99px;
-        }
-        .novo-briefing-scroll::-webkit-scrollbar-thumb:hover {
-          background: var(--primary-600);
-        }
-        .animate-fade-in-down {
-            animation: fadeInDown 0.2s ease-out forwards;
-        }
+        .novo-briefing-scroll::-webkit-scrollbar { width: 8px; }
+        .novo-briefing-scroll::-webkit-scrollbar-track { background: transparent; }
+        .novo-briefing-scroll::-webkit-scrollbar-thumb { background: var(--primary-700); border-radius: 99px; }
+        .novo-briefing-scroll::-webkit-scrollbar-thumb:hover { background: var(--primary-600); }
+        .animate-fade-in-down { animation: fadeInDown 0.2s ease-out forwards; }
         @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+          from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
     </>
