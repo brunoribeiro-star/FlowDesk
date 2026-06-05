@@ -41,15 +41,76 @@ interface Subtask {
   concluida: boolean | null;
 }
 
-
-
 const URGENCY_COLUMNS = [
-  { id: "Sem prioridade", title: "Nenhuma", iconColor: "text-slate-400" },
-  { id: "Baixa", title: "Baixa", iconColor: "text-emerald-400" },
-  { id: "Normal", title: "Média", iconColor: "text-sky-400" },
-  { id: "Urgente", title: "Alta", iconColor: "text-amber-400" },
-  { id: "Muito urgente", title: "Urgente", iconColor: "text-rose-400" },
+  { id: "Sem prioridade", title: "Nenhuma", iconColor: "var(--gray-400)" },
+  { id: "Baixa", title: "Baixa", iconColor: "var(--primary-300)" },
+  { id: "Normal", title: "Média", iconColor: "var(--primary-400)" },
+  { id: "Urgente", title: "Alta", iconColor: "var(--alert-medium)" },
+  { id: "Muito urgente", title: "Urgente", iconColor: "var(--error-medium)" },
 ];
+
+const IconList = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/>
+    <path d="M3.5 6h.01"/><path d="M3.5 12h.01"/><path d="M3.5 18h.01"/>
+  </svg>
+);
+const IconBoard = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/>
+    <rect x="3" y="15" width="7" height="5" rx="1.5"/><rect x="14" y="15" width="7" height="5" rx="1.5"/>
+  </svg>
+);
+const IconCalendar = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4.5" width="18" height="16" rx="2.5"/><path d="M3 9h18"/><path d="M8 2.5v4"/><path d="M16 2.5v4"/>
+  </svg>
+);
+const IconChevLeft = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m15 18-6-6 6-6"/>
+  </svg>
+);
+const IconChevRight = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m9 18 6-6-6-6"/>
+  </svg>
+);
+const IconChevDown = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m6 9 6 6 6-6"/>
+  </svg>
+);
+const IconPlus = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14"/><path d="M5 12h14"/>
+  </svg>
+);
+const IconCheck = ({ size = 17 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m5 12 5 5 9-10"/>
+  </svg>
+);
+const IconDots = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
+  </svg>
+);
+const IconGrip = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="6" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="15" cy="6" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="9" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="15" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="9" cy="18" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="15" cy="18" r="1.4" fill="currentColor" stroke="none"/>
+  </svg>
+);
+const IconChecklist = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m3 6 2 2 3-3"/><path d="m3 14 2 2 3-3"/><path d="M12 6h9"/><path d="M12 14h9"/>
+  </svg>
+);
 
 export default function TarefasPage() {
   const router = useRouter();
@@ -95,47 +156,27 @@ export default function TarefasPage() {
     };
 
     switch (urgency) {
-      case "Muito urgente":
-        return addDays(1);
-      case "Urgente":
-        return addDays(2);
-      case "Normal":
-        return addDays(5);
-      case "Baixa":
-        return addDays(14);
+      case "Muito urgente": return addDays(1);
+      case "Urgente": return addDays(2);
+      case "Normal": return addDays(5);
+      case "Baixa": return addDays(14);
       case "Sem prioridade":
-      default:
-        return null;
+      default: return null;
     }
   }
 
   async function handleTaskDrop(taskId: string, targetUrgency: string) {
-      const task = tasks.find(t => t.id === taskId);
-      if (!task) return;
-
-      const currentUrgency = calcularUrgencia(task.due_date);
-      if (currentUrgency === targetUrgency) return;
-
-      const newDueDate = getDateForUrgency(targetUrgency);
-      
-      setTasks(prev => prev.map(t => {
-          if (t.id === taskId) {
-              return { ...t, due_date: newDueDate };
-          }
-          return t;
-      }));
-
-      try {
-        await updateTask(taskId, { due_date: newDueDate });
-      } catch (error) {
-          console.error("Erro ao atualizar data da tarefa:", error);
-           setTasks(prev => prev.map(t => {
-              if (t.id === taskId) {
-                  return { ...t, due_date: task.due_date };
-              }
-              return t;
-          }));
-      }
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    const currentUrgency = calcularUrgencia(task.due_date);
+    if (currentUrgency === targetUrgency) return;
+    const newDueDate = getDateForUrgency(targetUrgency);
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: newDueDate } : t));
+    try {
+      await updateTask(taskId, { due_date: newDueDate });
+    } catch {
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, due_date: task.due_date } : t));
+    }
   }
 
   const { user: authUser } = useAuth();
@@ -225,9 +266,7 @@ export default function TarefasPage() {
     }
   }
 
-  useEffect(() => {
-    carregarDados();
-  }, [authUser]);
+  useEffect(() => { carregarDados(); }, [authUser]);
 
   useEffect(() => {
     taskIdsRef.current = new Set(tasks.map((t) => t.id));
@@ -238,7 +277,6 @@ export default function TarefasPage() {
 
     const channel = supabase
       .channel("tarefas-realtime")
-
       .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "tasks" }, (payload: any) => {
         const t = payload.new as Task;
         const isOwned = t.user_id === authUser.id;
@@ -258,13 +296,8 @@ export default function TarefasPage() {
         const id = payload.old?.id;
         if (!id || !taskIdsRef.current.has(id)) return;
         setTasks((prev) => prev.filter((x) => x.id !== id));
-        setSubtasksByTask((prev) => {
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
+        setSubtasksByTask((prev) => { const next = { ...prev }; delete next[id]; return next; });
       })
-
       .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "subtasks" }, (payload: any) => {
         const s = payload.new;
         if (!s?.task_id || !taskIdsRef.current.has(String(s.task_id))) return;
@@ -291,7 +324,6 @@ export default function TarefasPage() {
           return { ...prev, [String(s.task_id)]: lista.filter((x) => x.id !== String(s.id)) };
         });
       })
-
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -308,18 +340,13 @@ export default function TarefasPage() {
     await supabase.from("subtasks").update({ concluida: novaSituacao }).eq("id", subtask.id);
     setSubtasksByTask((prev) => {
       const lista = prev[subtask.task_id] || [];
-      return {
-        ...prev,
-        [subtask.task_id]: lista.map((st) => (st.id === subtask.id ? { ...st, concluida: novaSituacao } : st)),
-      };
+      return { ...prev, [subtask.task_id]: lista.map((st) => (st.id === subtask.id ? { ...st, concluida: novaSituacao } : st)) };
     });
   }, []);
 
   const urgencyByTask = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const t of tasks) {
-      map[t.id] = calcularUrgencia(t.due_date);
-    }
+    for (const t of tasks) { map[t.id] = calcularUrgencia(t.due_date); }
     return map;
   }, [tasks]);
 
@@ -378,7 +405,6 @@ export default function TarefasPage() {
   };
 
   const calendarDays = useMemo(() => getDaysInMonth(currentDate), [currentDate]);
-
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
 
@@ -392,388 +418,199 @@ export default function TarefasPage() {
     }
   }
 
-  const renderViewToggle = () => (
-    <div className="flex bg-primary-800 rounded-lg p-1 border border-primary-700">
-      <button
-        onClick={() => changeView("list")}
-        className={`p-2 rounded-md transition-all ${
-          view === "list" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"
-        }`}
-        title="Visualização em Lista"
-        type="button"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="8" y1="6" x2="21" y2="6" />
-          <line x1="8" y1="12" x2="21" y2="12" />
-          <line x1="8" y1="18" x2="21" y2="18" />
-          <line x1="3" y1="6" x2="3.01" y2="6" />
-          <line x1="3" y1="12" x2="3.01" y2="12" />
-          <line x1="3" y1="18" x2="3.01" y2="18" />
-        </svg>
-      </button>
-
-      <button
-        onClick={() => changeView("boards")}
-        className={`p-2 rounded-md transition-all ${
-          view === "boards" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"
-        }`}
-        title="Visualização em Quadros"
-        type="button"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="3" width="7" height="9" />
-          <rect x="14" y="3" width="7" height="5" />
-          <rect x="14" y="12" width="7" height="9" />
-          <rect x="3" y="16" width="7" height="5" />
-        </svg>
-      </button>
-
-      <button
-        onClick={() => changeView("calendar")}
-        className={`p-2 rounded-md transition-all ${
-          view === "calendar" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"
-        }`}
-        title="Visualização em Calendário"
-        type="button"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-      </button>
-    </div>
-  );
-
   return (
     <>
       <PageTour name="tarefas" steps={TAREFAS_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 gap-4 pr-6 py-4 overflow-hidden">
-        <header className="w-full flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 px-3 py-2 border border-primary-700 text-gray-300 rounded-lg hover:bg-primary-800 transition-colors"
-              type="button"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                className="w-4 h-4"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-              <span className="text-[14px]">Voltar</span>
+      <div className="tk-page">
+        <header className="tk-top-bar">
+          <div className="tk-top-left">
+            <button type="button" onClick={() => router.push("/dashboard")} className="tk-back-btn">
+              <IconChevLeft /> Voltar
             </button>
-
-            <div className="flex flex-col">
-              <h1 className="text-[28px] md:text-[32px] text-gray-100 font-semibold leading-[1.2]">Tarefas</h1>
-            </div>
+            <h1 className="tk-page-title">Tarefas</h1>
           </div>
-
-          <div className="flex items-center gap-3">
-            {renderViewToggle()}
+          <div className="tk-top-right">
+            <div className="tk-seg-ctrl">
+              {(["list","boards","calendar"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => changeView(k)}
+                  className={"tk-seg-item" + (view === k ? " is-on" : "")}
+                  title={k === "list" ? "Lista" : k === "boards" ? "Quadros" : "Calendário"}
+                >
+                  {k === "list" ? <IconList /> : k === "boards" ? <IconBoard /> : <IconCalendar />}
+                </button>
+              ))}
+            </div>
             <button
               id="tour-add-btn"
-              onClick={() => router.push("/dashboard/tarefas/nova")}
-              className="bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg px-6 py-3 text-[15px] flex items-center gap-2"
               type="button"
+              onClick={() => router.push("/dashboard/tarefas/nova")}
+              className="tk-btn-primary"
             >
-              + Nova tarefa
+              <IconPlus /> Nova tarefa
             </button>
           </div>
         </header>
 
-        <div className="flex flex-wrap items-center gap-3">
-
-
-          <div className="flex-1" />
-
-          {view === "list" && (
-            <>
-              <div className="relative">
-                <select
-                  value={filtroStatus}
-                  onChange={(e) => setFiltroStatus(e.target.value)}
-                  className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 pr-10 text-[13px] text-gray-100 appearance-none"
-                >
-                  <option value="">Todos os status</option>
-                  <option value="para_fazer">Para fazer</option>
-                  <option value="concluida">Concluída</option>
-                </select>
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
-              </div>
-
-              <div className="relative">
-                <select
-                  value={filtroUrgencia}
-                  onChange={(e) => setFiltroUrgencia(e.target.value)}
-                  className="bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 pr-10 text-[13px] text-gray-100 appearance-none"
-                >
-                  <option value="">Todas as urgências</option>
-                  <option value="Muito urgente">Muito urgente</option>
-                  <option value="Urgente">Urgente</option>
-                  <option value="Normal">Normal</option>
-                  <option value="Baixa">Baixa</option>
-                  <option value="Sem prioridade">Sem prioridade</option>
-                  <option value="Vencida">Vencida</option>
-                </select>
-                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
-              </div>
-            </>
-          )}
-        </div>
+        {view === "list" && (
+          <div className="tk-filters-row">
+            <div className="tk-filter-wrap">
+              <select
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value)}
+                className="tk-filter-select"
+              >
+                <option value="">Todos os status</option>
+                <option value="para_fazer">Para fazer</option>
+                <option value="concluida">Concluída</option>
+              </select>
+              <span className="tk-filter-chev"><IconChevDown /></span>
+            </div>
+            <div className="tk-filter-wrap">
+              <select
+                value={filtroUrgencia}
+                onChange={(e) => setFiltroUrgencia(e.target.value)}
+                className="tk-filter-select"
+              >
+                <option value="">Todas as urgências</option>
+                <option value="Muito urgente">Muito urgente</option>
+                <option value="Urgente">Urgente</option>
+                <option value="Normal">Normal</option>
+                <option value="Baixa">Baixa</option>
+                <option value="Sem prioridade">Sem prioridade</option>
+                <option value="Vencida">Vencida</option>
+              </select>
+              <span className="tk-filter-chev"><IconChevDown /></span>
+            </div>
+          </div>
+        )}
 
         {view === "list" && (
-          <section className="flex-1 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden flex flex-col h-full min-h-0">
-            <div className="px-6 py-3 border-b border-primary-700 text-[13px] text-gray-400 flex items-center gap-4">
-              <div className="w-[52px]" />
-              <div className="flex-1 min-w-[200px]">Tarefa</div>
-              <div className="w-[180px] hidden md:block">Projeto</div>
-              <div className="w-[160px] hidden md:block">Urgência</div>
-              <div className="w-[120px] hidden md:block">Vencimento</div>
-              <div className="w-[120px] hidden md:block">Criação</div>
-              <div className="w-[40px]" />
+          <section className="tlv-shell">
+            <div className="tlv-head">
+              <span>Tarefa</span>
+              <span>Projeto</span>
+              <span>Urgência</span>
+              <span>Vencimento</span>
+              <span>Criação</span>
+              <span />
             </div>
 
-            <div className="flex-1 overflow-y-auto tasks-scroll">
+            <div className="tlv-scroll tasks-scroll">
               {loading ? (
                 <SkeletonList rows={7} cols={5} />
               ) : tasksFiltradas.length === 0 ? (
-                <div className="py-16 text-center text-gray-500 text-sm">Nenhuma tarefa encontrada com os filtros atuais.</div>
+                <div className="tlv-empty">Nenhuma tarefa encontrada com os filtros atuais.</div>
               ) : (
-                <div className="divide-y divide-primary-800">
+                <div className="tlv-rows">
                   {tasksFiltradas.map((t) => {
                     const urgencia = urgencyByTask[t.id] ?? "Sem prioridade";
                     const ehConcluida = t.status === "concluida";
-                    const preview = jsonToPlainText(t.descricao).slice(0, 140);
                     const subtasks = subtasksByTask[t.id] || [];
-                    const hasSubtasks = subtasks.length > 0;
+                    const total = subtasks.length;
+                    const done = subtasks.filter(s => s.concluida).length;
 
                     return (
-                      <div key={t.id} className="px-6">
-                        <div onClick={() => abrirDetalhes(t.id)} className="py-5 cursor-pointer transition-colors hover:bg-primary-800/70 group -mx-6 px-6">
-                          <div className="grid grid-cols-1 md:grid-cols-[52px,1fr,180px,160px,120px,120px,40px] gap-4 items-start">
-                            <div className="pt-0.5">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  alternarStatus(t);
-                                }}
-                                className={`flex items-center justify-center w-9 h-9 rounded-lg border-2 transition-all ${
-                                  ehConcluida
-                                    ? "border-emerald-400 bg-emerald-400/10"
-                                    : "border-primary-700 bg-primary-900 group-hover:border-primary-500"
-                                }`}
-                              >
-                                {ehConcluida ? (
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="w-4 h-4"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth={2.4}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  >
-                                    <polyline points="5 13 10 18 19 7" />
-                                  </svg>
-                                ) : (
-                                  <div className="w-4 h-4 rounded-full border border-gray-600" />
-                                )}
-                              </button>
-                            </div>
-
-                            <div className="min-w-0">
-                              <div className="min-w-0">
-                                <div className={`text-[16px] md:text-[17px] ${ehConcluida ? "text-gray-400 line-through" : "text-gray-100"}`}>{t.titulo}</div>
-
-                                {preview && <div className="mt-1 text-[13px] text-gray-400 line-clamp-1">{preview}</div>}
-
-                                {hasSubtasks && (
-                                  <div className="mt-3">
-                                    <div className="pl-0 flex flex-col gap-3">
-                                      {subtasks.map((st, idx) => (
-                                        <div
-                                          key={st.id}
-                                          draggable
-                                          onDragStart={(e) => {
-                                            e.stopPropagation();
-                                            setDragSub({ taskId: t.id, fromIndex: idx, subId: st.id });
-                                            try {
-                                              e.dataTransfer.effectAllowed = "move";
-                                              e.dataTransfer.setData("text/plain", st.id);
-                                            } catch {}
-                                          }}
-                                          onDragEnd={(e) => {
-                                            e.stopPropagation();
-                                            setDragSub(null);
-                                          }}
-                                          onDragOver={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            if (!dragSub) return;
-                                            if (dragSub.taskId !== t.id) return;
-                                            if (dragSub.fromIndex === idx) return;
-                                          }}
-                                          onDrop={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            if (!dragSub) return;
-                                            if (dragSub.taskId !== t.id) return;
-                                            reorderSubtasks(t.id, dragSub.fromIndex, idx);
-                                            setDragSub({ taskId: t.id, fromIndex: idx, subId: dragSub.subId });
-                                          }}
-                                          className="flex items-center gap-2"
-                                        >
-                                          <div className="w-5 flex items-center justify-center text-gray-500 select-none cursor-grab">⋮⋮</div>
-
-                                          <button
-                                            type="button"
-                                            onClick={async (e) => {
-                                              e.stopPropagation();
-                                              await alternarSubtask(st);
-                                            }}
-                                            className={`flex items-center justify-center w-9 h-9 rounded-lg border-2 transition-all ${
-                                              st.concluida
-                                                ? "border-emerald-400 bg-emerald-400/10"
-                                                : "border-primary-700 bg-primary-900 hover:border-primary-500"
-                                            }`}
-                                          >
-                                            {st.concluida ? (
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                className="w-4 h-4"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                strokeWidth={2.4}
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                              >
-                                                <polyline points="5 13 10 18 19 7" />
-                                              </svg>
-                                            ) : (
-                                              <div className="w-4 h-4 rounded-full border border-gray-600" />
-                                            )}
-                                          </button>
-
-                                          <span className={st.concluida ? "text-gray-500 line-through" : "text-gray-200"}>{st.titulo}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="hidden md:block pt-0.5">
-                              <div className="inline-flex items-center px-3 py-1 rounded-lg bg-primary-800 border border-primary-600 text-[12px] text-gray-100">
-                                <span className="truncate max-w-[140px]">{projetoNome(t.projeto_id)}</span>
-                              </div>
-                            </div>
-
-                            <div className="hidden md:flex items-center gap-2 pt-0.5">
-                              <UrgenciaIndicator nivel={urgencia} />
-                              <span className="text-[12px] text-gray-300">{urgencia}</span>
-                            </div>
-
-                            <div className="hidden md:block pt-0.5">
-                              <span className="text-[13px] text-gray-100">{formatarDataCurta(t.due_date)}</span>
-                            </div>
-
-                            <div className="hidden md:block pt-0.5">
-                              <span className="text-[13px] text-gray-400">{tempoRelativo(t.created_at)}</span>
-                            </div>
-
-                            <div className="flex justify-end pt-0.5">
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setOpenMenuId((current) => (current === t.id ? null : t.id));
-                                  }}
-                                  className="p-1.5 rounded-lg hover:bg-primary-700 text-gray-400"
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    className="w-5 h-5"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth={2}
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  >
-                                    <circle cx="12" cy="5" r="1" />
-                                    <circle cx="12" cy="12" r="1" />
-                                    <circle cx="12" cy="19" r="1" />
-                                  </svg>
-                                </button>
-
-                                {openMenuId === t.id && (
-                                  <div className="absolute right-0 mt-2 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20" onClick={(e) => e.stopPropagation()}>
-                                    <button
-                                      onClick={() => {
-                                        editarTarefa(t.id);
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700 rounded-t-xl"
-                                    >
-                                      Editar
-                                    </button>
-
-                                    <button
-                                      onClick={async () => {
-                                        setOpenMenuId(null);
-                                        await excluirTask(t.id);
-                                      }}
-                                      className="w-full text-left px-4 py-2.5 text-[13px] text-red-400 hover:bg-primary-700 rounded-b-xl"
-                                    >
-                                      Excluir
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
+                      <div key={t.id} className="tlv-group">
+                        <div className="tlv-row" onClick={() => abrirDetalhes(t.id)}>
+                          <div className="tlv-task">
+                            <button
+                              type="button"
+                              className={"tk-chk" + (ehConcluida ? " is-done" : "")}
+                              onClick={(e) => { e.stopPropagation(); alternarStatus(t); }}
+                            >
+                              {ehConcluida && <IconCheck size={17} />}
+                            </button>
+                            <div className="tlv-task-txt">
+                              <span className={"tlv-name" + (ehConcluida ? " is-done" : "")}>{t.titulo}</span>
+                              {total > 0 && (
+                                <span className="tlv-count">
+                                  <IconChecklist /> {done}/{total}
+                                </span>
+                              )}
                             </div>
                           </div>
+
+                          <div>
+                            <span className="tk-pill">{projetoNome(t.projeto_id)}</span>
+                          </div>
+
+                          <div className="tlv-urg-cell">
+                            <UrgenciaIndicator nivel={urgencia} />
+                            <span className="tlv-urg-label">{urgencia}</span>
+                          </div>
+
+                          <div className="tlv-due">{formatarDataCurta(t.due_date)}</div>
+
+                          <div className="tlv-created">{tempoRelativo(t.created_at)}</div>
+
+                          <div className="tlv-menu-wrap" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              className="tlv-more"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(cur => cur === t.id ? null : t.id);
+                              }}
+                            >
+                              <IconDots />
+                            </button>
+                            {openMenuId === t.id && (
+                              <div className="tlv-dropdown">
+                                <button
+                                  className="tlv-dd-item"
+                                  onClick={() => { setOpenMenuId(null); editarTarefa(t.id); }}
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  className="tlv-dd-item danger"
+                                  onClick={async () => { setOpenMenuId(null); await excluirTask(t.id); }}
+                                >
+                                  Excluir
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
+
+                        {total > 0 && (
+                          <div className="tlv-subs">
+                            {subtasks.map((st, idx) => (
+                              <div
+                                key={st.id}
+                                draggable
+                                onDragStart={(e) => {
+                                  e.stopPropagation();
+                                  setDragSub({ taskId: t.id, fromIndex: idx, subId: st.id });
+                                  try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", st.id); } catch {}
+                                }}
+                                onDragEnd={(e) => { e.stopPropagation(); setDragSub(null); }}
+                                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                onDrop={(e) => {
+                                  e.preventDefault(); e.stopPropagation();
+                                  if (!dragSub || dragSub.taskId !== t.id) return;
+                                  reorderSubtasks(t.id, dragSub.fromIndex, idx);
+                                  setDragSub({ taskId: t.id, fromIndex: idx, subId: dragSub.subId });
+                                }}
+                                className="tlv-sub"
+                              >
+                                <span className="tlv-grip"><IconGrip /></span>
+                                <button
+                                  type="button"
+                                  className={"tk-chk sq" + (st.concluida ? " is-done" : "")}
+                                  onClick={async (e) => { e.stopPropagation(); await alternarSubtask(st); }}
+                                >
+                                  {st.concluida && <IconCheck size={15} />}
+                                </button>
+                                <span className={"tlv-sub-title" + (st.concluida ? " is-done" : "")}>{st.titulo}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -784,194 +621,124 @@ export default function TarefasPage() {
         )}
 
         {view === "boards" && (
-          <div className="flex-1 flex flex-col overflow-y-auto tasks-scroll">
-            <div className="flex w-full px-4 gap-4 min-h-full">
-              {URGENCY_COLUMNS.map((col, idx) => {
-                const colTasks = tasksFiltradas.filter((t) => {
-                    const urg = urgencyByTask[t.id] === "Vencida" ? "Muito urgente" : (urgencyByTask[t.id] ?? "Sem prioridade");
-                    return urg === col.id;
-                });
+          <div className="tbv-shell tasks-scroll">
+            {URGENCY_COLUMNS.map((col) => {
+              const colTasks = tasksFiltradas.filter((t) => {
+                const urg = urgencyByTask[t.id] === "Vencida" ? "Muito urgente" : (urgencyByTask[t.id] ?? "Sem prioridade");
+                return urg === col.id;
+              });
 
-                return (
-                  <div 
-                    key={col.id} 
-                    className="flex-1 min-w-0 flex flex-col gap-4 px-2"
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.dataTransfer.dropEffect = "move";
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const taskId = e.dataTransfer.getData("application/x-task-id");
-                      if (taskId) {
-                         handleTaskDrop(taskId, col.id);
-                      }
-                    }}
-                  >
-                     <div className="flex items-center justify-start mb-2 sticky top-0 z-10 bg-primary-900/95 backdrop-blur-sm pt-1 pb-1">
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-800/10 backdrop-blur-sm">
-                        <UrgenciaIndicator nivel={col.id === 'Sem prioridade' ? 'Sem prioridade' : col.id} />
-                        <span className={`text-[12px] font-medium ${col.iconColor}`}>{col.title}</span>
-                      </div>
+              return (
+                <div
+                  key={col.id}
+                  className="tbv-col"
+                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const taskId = e.dataTransfer.getData("application/x-task-id");
+                    if (taskId) handleTaskDrop(taskId, col.id);
+                  }}
+                >
+                  <div className="tbv-col-head">
+                    <div className="tbv-col-label">
+                      <UrgenciaIndicator nivel={col.id} />
+                      <span style={{ color: col.iconColor }} className="tbv-col-title">{col.title}</span>
                     </div>
+                    <span className="tbv-col-count">{colTasks.length}</span>
+                  </div>
 
-                    <div className="flex flex-col gap-3 pb-4">
-                      {colTasks.map((t) => {
+                  <div className="tbv-cards tasks-scroll">
+                    {colTasks.length === 0 ? (
+                      <div className="tbv-empty">—</div>
+                    ) : (
+                      colTasks.map((t) => {
                         const subtasks = subtasksByTask[t.id] || [];
-                        const completedSubtasks = subtasks.filter((s) => s.concluida).length;
+                        const completedSubs = subtasks.filter(s => s.concluida).length;
+                        const ehConcluida = t.status === "concluida";
 
                         return (
                           <div
                             key={t.id}
+                            className="tbv-card"
                             onClick={() => abrirDetalhes(t.id)}
-                            className="bg-primary-800 hover:bg-primary-700 border-none rounded-xl p-4 cursor-pointer transition-all hover:translate-y-[-2px] flex flex-col gap-2 group relative overflow-hidden"
                             draggable
                             onDragStart={(e) => {
-                                e.stopPropagation();
-                                e.dataTransfer.effectAllowed = "move";
-                                e.dataTransfer.setData("application/x-task-id", t.id);
+                              e.stopPropagation();
+                              e.dataTransfer.effectAllowed = "move";
+                              e.dataTransfer.setData("application/x-task-id", t.id);
                             }}
                           >
-                            <div className="flex items-start gap-3">
-                              <div className={`mt-1 w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center shrink-0 ${t.status === 'concluida' ? 'border-emerald-500' : 'border-gray-500'}`}>
-                                {t.status === 'concluida' && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />}
-                              </div>
-
-                              <div className="flex-1 min-w-0">
-                                <div className="text-[13px] text-gray-200 font-medium leading-snug mb-1 line-clamp-2">{t.titulo}</div>
-                              </div>
+                            <div className="tbv-card-top">
+                              <span className={"tk-chk" + (ehConcluida ? " is-done" : "")}>
+                                {ehConcluida && <IconCheck size={17} />}
+                              </span>
+                              <h3 className={"tbv-card-title" + (ehConcluida ? " is-done" : "")}>{t.titulo}</h3>
                             </div>
-                            
-                            <div className="mt-auto flex flex-col gap-2">
-                                <div className="flex items-center gap-2">
-                                    <div className="px-2 py-0.5 rounded text-[9px] font-medium bg-primary-800/60 text-primary-200 truncate max-w-full">
-                                        {projetoNome(t.projeto_id)}
-                                    </div>
-                                </div>
-
-                                <div className="flex items-center justify-between text-[10px] text-gray-400 border-t border-gray-600 pt-2">
-                                    {subtasks.length > 0 ? (
-                                    <div className="flex items-center gap-1">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <polyline points="9 11 12 14 22 4"></polyline>
-                                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-                                        </svg>
-                                        <span>{completedSubtasks}/{subtasks.length}</span>
-                                    </div>
-                                    ) : ( <span></span> )}
-                                    
-                                    {t.due_date && (
-                                        <span className="group-hover:text-primary-300 transition-colors">
-                                            {formatarDataCurta(t.due_date)}
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
+                            <span className="tbv-card-proj">{projetoNome(t.projeto_id)}</span>
+                            {(subtasks.length > 0 || t.due_date) && (
+                              <div className="tbv-card-foot">
+                                {subtasks.length > 0 ? (
+                                  <span className="tbv-card-sub"><IconChecklist /> {completedSubs}/{subtasks.length}</span>
+                                ) : <span />}
+                                {t.due_date && <span className="tbv-card-due">{formatarDataCurta(t.due_date)}</span>}
+                              </div>
+                            )}
                           </div>
                         );
-                      })}
-                    </div>
+                      })
+                    )}
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
         {view === "calendar" && (
-          <div className="flex-1 flex flex-col gap-6 overflow-hidden h-full min-h-0">
-            <div className="flex items-center justify-center gap-8 pt-2">
-              <button
-                onClick={prevMonth}
-                className="p-2 hover:bg-primary-800 rounded-full text-gray-400 hover:text-gray-100 transition-colors"
-                type="button"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-              </button>
-              <h2 className="text-xl font-bold text-gray-100 capitalize">
-                {currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+          <div className="tcv-shell">
+            <div className="tcv-head">
+              <button type="button" className="tcv-nav" onClick={prevMonth}><IconChevLeft /></button>
+              <h2 className="tcv-title">
+                {currentDate.toLocaleDateString("pt-BR", { month: "long" })}
+                {" "}
+                <span className="tcv-year">{currentDate.getFullYear()}</span>
               </h2>
-              <button
-                onClick={nextMonth}
-                className="p-2 hover:bg-primary-800 rounded-full text-gray-400 hover:text-gray-100 transition-colors"
-                type="button"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </button>
+              <button type="button" className="tcv-nav" onClick={nextMonth}><IconChevRight /></button>
             </div>
 
-            <div className="grid grid-cols-7 gap-4 px-1">
-              {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map((day) => (
-                <div key={day} className="text-center text-sm font-medium text-gray-400">
-                  {day}
-                </div>
+            <div className="tcv-weekdays">
+              {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map((d) => (
+                <span key={d} className="tcv-wd">{d}</span>
               ))}
             </div>
 
-            <div className="flex-1 grid grid-cols-7 auto-rows-fr gap-4 overflow-y-auto tasks-scroll px-1 pb-2">
+            <div className="tcv-grid tasks-scroll">
               {calendarDays.map((date, i) => {
-                if (!date) return <div key={`empty-${i}`} />;
-
+                if (!date) return <div key={`empty-${i}`} className="tcv-cell is-blank" />;
                 const dateStr = date.toISOString().split("T")[0];
                 const daysTasks = tasksFiltradas.filter((t) => t.due_date === dateStr);
                 const isToday = new Date().toDateString() === date.toDateString();
 
                 return (
-                  <div
-                    key={dateStr}
-                    className={`flex flex-col gap-2 p-3 rounded-2xl transition-all border ${
-                      isToday
-                        ? "bg-primary-800/10 border-primary-500"
-                        : "bg-primary-800/20 border-transparent hover:bg-primary-800/40"
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <span className={`text-lg font-bold ${isToday ? "text-primary-500" : "text-gray-100"}`}>
-                        {date.getDate()}
-                      </span>
-                      {daysTasks.length > 0 && (
-                        <span className="text-[10px] text-gray-500 font-medium">{daysTasks.length}</span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-2 overflow-y-auto tasks-scroll">
+                  <div key={dateStr} className={"tcv-cell" + (isToday ? " is-today" : "")}>
+                    <span className="tcv-day">{date.getDate()}</span>
+                    {daysTasks.length > 0 && (
+                      <span className="tcv-day-count">{daysTasks.length}</span>
+                    )}
+                    <div className="tcv-day-tasks tasks-scroll">
                       {daysTasks.map((t) => {
                         const urgencia = urgencyByTask[t.id] ?? "Sem prioridade";
                         return (
                           <div
                             key={t.id}
                             onClick={() => abrirDetalhes(t.id)}
-                            className="group flex items-center justify-between gap-2 cursor-pointer p-2 rounded-lg bg-primary-800 hover:bg-primary-700 transition-all shadow-sm min-w-0"
+                            className={"tcv-task-chip" + (t.status === "concluida" ? " is-done" : "")}
                             title={t.titulo}
                           >
-                            <span className={`text-[11px] font-medium truncate flex-1 ${t.status === 'concluida' ? 'text-gray-500 line-through' : 'text-gray-200'}`}>
-                              {t.titulo}
+                            <span className="tcv-chip-name">{t.titulo}</span>
+                            <span className="tcv-chip-urg">
+                              <UrgenciaIndicator nivel={urgencia} />
                             </span>
-                            <div className="shrink-0 scale-75 origin-right">
-                                <UrgenciaIndicator nivel={urgencia} />
-                            </div>
                           </div>
                         );
                       })}
@@ -982,29 +749,674 @@ export default function TarefasPage() {
             </div>
           </div>
         )}
-
-        <style jsx global>{`
-          .tasks-scroll::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-          }
-          .tasks-scroll::-webkit-scrollbar-track {
-            background: rgba(15, 23, 42, 0.9);
-          }
-          .tasks-scroll::-webkit-scrollbar-thumb {
-            background: var(--primary-500);
-            border-radius: 999px;
-            border: 2px solid rgba(15, 23, 42, 0.9);
-          }
-          .tasks-scroll::-webkit-scrollbar-thumb:hover {
-            background: var(--primary-400);
-          }
-          .tasks-scroll {
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary-500) rgba(15, 23, 42, 0.9);
-          }
-        `}</style>
       </div>
+
+      <style jsx global>{`
+        /* ===== PAGE WRAPPER ===== */
+        .tk-page {
+          display: flex;
+          flex-direction: column;
+          flex: 1;
+          gap: 0;
+          padding-right: 24px;
+          padding-top: 16px;
+          padding-bottom: 16px;
+          overflow: hidden;
+          min-height: 0;
+        }
+
+        /* ===== HEADER ===== */
+        .tk-top-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+          padding: 0 0 24px 0;
+        }
+        .tk-top-left {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+        }
+        .tk-back-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          height: 44px;
+          padding: 0 18px 0 14px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 500;
+          color: var(--gray-300);
+          cursor: pointer;
+          border-radius: 12px;
+          border: 1px solid var(--gray-700);
+          background: var(--primary-800);
+          transition: .2s;
+        }
+        .tk-back-btn:hover {
+          border-color: var(--primary-500);
+          color: var(--primary-300);
+        }
+        .tk-page-title {
+          margin: 0;
+          font-size: 32px;
+          font-weight: 700;
+          color: var(--gray-100);
+          letter-spacing: -0.02em;
+        }
+        .tk-top-right {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+        }
+
+        /* ===== SEGMENTED VIEW TOGGLE ===== */
+        .tk-seg-ctrl {
+          display: flex;
+          gap: 4px;
+          padding: 5px;
+          border-radius: 14px;
+          border: 1px solid var(--gray-700);
+          background: var(--primary-800);
+        }
+        .tk-seg-item {
+          display: grid;
+          place-items: center;
+          width: 46px;
+          height: 40px;
+          border-radius: 10px;
+          border: none;
+          background: none;
+          color: var(--gray-400);
+          cursor: pointer;
+          transition: .15s;
+        }
+        .tk-seg-item:hover { color: var(--gray-200); }
+        .tk-seg-item.is-on {
+          background: var(--primary-700);
+          color: var(--primary-300);
+        }
+
+        /* ===== PRIMARY BUTTON ===== */
+        .tk-btn-primary {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          height: 50px;
+          padding: 0 24px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--primary-900);
+          cursor: pointer;
+          border: none;
+          border-radius: 14px;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 12px 28px -12px var(--primary-500);
+          transition: .2s;
+        }
+        .tk-btn-primary:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 34px -10px var(--primary-500);
+        }
+
+        /* ===== FILTERS ===== */
+        .tk-filters-row {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          padding-bottom: 16px;
+        }
+        .tk-filter-wrap {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+        }
+        .tk-filter-select {
+          appearance: none;
+          height: 44px;
+          padding: 0 40px 0 18px;
+          font-family: inherit;
+          font-size: 14.5px;
+          font-weight: 500;
+          color: var(--gray-200);
+          cursor: pointer;
+          border-radius: 12px;
+          border: 1px solid var(--gray-700);
+          background: var(--primary-800);
+          transition: .2s;
+          outline: none;
+        }
+        .tk-filter-select:hover, .tk-filter-select:focus {
+          border-color: var(--primary-600);
+        }
+        .tk-filter-chev {
+          position: absolute;
+          right: 14px;
+          pointer-events: none;
+          color: var(--gray-400);
+          display: flex;
+          align-items: center;
+        }
+
+        /* ===== LIST VIEW ===== */
+        .tlv-shell {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          border-top: 1px solid var(--gray-800);
+          overflow: hidden;
+        }
+        .tlv-head {
+          display: grid;
+          grid-template-columns: minmax(0,2.4fr) 1.5fr 1.2fr 0.9fr 0.9fr 44px;
+          gap: 20px;
+          padding: 14px 18px;
+          flex-shrink: 0;
+        }
+        .tlv-head span {
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--gray-400);
+        }
+        .tlv-scroll {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          padding: 0 0 32px 0;
+        }
+        .tlv-rows {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .tlv-empty {
+          padding: 64px;
+          text-align: center;
+          color: var(--gray-500);
+          font-size: 14px;
+        }
+        .tlv-group {
+          border: 1px solid var(--gray-700);
+          border-radius: 16px;
+          background: var(--primary-800);
+          overflow: hidden;
+          transition: .2s;
+        }
+        .tlv-group:hover {
+          border-color: var(--primary-600);
+        }
+        .tlv-row {
+          display: grid;
+          grid-template-columns: minmax(0,2.4fr) 1.5fr 1.2fr 0.9fr 0.9fr 44px;
+          align-items: center;
+          gap: 20px;
+          padding: 18px;
+          cursor: pointer;
+          transition: background .15s;
+        }
+        .tlv-row:hover {
+          background: var(--primary-700);
+        }
+
+        /* Checkbox */
+        .tk-chk {
+          display: grid;
+          place-items: center;
+          width: 26px;
+          height: 26px;
+          flex: none;
+          border-radius: 50%;
+          border: 1.5px solid var(--gray-600);
+          color: var(--primary-900);
+          transition: .15s;
+          background: none;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .tk-chk.sq {
+          width: 22px;
+          height: 22px;
+          border-radius: 6px;
+        }
+        .tk-chk.is-done {
+          background: var(--success-medium);
+          border-color: transparent;
+        }
+        .tk-chk:not(.is-done):hover {
+          border-color: var(--primary-400);
+        }
+
+        /* Task cell */
+        .tlv-task {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          min-width: 0;
+        }
+        .tlv-task-txt {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .tlv-name {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--gray-100);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .tlv-name.is-done {
+          color: var(--gray-500);
+          text-decoration: line-through;
+        }
+        .tlv-count {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          flex: none;
+          font-size: 12.5px;
+          font-weight: 600;
+          color: var(--gray-400);
+          padding: 3px 8px;
+          border-radius: 8px;
+          background: var(--primary-700);
+        }
+
+        /* Project pill */
+        .tk-pill {
+          display: inline-flex;
+          align-items: center;
+          max-width: 100%;
+          padding: 6px 12px;
+          border-radius: 10px;
+          font-size: 13.5px;
+          font-weight: 500;
+          color: var(--primary-200);
+          background: var(--primary-700);
+          border: 1px solid var(--primary-600);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* Urgency cell */
+        .tlv-urg-cell {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .tlv-urg-label {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--gray-300);
+        }
+
+        /* Due / Created */
+        .tlv-due {
+          font-size: 14.5px;
+          color: var(--gray-500);
+        }
+        .tlv-created {
+          font-size: 14px;
+          color: var(--gray-500);
+        }
+
+        /* Context menu */
+        .tlv-menu-wrap {
+          position: relative;
+          display: flex;
+          justify-content: center;
+        }
+        .tlv-more {
+          display: grid;
+          place-items: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 9px;
+          border: none;
+          background: none;
+          color: var(--gray-500);
+          cursor: pointer;
+          transition: .15s;
+        }
+        .tlv-more:hover {
+          background: var(--primary-700);
+          color: var(--gray-200);
+        }
+        .tlv-dropdown {
+          position: absolute;
+          right: 0;
+          top: calc(100% + 6px);
+          width: 148px;
+          border-radius: 12px;
+          background: var(--primary-800);
+          border: 1px solid var(--gray-700);
+          box-shadow: 0 16px 32px -8px var(--gray-900);
+          z-index: 30;
+          overflow: hidden;
+        }
+        .tlv-dd-item {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 10px 16px;
+          font-size: 13.5px;
+          color: var(--gray-100);
+          background: none;
+          border: none;
+          cursor: pointer;
+          transition: background .15s;
+          font-family: inherit;
+        }
+        .tlv-dd-item:hover { background: var(--primary-700); }
+        .tlv-dd-item.danger { color: var(--error-medium); }
+
+        /* Subtasks */
+        .tlv-subs {
+          display: flex;
+          flex-direction: column;
+          padding: 4px 18px 14px 36px;
+          border-top: 1px solid var(--gray-800);
+        }
+        .tlv-sub {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 7px 0;
+        }
+        .tlv-grip {
+          display: grid;
+          place-items: center;
+          color: var(--gray-600);
+          cursor: grab;
+          flex-shrink: 0;
+        }
+        .tlv-sub-title {
+          font-size: 14.5px;
+          color: var(--gray-200);
+        }
+        .tlv-sub-title.is-done {
+          color: var(--gray-500);
+          text-decoration: line-through;
+        }
+
+        /* ===== BOARD VIEW ===== */
+        .tbv-shell {
+          flex: 1;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 16px;
+          padding-top: 8px;
+          padding-bottom: 32px;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+        .tbv-col {
+          display: flex;
+          flex-direction: column;
+          min-height: 0;
+          min-width: 0;
+        }
+        .tbv-col-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 0 4px 14px;
+          flex-shrink: 0;
+        }
+        .tbv-col-label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .tbv-col-title {
+          font-size: 13.5px;
+          font-weight: 600;
+        }
+        .tbv-col-count {
+          font-size: 12.5px;
+          font-weight: 700;
+          color: var(--gray-400);
+          background: var(--primary-800);
+          padding: 2px 8px;
+          border-radius: 999px;
+          border: 1px solid var(--gray-700);
+        }
+        .tbv-cards {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          overflow-y: auto;
+          padding: 2px 2px 8px;
+          flex: 1;
+        }
+        .tbv-empty {
+          display: grid;
+          place-items: center;
+          height: 80px;
+          border: 1px dashed var(--gray-700);
+          border-radius: 14px;
+          color: var(--gray-600);
+          font-size: 20px;
+        }
+        .tbv-card {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 16px;
+          border-radius: 16px;
+          border: 1px solid var(--gray-700);
+          background: var(--primary-800);
+          transition: .2s;
+          cursor: pointer;
+        }
+        .tbv-card:hover {
+          border-color: var(--primary-600);
+          transform: translateY(-2px);
+          box-shadow: 0 16px 38px -22px var(--gray-900);
+        }
+        .tbv-card-top {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .tbv-card-title {
+          margin: 0;
+          font-size: 15.5px;
+          font-weight: 600;
+          color: var(--gray-100);
+          line-height: 1.35;
+        }
+        .tbv-card-title.is-done { color: var(--gray-400); }
+        .tbv-card-proj {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--primary-300);
+          padding-left: 38px;
+        }
+        .tbv-card-foot {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 10px 0 0 38px;
+          border-top: 1px solid var(--gray-800);
+        }
+        .tbv-card-sub {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--gray-400);
+        }
+        .tbv-card-due {
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--gray-400);
+        }
+
+        /* ===== CALENDAR VIEW ===== */
+        .tcv-shell {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          padding-top: 8px;
+          overflow: hidden;
+        }
+        .tcv-head {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 24px;
+          padding-bottom: 20px;
+          flex-shrink: 0;
+        }
+        .tcv-nav {
+          display: grid;
+          place-items: center;
+          width: 42px;
+          height: 42px;
+          border-radius: 11px;
+          border: 1px solid var(--gray-700);
+          background: var(--primary-800);
+          color: var(--gray-300);
+          cursor: pointer;
+          transition: .2s;
+        }
+        .tcv-nav:hover {
+          border-color: var(--primary-500);
+          color: var(--primary-300);
+        }
+        .tcv-title {
+          margin: 0;
+          font-size: 22px;
+          font-weight: 700;
+          color: var(--gray-100);
+          text-transform: capitalize;
+        }
+        .tcv-year { color: var(--primary-400); }
+        .tcv-weekdays {
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 10px;
+          margin-bottom: 10px;
+          flex-shrink: 0;
+        }
+        .tcv-wd {
+          font-size: 13.5px;
+          font-weight: 600;
+          color: var(--gray-400);
+          text-align: center;
+        }
+        .tcv-grid {
+          flex: 1;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: repeat(7, 1fr);
+          auto-rows: 1fr;
+          gap: 10px;
+          overflow-y: auto;
+          padding-bottom: 16px;
+        }
+        .tcv-cell {
+          position: relative;
+          border-radius: 14px;
+          border: 1px solid var(--gray-800);
+          background: var(--primary-800);
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          transition: .15s;
+          min-height: 80px;
+        }
+        .tcv-cell:hover {
+          border-color: var(--gray-600);
+        }
+        .tcv-cell.is-blank {
+          border-color: transparent;
+          background: none;
+        }
+        .tcv-cell.is-today {
+          border-color: var(--primary-500);
+          box-shadow: 0 0 0 1px var(--primary-500), 0 0 24px -8px var(--primary-500);
+        }
+        .tcv-day {
+          font-size: 17px;
+          font-weight: 700;
+          color: var(--gray-100);
+        }
+        .tcv-cell.is-today .tcv-day { color: var(--primary-400); }
+        .tcv-day-count {
+          position: absolute;
+          top: 10px;
+          right: 12px;
+          font-size: 11px;
+          color: var(--gray-500);
+          font-weight: 600;
+        }
+        .tcv-day-tasks {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          overflow-y: auto;
+          flex: 1;
+        }
+        .tcv-task-chip {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 4px;
+          padding: 5px 8px;
+          border-radius: 8px;
+          background: var(--primary-700);
+          cursor: pointer;
+          transition: .15s;
+          min-width: 0;
+        }
+        .tcv-task-chip:hover { background: var(--primary-600); }
+        .tcv-task-chip.is-done .tcv-chip-name {
+          text-decoration: line-through;
+          color: var(--gray-500);
+        }
+        .tcv-chip-name {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--gray-200);
+          truncate: clip;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex: 1;
+        }
+        .tcv-chip-urg {
+          flex-shrink: 0;
+          transform: scale(0.75);
+          transform-origin: right;
+        }
+
+        /* ===== SCROLLBAR ===== */
+        .tasks-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .tasks-scroll::-webkit-scrollbar-track { background: transparent; }
+        .tasks-scroll::-webkit-scrollbar-thumb {
+          background: var(--gray-700);
+          border-radius: 999px;
+        }
+        .tasks-scroll::-webkit-scrollbar-thumb:hover { background: var(--gray-600); }
+        .tasks-scroll { scrollbar-width: thin; scrollbar-color: var(--gray-700) transparent; }
+      `}</style>
     </>
   );
 }
