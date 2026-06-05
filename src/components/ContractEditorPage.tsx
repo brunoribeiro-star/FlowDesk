@@ -107,7 +107,7 @@ function makePageSepEl(): HTMLElement {
   const bm = document.createElement("div");
   bm.style.cssText = "height:72px;background:#fff;";
   const gap = document.createElement("div");
-  gap.style.cssText = "height:32px;background:#6b7280;";
+  gap.style.cssText = "height:32px;background:#5b6876;";
   const tm = document.createElement("div");
   tm.style.cssText = "height:72px;background:#fff;";
   outer.append(bm, gap, tm);
@@ -344,6 +344,7 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
     editor.commands.setContent(generateData.content);
     setGenTitulo(generateData.titulo);
     setGenClientId(generateData.clientId);
+    setGenVarsData(generateData.varsData ?? {});
     hasLoadedRef.current = true;
   }, [mode, generateData, editor]);
 
@@ -536,76 +537,217 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
 
       {toast && <Toast message={toast.message} type={toast.type} />}
 
+      <style>{`
+        .ced-header {
+          display: flex; align-items: center; gap: 16px;
+          padding: 16px 30px;
+          border-bottom: 1px solid var(--gray-700);
+          background: var(--primary-900);
+          flex-shrink: 0;
+        }
+        .ced-back-btn {
+          display: grid; place-items: center;
+          width: 44px; height: 44px; border-radius: 12px; flex: none;
+          border: 1px solid var(--gray-700); background: var(--primary-800);
+          color: var(--gray-200); cursor: pointer; transition: .2s;
+        }
+        .ced-back-btn:hover { border-color: var(--primary-500); color: var(--primary-300); }
+        .ced-title-input {
+          flex: 1; background: none; border: 0; outline: none;
+          color: var(--gray-100); font-family: inherit; font-size: 20px; font-weight: 600;
+          padding: 0 4px; min-width: 0;
+        }
+        .ced-title-input::placeholder { color: var(--gray-600); }
+        .ced-autosave {
+          display: flex; align-items: center; gap: 9px;
+          font-size: 14px; color: var(--primary-300); white-space: nowrap; flex-shrink: 0;
+        }
+        .ced-autosave-saving { color: var(--gray-500); }
+        .ced-autosave-dot {
+          width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+          background: var(--primary-400); box-shadow: 0 0 10px 1px var(--primary-500);
+        }
+        .ced-var-tag {
+          font-size: 10px; background: rgba(30,182,232,0.08); color: var(--primary-300);
+          border: 1px solid rgba(30,182,232,0.22); padding: 3px 10px; border-radius: 9px;
+        }
+        .ced-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+        .ced-ghost-btn {
+          display: flex; align-items: center; gap: 9px;
+          height: 50px; padding: 0 22px; font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--gray-100); cursor: pointer; border-radius: 13px;
+          border: 1px solid var(--gray-700); background: var(--primary-800); transition: .2s;
+        }
+        .ced-ghost-btn:hover { border-color: var(--primary-600); }
+        .ced-ghost-btn:disabled { opacity: .6; cursor: default; }
+        .ced-back-labeled {
+          width: auto; padding: 0 16px 0 12px; gap: 10px;
+          font-size: 15px; font-weight: 600;
+        }
+        .ced-view-title {
+          font-size: 18px; font-weight: 700; color: var(--gray-100);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 480px;
+        }
+        .ced-primary-btn {
+          display: flex; align-items: center; gap: 9px;
+          height: 50px; padding: 0 24px; font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--primary-900); cursor: pointer; border-radius: 14px; border: none;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 12px 28px -12px rgba(30,182,232,0.8); transition: .2s;
+        }
+        .ced-primary-btn:hover { opacity: .9; }
+        .ced-toolbar {
+          display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+          padding: 12px 30px; border-bottom: 1px solid var(--gray-700);
+          background: var(--primary-900); flex-shrink: 0;
+        }
+        .ced-font-toggle {
+          display: flex; padding: 4px; border-radius: 11px;
+          background: var(--primary-800); border: 1px solid var(--gray-700); margin-right: 4px;
+        }
+        .ced-font-btn {
+          font-family: inherit; font-size: 14px; font-weight: 600; color: var(--gray-400);
+          cursor: pointer; padding: 7px 14px; border: 0; border-radius: 8px; background: none; transition: .15s;
+        }
+        .ced-font-btn.is-on { color: var(--gray-100); background: rgba(30,182,232,0.16); }
+        .ced-font-size {
+          height: 40px; padding: 0 12px; font-family: inherit; font-size: 14px;
+          color: var(--gray-100); cursor: pointer; border-radius: 11px;
+          border: 1px solid var(--gray-700); background: var(--primary-800);
+          outline: none; transition: .15s; appearance: none; -webkit-appearance: none; margin-right: 4px;
+        }
+        .ced-font-size:focus { border-color: var(--primary-500); }
+        .ced-toolbar-div { width: 1px; height: 26px; background: var(--gray-700); margin: 0 6px; flex-shrink: 0; }
+        .ced-tb {
+          display: grid; place-items: center; min-width: 40px; height: 40px; padding: 0 8px;
+          border-radius: 10px; border: 0; background: none; color: var(--gray-300);
+          cursor: pointer; font-size: 14px; font-weight: 700; transition: .15s; flex-shrink: 0;
+        }
+        .ced-tb:hover { background: rgba(148,169,173,0.1); color: var(--gray-100); }
+        .ced-tb.is-active { background: rgba(30,182,232,0.16); color: var(--primary-300); }
+        .ced-insertvar {
+          display: flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px;
+          font-family: inherit; font-size: 14px; font-weight: 600; color: var(--primary-300);
+          cursor: pointer; border-radius: 11px;
+          border: 1px solid rgba(30,182,232,0.30); background: rgba(30,182,232,0.07);
+          transition: .2s; flex-shrink: 0;
+        }
+        .ced-insertvar:hover { background: rgba(30,182,232,0.14); }
+        .ced-canvas {
+          flex: 1; overflow-y: auto; padding: 44px 40px 60px;
+          display: flex; justify-content: center; align-items: flex-start;
+          background: linear-gradient(180deg, #5b6876, #4a5560);
+        }
+        .ced-doc {
+          width: 794px; background: #fff; padding: 80px 76px; border-radius: 4px;
+          box-shadow: 0 30px 80px -20px rgba(0,0,0,0.5); flex-shrink: 0;
+        }
+        .contract-editor .ProseMirror {
+          font-family: ${face}; font-size: 12pt; line-height: 1.85; color: #111; min-height: 834px; outline: none;
+        }
+        .contract-editor .ProseMirror h1 { font-size: 18pt; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 24px; color: #000; }
+        .contract-editor .ProseMirror h2 { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin: 24px 0 8px; color: #000; }
+        .contract-editor .ProseMirror h3 { font-size: 12pt; font-weight: 700; margin: 18px 0 6px; color: #000; }
+        .contract-editor .ProseMirror p { margin-bottom: 12px; }
+        .contract-editor .ProseMirror ul { list-style-type: disc; padding-left: 24px; margin: 8px 0 12px 0; }
+        .contract-editor .ProseMirror ol { list-style-type: decimal; padding-left: 24px; margin: 8px 0 12px 0; }
+        .contract-editor .ProseMirror li { display: list-item; margin-bottom: 4px; }
+        .contract-editor .ProseMirror hr { border: none; border-top: 1px solid #ccc; margin: 28px 0; }
+        .contract-editor .ProseMirror p.is-editor-empty::before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; font-style: italic; }
+      `}</style>
+
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-        <div className="shrink-0 border-b border-primary-800 px-6 py-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard/contratos")}
-            className="flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-200 transition-colors mr-1"
-          >
-            <ArrowLeft size={15} />
-          </button>
+        {/* HEADER */}
+        <div className="ced-header">
+          {mode === "generate" ? (
+            <>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/contratos")}
+                className="ced-back-btn ced-back-labeled"
+              >
+                <ArrowLeft size={18} />
+                Voltar
+              </button>
+              <span className="ced-view-title">{titulo}</span>
+              <div className="ced-actions">
+                <button
+                  type="button"
+                  onClick={() => handleGenerate("pdf")}
+                  disabled={!!generating}
+                  className="ced-primary-btn"
+                >
+                  {generating === "pdf" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+                  Baixar PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerate("docx")}
+                  disabled={!!generating}
+                  className="ced-ghost-btn"
+                >
+                  {generating === "docx" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+                  Baixar DOCX
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/contratos")}
+                className="ced-back-btn"
+              >
+                <ArrowLeft size={18} />
+              </button>
 
-          <input
-            type="text"
-            placeholder={mode === "generate" ? "Nome do contrato..." : "Nome do modelo..."}
-            value={titulo}
-            onChange={e => setTitulo(e.target.value)}
-            className="flex-1 bg-transparent text-[16px] font-semibold text-gray-100 placeholder-gray-600 focus:outline-none"
-          />
+              <input
+                type="text"
+                placeholder="Nome do modelo..."
+                value={titulo}
+                onChange={e => setTitulo(e.target.value)}
+                className="ced-title-input"
+              />
 
-          {detectedVars.length > 0 && (
-            <div className="hidden lg:flex items-center gap-1.5 flex-wrap max-w-sm">
-              {detectedVars.slice(0, 4).map(v => (
-                <span key={v} className="text-[10px] bg-primary-700 text-primary-300 border border-primary-600 px-2 py-0.5 rounded-full">
-                  {`{{${v}}}`}
+              {mode === 'edit' && autoSaveStatus !== 'idle' && (
+                <span className={`ced-autosave${autoSaveStatus === 'saving' ? ' ced-autosave-saving' : ''}`}>
+                  {autoSaveStatus === 'saved' && <span className="ced-autosave-dot" />}
+                  {autoSaveStatus === 'saving' ? 'Salvando...' : 'Salvo automaticamente'}
                 </span>
-              ))}
-              {detectedVars.length > 4 && (
-                <span className="text-[10px] text-gray-500">+{detectedVars.length - 4}</span>
               )}
-            </div>
-          )}
 
-          {mode === 'edit' && autoSaveStatus !== 'idle' && (
-            <span className={`text-[11px] shrink-0 ${autoSaveStatus === 'saving' ? 'text-gray-500' : 'text-primary-400'}`}>
-              {autoSaveStatus === 'saving' ? 'Salvando...' : 'Salvo automaticamente'}
-            </span>
+              <div className="ced-actions">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="ced-ghost-btn"
+                >
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                  Salvar modelo
+                </button>
+                <button
+                  type="button"
+                  onClick={openGenerateModal}
+                  className="ced-primary-btn"
+                >
+                  <FileDown size={16} />
+                  Gerar contrato
+                </button>
+              </div>
+            </>
           )}
-
-          {mode !== "generate" && (
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1.5 px-3 py-2 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-xl text-[13px] text-gray-200 transition-colors shrink-0 disabled:opacity-60"
-            >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-              Salvar modelo
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={openGenerateModal}
-            className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-400 rounded-xl text-[13px] font-semibold text-primary-900 transition-colors shrink-0"
-          >
-            <FileDown size={14} />
-            Gerar contrato
-          </button>
         </div>
 
-        <div className="shrink-0 border-b border-primary-800 px-4 py-1.5 flex items-center gap-0.5 flex-wrap">
+        {/* TOOLBAR — oculta no modo visualização */}
+        {mode !== "generate" && <div className="ced-toolbar">
 
-          <div className="flex items-center bg-primary-800 border border-primary-700 rounded-lg overflow-hidden mr-1 shrink-0">
+          <div className="ced-font-toggle">
             <button
               type="button"
               onMouseDown={e => { e.preventDefault(); setFontFamily("times"); }}
-              className={clsx(
-                "px-2.5 py-1 text-[11px] font-medium transition-colors",
-                fontFamily === "times" ? "bg-primary-600 text-gray-100" : "text-gray-400 hover:text-gray-200"
-              )}
+              className={clsx("ced-font-btn", fontFamily === "times" && "is-on")}
               title="Times New Roman (ABNT)"
             >
               TNR
@@ -613,11 +755,8 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
             <button
               type="button"
               onMouseDown={e => { e.preventDefault(); setFontFamily("arial"); }}
-              className={clsx(
-                "px-2.5 py-1 text-[11px] font-medium transition-colors",
-                fontFamily === "arial" ? "bg-primary-600 text-gray-100" : "text-gray-400 hover:text-gray-200"
-              )}
-              title="Arial (ABNT)"
+              className={clsx("ced-font-btn", fontFamily === "arial" && "is-on")}
+              title="Arial"
             >
               Arial
             </button>
@@ -627,7 +766,7 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
             value={currentFontSize}
             onChange={e => applyFontSize(e.target.value)}
             onMouseDown={e => e.stopPropagation()}
-            className="h-8 bg-primary-800 border border-primary-700 rounded-lg px-2 text-[12px] text-gray-200 focus:outline-none focus:border-primary-500 shrink-0 mr-1 cursor-pointer"
+            className="ced-font-size"
             title="Tamanho da fonte"
           >
             {FONT_SIZES.map(s => (
@@ -635,73 +774,68 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
             ))}
           </select>
 
-          <div className="w-px h-5 bg-primary-700 mx-1 shrink-0" />
+          <span className="ced-toolbar-div" />
 
-          <ToolbarBtn onClick={() => editor?.chain().focus().toggleBold().run()} active={editor?.isActive("bold")} title="Negrito">
-            <Bold size={14} />
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => editor?.chain().focus().toggleItalic().run()} active={editor?.isActive("italic")} title="Itálico">
-            <Italic size={14} />
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => editor?.chain().focus().toggleUnderline().run()} active={editor?.isActive("underline")} title="Sublinhado">
-            <UnderlineIcon size={14} />
-          </ToolbarBtn>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleBold().run(); }} title="Negrito" className={clsx("ced-tb", editor?.isActive("bold") && "is-active")}>
+            <Bold size={18} />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleItalic().run(); }} title="Itálico" className={clsx("ced-tb", editor?.isActive("italic") && "is-active")}>
+            <Italic size={18} />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleUnderline().run(); }} title="Sublinhado" className={clsx("ced-tb", editor?.isActive("underline") && "is-active")}>
+            <UnderlineIcon size={18} />
+          </button>
 
-          <div className="w-px h-5 bg-primary-700 mx-1 shrink-0" />
+          <span className="ced-toolbar-div" />
 
           {([1, 2, 3] as const).map(level => (
-            <ToolbarBtn
-              key={level}
-              onClick={() => editor?.chain().focus().toggleHeading({ level }).run()}
-              active={editor?.isActive("heading", { level })}
-              title={`Título H${level}`}
-            >
-              <span className="font-bold text-[11px]">H{level}</span>
-            </ToolbarBtn>
+            <button key={level} type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level }).run(); }} title={`Título H${level}`} className={clsx("ced-tb", editor?.isActive("heading", { level }) && "is-active")}>
+              H{level}
+            </button>
           ))}
 
-          <div className="w-px h-5 bg-primary-700 mx-1 shrink-0" />
+          <span className="ced-toolbar-div" />
 
-          <ToolbarBtn onClick={() => editor?.chain().focus().setTextAlign("left").run()} active={editor?.isActive({ textAlign: "left" })} title="Alinhar à esquerda">
-            <AlignLeft size={14} />
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => editor?.chain().focus().setTextAlign("center").run()} active={editor?.isActive({ textAlign: "center" })} title="Centralizar">
-            <AlignCenter size={14} />
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => editor?.chain().focus().setTextAlign("right").run()} active={editor?.isActive({ textAlign: "right" })} title="Alinhar à direita">
-            <AlignRight size={14} />
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => editor?.chain().focus().setTextAlign("justify").run()} active={editor?.isActive({ textAlign: "justify" })} title="Justificar">
-            <AlignJustify size={14} />
-          </ToolbarBtn>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setTextAlign("left").run(); }} title="Alinhar à esquerda" className={clsx("ced-tb", editor?.isActive({ textAlign: "left" }) && "is-active")}>
+            <AlignLeft size={18} />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setTextAlign("center").run(); }} title="Centralizar" className={clsx("ced-tb", editor?.isActive({ textAlign: "center" }) && "is-active")}>
+            <AlignCenter size={18} />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setTextAlign("right").run(); }} title="Alinhar à direita" className={clsx("ced-tb", editor?.isActive({ textAlign: "right" }) && "is-active")}>
+            <AlignRight size={18} />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setTextAlign("justify").run(); }} title="Justificar" className={clsx("ced-tb", editor?.isActive({ textAlign: "justify" }) && "is-active")}>
+            <AlignJustify size={18} />
+          </button>
 
-          <div className="w-px h-5 bg-primary-700 mx-1 shrink-0" />
+          <span className="ced-toolbar-div" />
 
-          <ToolbarBtn onClick={() => editor?.chain().focus().toggleBulletList().run()} active={editor?.isActive("bulletList")} title="Lista com marcadores">
-            <List size={14} />
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => editor?.chain().focus().toggleOrderedList().run()} active={editor?.isActive("orderedList")} title="Lista numerada">
-            <ListOrdered size={14} />
-          </ToolbarBtn>
-          <ToolbarBtn onClick={() => editor?.chain().focus().setHorizontalRule().run()} title="Linha divisória">
-            <Minus size={14} />
-          </ToolbarBtn>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleBulletList().run(); }} title="Lista com marcadores" className={clsx("ced-tb", editor?.isActive("bulletList") && "is-active")}>
+            <List size={18} />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().toggleOrderedList().run(); }} title="Lista numerada" className={clsx("ced-tb", editor?.isActive("orderedList") && "is-active")}>
+            <ListOrdered size={18} />
+          </button>
+          <button type="button" onMouseDown={e => { e.preventDefault(); editor?.chain().focus().setHorizontalRule().run(); }} title="Linha divisória" className="ced-tb">
+            <Minus size={18} />
+          </button>
 
-          <div className="w-px h-5 bg-primary-700 mx-1 shrink-0" />
+          <span className="ced-toolbar-div" />
 
           <div className="relative" ref={varDropdownRef}>
             <button
               type="button"
               onClick={() => setShowVarDropdown(v => !v)}
-              className="flex items-center gap-1 px-3 h-8 rounded-lg text-[12px] font-medium bg-primary-500/15 text-primary-300 border border-primary-600 hover:bg-primary-500/25 transition-colors shrink-0"
+              className="ced-insertvar"
             >
-              <Variable size={13} />
+              <Variable size={17} />
               Inserir variável
-              <ChevronDown size={11} />
+              <ChevronDown size={14} />
             </button>
 
             {showVarDropdown && (
-              <div className="absolute top-full left-0 mt-1 z-50 bg-primary-900 border border-primary-700 rounded-xl shadow-2xl w-[480px] max-h-[420px] overflow-y-auto p-3">
+              <div className="absolute top-full right-0 mt-1 z-50 bg-primary-900 border border-primary-700 rounded-xl shadow-2xl w-[480px] max-h-[420px] overflow-y-auto p-3">
                 <div className="grid grid-cols-2 gap-3">
                   {VAR_SUGGESTIONS.map(group => (
                     <div key={group.group}>
@@ -747,38 +881,11 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
               </div>
             )}
           </div>
-        </div>
+        </div>}
 
-        <div className="flex-1 overflow-y-auto bg-[#6b7280] py-8 flex justify-center items-start">
-          <style>{`
-            .contract-editor .ProseMirror {
-              font-family: ${face};
-              font-size: 12pt;
-              line-height: 1.85;
-              color: #111;
-              min-height: 834px;
-              outline: none;
-            }
-            .contract-editor .ProseMirror h1 { font-size: 18pt; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 24px; color: #000; }
-            .contract-editor .ProseMirror h2 { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; margin: 24px 0 8px; color: #000; }
-            .contract-editor .ProseMirror h3 { font-size: 12pt; font-weight: 700; margin: 18px 0 6px; color: #000; }
-            .contract-editor .ProseMirror p { margin-bottom: 12px; }
-            .contract-editor .ProseMirror ul { list-style-type: disc; padding-left: 24px; margin: 8px 0 12px 0; }
-            .contract-editor .ProseMirror ol { list-style-type: decimal; padding-left: 24px; margin: 8px 0 12px 0; }
-            .contract-editor .ProseMirror li { display: list-item; margin-bottom: 4px; }
-            .contract-editor .ProseMirror hr { border: none; border-top: 1px solid #ccc; margin: 28px 0; }
-            .contract-editor .ProseMirror p.is-editor-empty::before { content: attr(data-placeholder); color: #9ca3af; pointer-events: none; font-style: italic; }
-          `}</style>
-
-          <div
-            className="contract-editor bg-white"
-            style={{
-              width: "794px",
-              padding: "72px 80px",
-              marginBottom: "32px",
-              boxShadow: "0 2px 16px rgba(0,0,0,0.25)",
-            }}
-          >
+        {/* CANVAS */}
+        <div className="ced-canvas">
+          <div className="contract-editor ced-doc">
             <EditorContent editor={editor} />
           </div>
         </div>

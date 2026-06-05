@@ -25,6 +25,7 @@ import {
   X,
   ArrowLeft,
   Eye,
+  ChevronLeft,
 } from "lucide-react";
 import Toast, { ToastType } from "@/components/Toast";
 import PageTour from "@/components/PageTour";
@@ -245,7 +246,6 @@ export default function ContratosPage() {
       URL.revokeObjectURL(url);
       showToast(`${format.toUpperCase()} gerado com sucesso!`, "success");
 
-      // Refresh contracts list
       const { data: { user: u } } = await supabase.auth.getUser();
       if (u) {
         const { data } = await getContracts(u.id);
@@ -295,283 +295,285 @@ export default function ContratosPage() {
   return (
     <>
       <PageTour name="contratos" steps={CONTRATOS_TOUR_STEPS} />
-
       {toast && <Toast message={toast.message} type={toast.type} />}
 
-      <div className="flex flex-col flex-1 min-w-0 gap-6 pr-6 py-8 overflow-y-auto">
+      <div className="cti-page">
+        <div className="cti-glow cti-glow-a" />
+        <div className="cti-glow cti-glow-b" />
 
-        <header className="w-full flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="cti-scroll">
+
+        <header className="cti-top">
+          <div className="cti-top-l">
             <button
+              type="button"
+              className="cti-back"
               onClick={() => router.push("/dashboard")}
-              className="flex items-center gap-2 px-3 py-2 border border-primary-700 text-gray-300 rounded-lg hover:bg-primary-800 transition-colors"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
+              <ChevronLeft size={18} />
             </button>
             <div>
-              <h1 className="text-[28px] font-semibold text-gray-100">Contratos</h1>
-              <p className="text-[14px] text-gray-400 mt-0.5">Gerencie modelos e contratos gerados</p>
+              <h1 className="cti-page-title">Contratos</h1>
+              <p className="cti-page-sub">Gerencie modelos e contratos gerados</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="cti-top-r">
             <button
               id="tour-add-btn"
+              type="button"
+              className="cti-primary-btn"
               onClick={() => router.push("/dashboard/contratos/novo")}
-              className="bg-primary-500 hover:bg-primary-400 text-primary-900 rounded-lg py-2.5 px-5 text-[14px] font-semibold transition-colors shadow-lg shadow-primary-500/20 flex items-center gap-2"
             >
-              <Plus size={16} />
+              <Plus size={19} />
               Novo modelo
             </button>
             <HeaderProfile />
           </div>
         </header>
 
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-[18px] font-semibold text-gray-100">Modelos de contrato</h2>
-            {templates.length > 3 && (
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Buscar modelos..."
-                  value={searchTemplates}
-                  onChange={e => setSearchTemplates(e.target.value)}
-                  className="bg-primary-800 border border-primary-700 rounded-lg pl-8 pr-4 py-2 text-[13px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 transition-colors w-[220px]"
-                />
+        <div className="cti-body">
+
+          <section className="cti-block">
+            <div className="cti-section-head">
+              <h2 className="cti-section-title">Modelos de contrato</h2>
+              {templates.length > 3 && (
+                <div className="cti-search">
+                  <Search size={14} className="cti-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Buscar modelos..."
+                    value={searchTemplates}
+                    onChange={e => setSearchTemplates(e.target.value)}
+                    className="cti-search-input"
+                  />
+                </div>
+              )}
+            </div>
+
+            {loadingTemplates ? (
+              <div className="cti-loading">
+                <div className="cti-spinner" />
               </div>
-            )}
-          </div>
-
-          {loadingTemplates ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : filteredTemplates.length === 0 ? (
-            <div className="bg-primary-900/40 border border-primary-700 rounded-2xl p-12 flex flex-col items-center gap-3 text-center">
-              <ScrollText size={36} className="text-primary-700" />
-              <p className="text-[15px] font-medium text-gray-300">Nenhum modelo criado ainda</p>
-              <p className="text-[13px] text-gray-500 max-w-sm">
-                Crie um modelo com variáveis dinâmicas como <code className="text-primary-400 bg-primary-800 px-1.5 py-0.5 rounded text-[11px]">{"{{nome_cliente}}"}</code> e gere contratos personalizados.
-              </p>
-              <button
-                onClick={() => router.push("/dashboard/contratos/novo")}
-                className="mt-2 flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-lg text-[13px] transition-colors"
-              >
-                <Plus size={14} />
-                Criar primeiro modelo
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredTemplates.map(t => (
-                <div
-                  key={t.id}
-                  className="bg-primary-900/40 border border-primary-700 rounded-2xl p-4 flex flex-col gap-3 hover:border-primary-500 transition-colors group cursor-pointer"
-                  onClick={() => router.push(`/dashboard/contratos/${t.id}`)}
+            ) : filteredTemplates.length === 0 ? (
+              <div className="cti-empty">
+                <ScrollText size={36} className="cti-empty-icon" />
+                <p className="cti-empty-title">Nenhum modelo criado ainda</p>
+                <p className="cti-empty-sub">
+                  Crie um modelo com variáveis dinâmicas como{" "}
+                  <code className="cti-code">{"{{nome_cliente}}"}</code> e gere contratos personalizados.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/dashboard/contratos/novo")}
+                  className="cti-primary-btn"
+                  style={{ marginTop: "8px" }}
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="w-9 h-9 rounded-xl bg-primary-800 flex items-center justify-center shrink-0">
-                      <ScrollText size={16} className="text-primary-400" />
+                  <Plus size={15} />
+                  Criar primeiro modelo
+                </button>
+              </div>
+            ) : (
+              <div className="cti-model-grid">
+                {filteredTemplates.map(t => (
+                  <article
+                    key={t.id}
+                    className="cti-model"
+                    onClick={() => router.push(`/dashboard/contratos/${t.id}`)}
+                  >
+                    <div className="cti-model-head">
+                      <span className="cti-model-icon">
+                        <ScrollText size={24} />
+                      </span>
+                      <div className="cti-model-actions">
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); router.push(`/dashboard/contratos/${t.id}`); }}
+                          className="cti-icon-btn"
+                          title="Editar modelo"
+                        >
+                          <Edit3 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); handleDeleteTemplate(t.id); }}
+                          disabled={deletingTemplate === t.id}
+                          className="cti-icon-btn cti-icon-btn-danger"
+                          title="Excluir modelo"
+                        >
+                          {deletingTemplate === t.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <Trash2 size={14} />}
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={e => { e.stopPropagation(); router.push(`/dashboard/contratos/${t.id}`); }}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-primary-700 text-gray-500 hover:text-gray-200 transition-colors"
-                        title="Editar modelo"
-                      >
-                        <Edit3 size={13} />
-                      </button>
-                      <button
-                        onClick={e => { e.stopPropagation(); handleDeleteTemplate(t.id); }}
-                        disabled={deletingTemplate === t.id}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-rose-500/10 text-gray-500 hover:text-rose-400 transition-colors"
-                        title="Excluir modelo"
-                      >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </div>
 
-                  <div className="flex-1">
-                    <p className="text-[14px] font-semibold text-gray-100 leading-snug">{t.titulo}</p>
+                    <h3 className="cti-model-name">{t.titulo}</h3>
+
                     {t.variables?.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
+                      <div className="cti-model-vars">
                         {t.variables.slice(0, 3).map(v => (
-                          <span key={v} className="text-[10px] bg-primary-800 text-primary-400 border border-primary-700 px-1.5 py-0.5 rounded font-mono">
-                            {`{{${v}}}`}
-                          </span>
+                          <span key={v} className="cti-var">{`{{${v}}}`}</span>
                         ))}
                         {t.variables.length > 3 && (
-                          <span className="text-[10px] text-gray-500">+{t.variables.length - 3}</span>
+                          <span className="cti-var-more">+{t.variables.length - 3}</span>
                         )}
                       </div>
                     )}
-                  </div>
 
-                  <div className="flex items-center justify-between gap-2 mt-1">
-                    <span className="text-[11px] text-gray-600 flex items-center gap-1 shrink-0">
-                      <Clock size={10} />
-                      {formatDate(t.updated_at || t.created_at)}
-                    </span>
-                    <button
-                      onClick={e => openGenerateModal(t, e)}
-                      disabled={loadingModal}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-400 text-primary-900 rounded-lg text-[12px] font-semibold transition-colors shrink-0 disabled:opacity-60"
-                      title="Gerar contrato a partir deste modelo"
-                    >
-                      {loadingModal ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
-                      Gerar
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-[18px] font-semibold text-gray-100">Contratos gerados</h2>
-            {contracts.length > 4 && (
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Buscar contratos..."
-                  value={searchContracts}
-                  onChange={e => setSearchContracts(e.target.value)}
-                  className="bg-primary-800 border border-primary-700 rounded-lg pl-8 pr-4 py-2 text-[13px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 transition-colors w-[220px]"
-                />
+                    <div className="cti-model-foot">
+                      <span className="cti-model-date">
+                        <Clock size={15} />
+                        {formatDate(t.updated_at || t.created_at)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={e => openGenerateModal(t, e)}
+                        disabled={loadingModal}
+                        className="cti-gen-btn"
+                        title="Gerar contrato a partir deste modelo"
+                      >
+                        {loadingModal
+                          ? <Loader2 size={15} className="animate-spin" />
+                          : <FileDown size={17} />}
+                        Gerar
+                      </button>
+                    </div>
+                  </article>
+                ))}
               </div>
             )}
-          </div>
+          </section>
 
-          {loadingContracts ? (
-            <div className="flex items-center justify-center py-10">
-              <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : filteredContracts.length === 0 ? (
-            <div className="bg-primary-900/40 border border-primary-700 rounded-2xl p-10 flex flex-col items-center gap-2 text-center">
-              <FileText size={30} className="text-primary-700" />
-              <p className="text-[14px] text-gray-400">Nenhum contrato gerado ainda.</p>
-              <p className="text-[13px] text-gray-500">Abra um modelo e clique em "Gerar contrato" para criar e baixar um contrato preenchido.</p>
-            </div>
-          ) : (
-            <div className="bg-primary-900/40 border border-primary-700 rounded-2xl overflow-hidden">
-              <div className="px-5 py-3 border-b border-primary-700 text-[12px] text-gray-500 uppercase tracking-wider font-medium flex items-center gap-4">
-                <div className="flex-1">Título</div>
-                <div className="w-[180px] hidden md:block">Modelo</div>
-                <div className="w-[140px] hidden lg:block">Gerado em</div>
-                <div className="w-[72px]" />
-              </div>
-              {filteredContracts.map(c => (
-                <div
-                  key={c.id}
-                  className="px-5 py-3.5 border-b border-primary-800 last:border-0 flex items-center gap-4 hover:bg-primary-800/30 transition-colors group"
-                >
-                  <div className="w-7 h-7 rounded-lg bg-primary-800 flex items-center justify-center shrink-0">
-                    <FileDown size={13} className="text-gray-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-medium text-gray-100 truncate">{c.titulo}</p>
-                  </div>
-                  <div className="w-[180px] hidden md:block">
-                    <p className="text-[12px] text-gray-500 truncate">
-                      {c.contract_templates?.titulo ?? "—"}
-                    </p>
-                  </div>
-                  <div className="w-[140px] hidden lg:block">
-                    <p className="text-[12px] text-gray-500">{formatDate(c.created_at)}</p>
-                  </div>
-                  <div className="w-[72px] flex items-center justify-end gap-1">
-                    <button
-                      onClick={() => setViewingContract(c)}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 hover:bg-primary-700 text-gray-500 hover:text-gray-200 transition-all"
-                      title="Ver contrato"
-                    >
-                      <Eye size={13} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteContract(c.id)}
-                      disabled={deletingContract === c.id}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 text-gray-500 hover:text-rose-400 transition-all"
-                      title="Excluir"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
+          <section className="cti-block">
+            <div className="cti-section-head">
+              <h2 className="cti-section-title">Contratos gerados</h2>
+              {contracts.length > 4 && (
+                <div className="cti-search">
+                  <Search size={14} className="cti-search-icon" />
+                  <input
+                    type="text"
+                    placeholder="Buscar contratos..."
+                    value={searchContracts}
+                    onChange={e => setSearchContracts(e.target.value)}
+                    className="cti-search-input"
+                  />
                 </div>
-              ))}
+              )}
             </div>
-          )}
-        </section>
 
+            {loadingContracts ? (
+              <div className="cti-loading">
+                <div className="cti-spinner" />
+              </div>
+            ) : filteredContracts.length === 0 ? (
+              <div className="cti-empty cti-empty-sm">
+                <FileText size={30} className="cti-empty-icon" />
+                <p className="cti-empty-title">Nenhum contrato gerado ainda</p>
+                <p className="cti-empty-sub">
+                  Abra um modelo e clique em "Gerar" para criar e baixar um contrato preenchido.
+                </p>
+              </div>
+            ) : (
+              <div className="cti-table">
+                <div className="cti-th">
+                  <span>Título</span>
+                  <span>Modelo</span>
+                  <span>Gerado em</span>
+                </div>
+                {filteredContracts.map(c => (
+                  <div key={c.id} className="cti-row">
+                    <div className="cti-row-title">
+                      <span className="cti-row-icon">
+                        <FileDown size={18} />
+                      </span>
+                      <span className="cti-row-title-txt">{c.titulo}</span>
+                    </div>
+                    <span className="cti-row-model">
+                      {c.contract_templates?.titulo ?? "—"}
+                    </span>
+                    <div className="cti-row-last">
+                      <span className="cti-row-date">{formatDate(c.created_at)}</span>
+                      <div className="cti-row-actions">
+                        <button
+                          type="button"
+                          onClick={() => setViewingContract(c)}
+                          className="cti-icon-btn"
+                          title="Ver contrato"
+                        >
+                          <Eye size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteContract(c.id)}
+                          disabled={deletingContract === c.id}
+                          className="cti-icon-btn cti-icon-btn-danger"
+                          title="Excluir"
+                        >
+                          {deletingContract === c.id
+                            ? <Loader2 size={13} className="animate-spin" />
+                            : <Trash2 size={15} />}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+        </div>
+        </div>
       </div>
 
       {viewingContract && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-black/95">
-          <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-primary-900 border-b border-primary-700">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setViewingContract(null)}
-                className="flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-200 transition-colors"
-              >
-                <ArrowLeft size={15} />
-                Voltar
-              </button>
-              <span className="text-[14px] font-semibold text-gray-100 truncate max-w-[320px]">{viewingContract.titulo}</span>
-            </div>
-            <div className="flex items-center gap-2">
+        <div className="cti-overlay">
+          <div className="cti-overlay-header">
+            <button type="button" onClick={() => setViewingContract(null)} className="cti-overlay-back">
+              <ArrowLeft size={18} />
+              Voltar
+            </button>
+            <span className="cti-overlay-title">{viewingContract.titulo}</span>
+            <div className="cti-overlay-actions">
               <button
                 type="button"
                 onClick={() => handleViewDownload("pdf", viewingContract)}
                 disabled={!!viewGenerating}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-400 rounded-xl text-[13px] font-semibold text-primary-900 transition-colors disabled:opacity-60"
+                className="cti-overlay-primary"
               >
-                {viewGenerating === "pdf" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                {viewGenerating === "pdf" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                 Baixar PDF
               </button>
               <button
                 type="button"
                 onClick={() => handleViewDownload("docx", viewingContract)}
                 disabled={!!viewGenerating}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary-800 hover:bg-primary-700 border border-primary-600 rounded-xl text-[13px] font-medium text-gray-200 transition-colors disabled:opacity-60"
+                className="cti-overlay-ghost"
               >
-                {viewGenerating === "docx" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                {viewGenerating === "docx" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                 Baixar DOCX
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-auto bg-[#6b7280] p-8">
+          <div className="cti-overlay-canvas">
             <iframe
               srcDoc={buildPreviewHtml(viewingContract.content ?? "", "times")}
               title="Visualização do contrato"
-              className="mx-auto shadow-2xl bg-white block"
-              style={{ width: "794px", minHeight: "1122px", border: "none" }}
+              style={{ width: "794px", minHeight: "1122px", border: "none", background: "#fff", borderRadius: "4px", boxShadow: "0 30px 80px -20px rgba(0,0,0,0.5)", flexShrink: 0 }}
             />
           </div>
         </div>
       )}
 
       {previewHtml && generateModal && (
-        <div className="fixed inset-0 z-[60] flex flex-col bg-black/95">
-          <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-primary-900 border-b border-primary-700">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setPreviewHtml(null)}
-                className="flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-200 transition-colors"
-              >
-                <ArrowLeft size={15} />
-                Voltar
-              </button>
-              <span className="text-[14px] font-semibold text-gray-100">Pré-visualização</span>
-            </div>
-            <div className="flex items-center gap-2">
+        <div className="cti-overlay">
+          <div className="cti-overlay-header">
+            <button type="button" onClick={() => setPreviewHtml(null)} className="cti-overlay-back">
+              <ArrowLeft size={18} />
+              Voltar
+            </button>
+            <span className="cti-overlay-title">Pré-visualização</span>
+            <span className="cti-overlay-sub">— o arquivo gerado será idêntico a esta visualização</span>
+            <div className="cti-overlay-actions">
               <button
                 type="button"
                 onClick={() => {
@@ -586,7 +588,7 @@ export default function ContratosPage() {
                   }));
                   router.push("/dashboard/contratos/gerar");
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary-800 hover:bg-primary-700 border border-primary-600 rounded-xl text-[13px] font-medium text-gray-200 transition-colors"
+                className="cti-overlay-ghost"
               >
                 Editar contrato
               </button>
@@ -594,76 +596,70 @@ export default function ContratosPage() {
                 type="button"
                 onClick={() => { setPreviewHtml(null); handleGenerate("pdf"); }}
                 disabled={!!generating}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-400 rounded-xl text-[13px] font-semibold text-primary-900 transition-colors disabled:opacity-60"
+                className="cti-overlay-primary"
               >
-                {generating === "pdf" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                {generating === "pdf" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                 Baixar PDF
               </button>
               <button
                 type="button"
                 onClick={() => { setPreviewHtml(null); handleGenerate("docx"); }}
                 disabled={!!generating}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary-800 hover:bg-primary-700 border border-primary-600 rounded-xl text-[13px] font-medium text-gray-200 transition-colors disabled:opacity-60"
+                className="cti-overlay-ghost"
               >
-                {generating === "docx" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                {generating === "docx" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                 Baixar DOCX
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-auto bg-[#6b7280] p-8">
+          <div className="cti-overlay-canvas">
             <iframe
               srcDoc={previewHtml}
               title="Pré-visualização do contrato"
-              className="mx-auto shadow-2xl bg-white block"
-              style={{ width: "794px", minHeight: "1122px", border: "none" }}
+              style={{ width: "794px", minHeight: "1122px", border: "none", background: "#fff", borderRadius: "4px", boxShadow: "0 30px 80px -20px rgba(0,0,0,0.5)", flexShrink: 0 }}
             />
           </div>
         </div>
       )}
 
       {generateModal && (
-        <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center px-4"
-          onClick={() => !generating && setGenerateModal(null)}
-        >
-          <div
-            className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-6 py-4 border-b border-primary-800 shrink-0">
+        <div className="cti-gm-backdrop" onClick={() => !generating && setGenerateModal(null)}>
+          <div className="cti-gm-box" onClick={e => e.stopPropagation()}>
+
+            <div className="cti-gm-header">
               <div>
-                <h2 className="text-[16px] font-semibold text-gray-100">Gerar contrato</h2>
-                <p className="text-[12px] text-gray-500 mt-0.5">Modelo: {generateModal.templateTitulo}</p>
+                <h2 className="cti-gm-title">Gerar contrato</h2>
+                <div className="cti-gm-subtitle">
+                  Modelo:
+                  <span className="cti-gm-model-tag">{generateModal.templateTitulo}</span>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setGenerateModal(null)}
-                className="text-gray-500 hover:text-gray-300"
-              >
-                <X size={18} />
+              <button type="button" onClick={() => setGenerateModal(null)} className="cti-gm-close">
+                <X size={17} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-medium text-gray-400">Título do contrato</label>
+            <div className="cti-gm-body">
+              <div className="cti-gm-field">
+                <label className="cti-gm-label">Título do contrato</label>
                 <input
                   type="text"
                   value={generateModal.titulo}
                   onChange={e => setGenerateModal(prev => prev ? { ...prev, titulo: e.target.value } : prev)}
-                  className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 transition-colors"
+                  className="cti-gm-input"
                 />
               </div>
 
               {clients.length > 0 && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-medium text-gray-400">
-                    Preencher a partir de um cliente <span className="text-gray-600">(opcional)</span>
+                <div className="cti-gm-field">
+                  <label className="cti-gm-label">
+                    Preencher a partir de um cliente
+                    <span className="cti-gm-label-opt">(opcional)</span>
                   </label>
                   <select
                     value={generateModal.clientId ?? ""}
                     onChange={e => e.target.value ? applyClientFill(e.target.value) : setGenerateModal(prev => prev ? { ...prev, clientId: null } : prev)}
-                    className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 appearance-none transition-colors"
+                    className="cti-gm-select"
                   >
                     <option value="">Selecionar cliente...</option>
                     {clients.map(c => (
@@ -675,14 +671,14 @@ export default function ContratosPage() {
 
               {Object.keys(generateModal.varsData).length > 0 ? (
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="h-px flex-1 bg-primary-800" />
-                    <p className="text-[11px] text-gray-500 font-medium">Variáveis do contrato</p>
-                    <div className="h-px flex-1 bg-primary-800" />
+                  <div className="cti-gm-divider">
+                    <span className="cti-gm-divider-line" />
+                    <span className="cti-gm-divider-text">Variáveis do contrato</span>
+                    <span className="cti-gm-divider-line" />
                   </div>
                   {Object.entries(generateModal.varsData).map(([key, value]) => (
-                    <div key={key} className="flex flex-col gap-1">
-                      <label className="text-[11px] font-medium text-gray-500 font-mono">{`{{${key}}}`}</label>
+                    <div key={key} className="cti-gm-field">
+                      <label className="cti-gm-var-label">{`{{${key}}}`}</label>
                       <input
                         type="text"
                         value={value}
@@ -691,20 +687,20 @@ export default function ContratosPage() {
                           varsData: { ...prev.varsData, [key]: e.target.value },
                         } : prev)}
                         placeholder={`Valor de ${key}...`}
-                        className="bg-primary-800 border border-primary-700 rounded-xl px-4 py-2 text-[13px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
+                        className="cti-gm-input"
                       />
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="bg-primary-800 border border-primary-700 rounded-xl p-4 text-center">
+                <div className="cti-gm-empty">
                   <p className="text-[13px] text-gray-400">Nenhuma variável neste modelo.</p>
-                  <p className="text-[12px] text-gray-600 mt-1">O contrato será gerado com o conteúdo fixo do modelo.</p>
+                  <p className="text-[12px] text-gray-500 mt-1">O contrato será gerado com o conteúdo fixo do modelo.</p>
                 </div>
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-primary-800 flex flex-col gap-2 shrink-0">
+            <div className="cti-gm-footer">
               <button
                 type="button"
                 onClick={() => {
@@ -712,34 +708,450 @@ export default function ContratosPage() {
                   const filled = fillTemplate(generateModal.content, generateModal.varsData);
                   setPreviewHtml(buildPreviewHtml(filled, generateModal.fontFamily));
                 }}
-                className="w-full flex items-center justify-center gap-2 py-2 bg-primary-800 hover:bg-primary-700 border border-primary-600 rounded-xl text-[13px] font-medium text-gray-200 transition-colors"
+                className="cti-gm-preview-btn"
               >
                 Pré-visualizar
               </button>
-              <div className="flex gap-3">
+              <div className="cti-gm-row-btns">
                 <button
                   type="button"
                   onClick={() => handleGenerate("pdf")}
                   disabled={!!generating}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary-500 hover:bg-primary-400 rounded-xl text-[13px] font-semibold text-primary-900 transition-colors disabled:opacity-60"
+                  className="cti-gm-pdf-btn"
                 >
-                  {generating === "pdf" ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                  {generating === "pdf" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                   Baixar PDF
                 </button>
                 <button
                   type="button"
                   onClick={() => handleGenerate("docx")}
                   disabled={!!generating}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary-800 hover:bg-primary-700 border border-primary-600 rounded-xl text-[13px] font-medium text-gray-200 transition-colors disabled:opacity-60"
+                  className="cti-gm-docx-btn"
                 >
-                  {generating === "docx" ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />}
+                  {generating === "docx" ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
                   Baixar DOCX
                 </button>
               </div>
             </div>
+
           </div>
         </div>
       )}
+
+      <style jsx global>{`
+        /* ── Page wrapper ── */
+        .cti-page {
+          position: relative;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          background: radial-gradient(120% 80% at 50% -10%, var(--primary-800) 0%, var(--primary-900) 55%, var(--primary-900) 100%);
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Scroll container (inside page, clips glows correctly) ── */
+        .cti-scroll {
+          position: relative;
+          z-index: 2;
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 30px;
+          padding: 30px 44px 40px;
+        }
+        .cti-scroll::-webkit-scrollbar { width: 8px; }
+        .cti-scroll::-webkit-scrollbar-track { background: transparent; }
+        .cti-scroll::-webkit-scrollbar-thumb {
+          background: var(--primary-600);
+          border-radius: 8px;
+          border: 3px solid transparent;
+          background-clip: padding-box;
+        }
+
+        /* ── Glows ── */
+        .cti-glow {
+          position: absolute; border-radius: 50%; filter: blur(100px);
+          pointer-events: none; z-index: 0;
+        }
+        .cti-glow-a {
+          width: 520px; height: 520px; right: -180px; top: -180px;
+          background: radial-gradient(circle, rgba(30,182,232,0.12), transparent 70%);
+        }
+        .cti-glow-b {
+          width: 460px; height: 460px; right: -160px; bottom: -200px;
+          background: radial-gradient(circle, rgba(16,66,83,0.5), transparent 70%);
+        }
+
+        /* ── Header ── */
+        .cti-top {
+          display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
+        }
+        .cti-top-l { display: flex; align-items: flex-start; gap: 18px; }
+        .cti-back {
+          display: grid; place-items: center;
+          width: 50px; height: 50px; border-radius: 14px; flex: none; margin-top: 4px;
+          border: 1px solid var(--gray-700); background: var(--primary-800);
+          color: var(--gray-200); cursor: pointer; transition: .2s;
+        }
+        .cti-back:hover { border-color: var(--primary-500); color: var(--primary-300); }
+        .cti-page-title { margin: 0; font-size: 38px; font-weight: 700; color: var(--gray-100); letter-spacing: -0.02em; }
+        .cti-page-sub { margin: 8px 0 0; font-size: 16.5px; color: var(--gray-400); }
+        .cti-top-r { display: flex; align-items: center; gap: 14px; }
+
+        /* ── Primary button ── */
+        .cti-primary-btn {
+          display: flex; align-items: center; gap: 9px;
+          height: 50px; padding: 0 24px;
+          font-family: inherit; font-size: 16px; font-weight: 600;
+          color: var(--primary-900); cursor: pointer; border: 0; border-radius: 14px;
+          white-space: nowrap;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 12px 28px -12px rgba(30,182,232,0.8); transition: .2s;
+        }
+        .cti-primary-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 16px 34px -10px rgba(30,182,232,0.9);
+        }
+
+        /* ── Body ── */
+        .cti-body {
+          display: flex; flex-direction: column; gap: 34px;
+        }
+        .cti-block { display: flex; flex-direction: column; }
+        .cti-section-head {
+          display: flex; align-items: center; justify-content: space-between; gap: 16px;
+          margin-bottom: 18px;
+        }
+        .cti-section-title {
+          margin: 0; font-size: 23px; font-weight: 700;
+          color: var(--gray-100); letter-spacing: -0.01em;
+        }
+
+        /* ── Search ── */
+        .cti-search { position: relative; }
+        .cti-search-icon {
+          position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+          color: var(--gray-500); pointer-events: none;
+        }
+        .cti-search-input {
+          background: var(--primary-800); border: 1px solid var(--gray-700);
+          border-radius: 10px; padding: 8px 14px 8px 34px;
+          font-size: 13px; color: var(--gray-100); outline: none;
+          width: 220px; font-family: inherit; transition: .2s;
+        }
+        .cti-search-input::placeholder { color: var(--gray-500); }
+        .cti-search-input:focus { border-color: var(--primary-500); }
+
+        /* ── Loading ── */
+        .cti-loading {
+          display: flex; align-items: center; justify-content: center; padding: 64px 0;
+        }
+        .cti-spinner {
+          width: 24px; height: 24px;
+          border: 2px solid var(--primary-500); border-top-color: transparent;
+          border-radius: 50%;
+          animation: cti-spin .7s linear infinite;
+        }
+        @keyframes cti-spin { to { transform: rotate(360deg); } }
+
+        /* ── Empty state ── */
+        .cti-empty {
+          border: 1px solid var(--gray-700); border-radius: 20px; padding: 52px 32px;
+          display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+          background: linear-gradient(180deg, var(--primary-800), var(--primary-900));
+        }
+        .cti-empty-sm { padding: 40px 32px; }
+        .cti-empty-icon { color: var(--primary-700); }
+        .cti-empty-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--gray-300); }
+        .cti-empty-sub { margin: 0; font-size: 13px; color: var(--gray-500); max-width: 420px; }
+        .cti-code {
+          font-size: 11px; color: var(--primary-400); background: var(--primary-700);
+          padding: 2px 7px; border-radius: 5px;
+        }
+
+        /* ── Template card grid ── */
+        .cti-model-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(320px, 400px));
+          gap: 22px;
+        }
+        .cti-model {
+          display: flex; flex-direction: column; padding: 26px;
+          border-radius: 20px; border: 1px solid var(--gray-700); cursor: pointer; transition: .2s;
+          background: linear-gradient(180deg, var(--primary-800), var(--primary-900));
+        }
+        .cti-model:hover {
+          border-color: var(--primary-600);
+          transform: translateY(-3px);
+          box-shadow: 0 22px 48px -26px rgba(0,0,0,0.5);
+        }
+
+        /* ── Card head ── */
+        .cti-model-head {
+          display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px;
+        }
+        .cti-model-icon {
+          display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px;
+          color: var(--primary-300);
+          background: rgba(30,182,232,0.10); border: 1px solid rgba(30,182,232,0.28);
+        }
+        .cti-model-actions {
+          display: flex; align-items: center; gap: 4px;
+          opacity: 0; transition: opacity .2s;
+        }
+        .cti-model:hover .cti-model-actions { opacity: 1; }
+
+        /* ── Card body ── */
+        .cti-model-name {
+          margin: 0 0 16px; font-size: 20px; font-weight: 700;
+          color: var(--gray-100); letter-spacing: -0.01em;
+        }
+        .cti-model-vars { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+        .cti-var {
+          font-size: 12px; color: var(--primary-300); padding: 5px 11px; border-radius: 9px;
+          white-space: nowrap;
+          background: rgba(30,182,232,0.08); border: 1px solid rgba(30,182,232,0.22);
+        }
+        .cti-var-more { font-size: 13px; color: var(--gray-500); font-weight: 600; }
+
+        /* ── Card footer ── */
+        .cti-model-foot {
+          display: flex; align-items: center; justify-content: space-between; gap: 14px;
+          margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--gray-700);
+        }
+        .cti-model-date {
+          display: flex; align-items: center; gap: 8px;
+          font-size: 14px; color: var(--gray-500);
+        }
+
+        /* ── Icon buttons ── */
+        .cti-icon-btn {
+          display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px;
+          border: 0; background: none; color: var(--gray-500); cursor: pointer; transition: .2s;
+        }
+        .cti-icon-btn:hover { background: var(--primary-700); color: var(--gray-100); }
+        .cti-icon-btn-danger:hover {
+          background: rgba(239,83,80,0.10); color: var(--error-medium);
+        }
+        .cti-icon-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ── Gerar button ── */
+        .cti-gen-btn {
+          display: flex; align-items: center; gap: 8px;
+          height: 46px; padding: 0 20px;
+          font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--primary-900); cursor: pointer; border: 0; border-radius: 12px;
+          white-space: nowrap;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 8px 20px -10px rgba(30,182,232,0.8); transition: .2s;
+        }
+        .cti-gen-btn:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 24px -8px rgba(30,182,232,0.9);
+        }
+        .cti-gen-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* ── Generated contracts table ── */
+        .cti-table {
+          display: flex; flex-direction: column;
+          border: 1px solid var(--gray-700); border-radius: 18px; overflow: hidden;
+          background: linear-gradient(180deg, var(--primary-800), var(--primary-900));
+        }
+        .cti-th {
+          display: grid;
+          grid-template-columns: 2.4fr 1.4fr 1fr;
+          align-items: center; gap: 20px;
+          padding: 18px 26px; border-bottom: 1px solid var(--gray-700);
+        }
+        .cti-th span {
+          font-size: 12.5px; font-weight: 600; letter-spacing: 0.1em;
+          text-transform: uppercase; color: var(--gray-400);
+        }
+        .cti-row {
+          display: grid;
+          grid-template-columns: 2.4fr 1.4fr 1fr;
+          align-items: center; gap: 20px;
+          padding: 18px 26px;
+          border-bottom: 1px solid var(--gray-700);
+          transition: background .2s; cursor: default;
+        }
+        .cti-row:last-child { border-bottom: 0; }
+        .cti-row:hover { background: rgba(148,169,173,0.04); }
+        .cti-row:hover .cti-row-actions { opacity: 1; }
+
+        .cti-row-title {
+          display: flex; align-items: center; gap: 14px;
+          font-size: 16px; font-weight: 600; color: var(--gray-100); min-width: 0;
+        }
+        .cti-row-title-txt {
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .cti-row-icon {
+          flex: none; display: grid; place-items: center;
+          width: 40px; height: 40px; border-radius: 11px;
+          color: var(--primary-300);
+          background: rgba(30,182,232,0.08); border: 1px solid rgba(30,182,232,0.20);
+        }
+        .cti-row-model {
+          font-size: 15px; color: var(--gray-400);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .cti-row-last {
+          display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        }
+        .cti-row-date {
+          font-size: 14.5px; color: var(--gray-500); white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+        }
+        .cti-row-actions {
+          display: flex; align-items: center; gap: 2px;
+          opacity: 0; transition: opacity .2s;
+        }
+
+        /* ── Generate Modal ── */
+        .cti-gm-backdrop {
+          position: fixed; inset: 0; z-index: 50;
+          background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+          display: flex; align-items: center; justify-content: center; padding: 0 16px;
+        }
+        .cti-gm-box {
+          background: var(--primary-900); border: 1px solid var(--gray-700);
+          border-radius: 20px; width: 100%; max-width: 520px; max-height: 85vh;
+          display: flex; flex-direction: column;
+          box-shadow: 0 24px 60px -10px rgba(0,0,0,0.6);
+        }
+        .cti-gm-header {
+          display: flex; align-items: flex-start; justify-content: space-between;
+          padding: 22px 26px 18px; border-bottom: 1px solid var(--gray-700); flex-shrink: 0;
+        }
+        .cti-gm-title { font-size: 20px; font-weight: 700; color: var(--gray-100); margin-bottom: 6px; }
+        .cti-gm-subtitle { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gray-400); }
+        .cti-gm-model-tag {
+          font-size: 12px; color: var(--primary-300); padding: 3px 10px; border-radius: 8px;
+          background: rgba(30,182,232,0.08); border: 1px solid rgba(30,182,232,0.22);
+        }
+        .cti-gm-close {
+          display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0;
+          border-radius: 10px; border: 1px solid var(--gray-700); background: none;
+          color: var(--gray-400); cursor: pointer; transition: .2s;
+        }
+        .cti-gm-close:hover { border-color: var(--primary-600); color: var(--gray-100); }
+        .cti-gm-body {
+          flex: 1; overflow-y: auto; padding: 22px 26px; display: flex; flex-direction: column; gap: 16px;
+        }
+        .cti-gm-field { display: flex; flex-direction: column; gap: 6px; }
+        .cti-gm-label { font-size: 12px; font-weight: 600; color: var(--gray-400); }
+        .cti-gm-label-opt { color: var(--gray-600); font-weight: 400; margin-left: 4px; }
+        .cti-gm-input {
+          background: var(--primary-800); border: 1px solid var(--gray-700);
+          border-radius: 12px; padding: 10px 16px; font-size: 13px; font-family: inherit;
+          color: var(--gray-100); outline: none; transition: .2s; width: 100%;
+        }
+        .cti-gm-input:focus { border-color: var(--primary-500); }
+        .cti-gm-input::placeholder { color: var(--gray-600); }
+        .cti-gm-select {
+          background: var(--primary-800); border: 1px solid var(--gray-700);
+          border-radius: 12px; padding: 10px 16px; font-size: 13px; font-family: inherit;
+          color: var(--gray-100); outline: none; transition: .2s; width: 100%; appearance: none;
+        }
+        .cti-gm-select:focus { border-color: var(--primary-500); }
+        .cti-gm-divider { display: flex; align-items: center; gap: 12px; }
+        .cti-gm-divider-line { flex: 1; height: 1px; background: var(--gray-700); }
+        .cti-gm-divider-text { font-size: 11px; color: var(--gray-500); font-weight: 600; white-space: nowrap; }
+        .cti-gm-var-label {
+          font-size: 11.5px; font-weight: 600; color: var(--primary-300); font-family: monospace;
+        }
+        .cti-gm-empty {
+          background: var(--primary-800); border: 1px solid var(--gray-700);
+          border-radius: 14px; padding: 20px; text-align: center;
+        }
+        .cti-gm-footer {
+          padding: 18px 26px; border-top: 1px solid var(--gray-700);
+          display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;
+        }
+        .cti-gm-preview-btn {
+          width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+          height: 44px; font-family: inherit; font-size: 14px; font-weight: 600;
+          color: var(--gray-200); cursor: pointer; border-radius: 13px;
+          border: 1px solid var(--gray-700); background: var(--primary-800); transition: .2s;
+        }
+        .cti-gm-preview-btn:hover { border-color: var(--primary-600); }
+        .cti-gm-row-btns { display: flex; gap: 10px; }
+        .cti-gm-pdf-btn {
+          flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+          height: 50px; font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--primary-900); cursor: pointer; border-radius: 14px; border: none;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 12px 28px -12px rgba(30,182,232,0.8); transition: .2s;
+        }
+        .cti-gm-pdf-btn:hover { opacity: .9; }
+        .cti-gm-pdf-btn:disabled { opacity: .6; cursor: default; }
+        .cti-gm-docx-btn {
+          flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+          height: 50px; font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--gray-100); cursor: pointer; border-radius: 13px;
+          border: 1px solid var(--gray-700); background: var(--primary-800); transition: .2s;
+        }
+        .cti-gm-docx-btn:hover { border-color: var(--primary-600); }
+        .cti-gm-docx-btn:disabled { opacity: .6; cursor: default; }
+
+        /* ── View / Preview overlays ── */
+        .cti-overlay {
+          position: fixed; inset: 0; z-index: 60;
+          display: flex; flex-direction: column;
+          background: var(--primary-900);
+        }
+        .cti-overlay-header {
+          display: flex; align-items: center; gap: 16px;
+          padding: 16px 30px; flex-shrink: 0;
+          border-bottom: 1px solid var(--gray-700);
+          background: var(--primary-900);
+        }
+        .cti-overlay-back {
+          display: flex; align-items: center; gap: 10px;
+          height: 50px; padding: 0 16px 0 12px; flex-shrink: 0;
+          font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--gray-200); cursor: pointer; border-radius: 13px;
+          border: 1px solid var(--gray-700); background: var(--primary-800); transition: .2s;
+        }
+        .cti-overlay-back:hover { border-color: var(--primary-500); color: var(--primary-300); }
+        .cti-overlay-title {
+          font-size: 18px; font-weight: 700; color: var(--gray-100);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .cti-overlay-sub {
+          font-size: 13px; color: var(--gray-500); white-space: nowrap; flex-shrink: 0;
+        }
+        .cti-overlay-actions {
+          margin-left: auto; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+        }
+        .cti-overlay-primary {
+          display: flex; align-items: center; gap: 9px;
+          height: 50px; padding: 0 24px;
+          font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--primary-900); cursor: pointer; border-radius: 14px; border: none;
+          background: linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%);
+          box-shadow: 0 12px 28px -12px rgba(30,182,232,0.8); transition: .2s;
+        }
+        .cti-overlay-primary:hover { opacity: .9; }
+        .cti-overlay-primary:disabled { opacity: .6; cursor: default; }
+        .cti-overlay-ghost {
+          display: flex; align-items: center; gap: 9px;
+          height: 50px; padding: 0 22px;
+          font-family: inherit; font-size: 15px; font-weight: 600;
+          color: var(--gray-100); cursor: pointer; border-radius: 13px;
+          border: 1px solid var(--gray-700); background: var(--primary-800); transition: .2s;
+        }
+        .cti-overlay-ghost:hover { border-color: var(--primary-600); }
+        .cti-overlay-ghost:disabled { opacity: .6; cursor: default; }
+        .cti-overlay-canvas {
+          flex: 1; overflow-y: auto; padding: 44px 40px 60px;
+          display: flex; justify-content: center; align-items: flex-start;
+          background: linear-gradient(180deg, #5b6876, #4a5560);
+        }
+      `}</style>
     </>
   );
 }
