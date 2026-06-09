@@ -9,7 +9,7 @@ import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import { applyTheme, getStoredTheme, ThemeSlug } from "@/utils/themeLoader";
-import { User, Palette, LayoutGrid, Shield, Eye, EyeOff, Check, Upload, CreditCard, Zap, HardDrive, ExternalLink, ChevronRight, Trash2, FileText, File, FolderOpen, AlertTriangle, QrCode } from "lucide-react";
+import { User, Palette, LayoutGrid, Shield, Eye, EyeOff, Check, Upload, CreditCard, Zap, HardDrive, ExternalLink, ChevronLeft, ChevronRight, Trash2, FileText, File, FolderOpen, AlertTriangle, QrCode } from "lucide-react";
 import clsx from "clsx";
 import { useSubscription } from "@/hooks/useSubscription";
 import { PLAN_PRICES, TRIAL_DAYS, type BillingPeriod } from "@/lib/stripeConfig";
@@ -61,15 +61,15 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
       role="switch"
       aria-checked={value}
       onClick={() => onChange(!value)}
-      className={clsx(
-        "relative inline-flex items-center h-6 w-11 rounded-full border transition-colors shrink-0",
-        value ? "bg-primary-500 border-primary-400" : "bg-primary-900 border-primary-700"
-      )}
+      className="relative w-[52px] h-[30px] rounded-full transition-all shrink-0"
+      style={value
+        ? { background: "linear-gradient(135deg, var(--primary-400), var(--primary-500))", boxShadow: "0 0 18px -4px rgba(30,182,232,0.7)" }
+        : { background: "var(--gray-700)" }}
     >
       <span
         className={clsx(
-          "inline-block h-4 w-4 rounded-full bg-primary-50 shadow transition-transform",
-          value ? "translate-x-5" : "translate-x-1"
+          "absolute top-[3px] w-6 h-6 rounded-full transition-all",
+          value ? "left-[25px] bg-white" : "left-[3px] bg-gray-300"
         )}
       />
     </button>
@@ -84,27 +84,22 @@ function ViewModeToggle({
   onChange: (v: ViewMode) => void;
 }) {
   return (
-    <div className="flex items-center bg-primary-900 border border-primary-700 rounded-full p-1 shrink-0">
-      <button
-        type="button"
-        onClick={() => onChange("list")}
-        className={clsx(
-          "px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors",
-          value === "list" ? "bg-primary-500 text-primary-900" : "text-gray-400 hover:text-gray-200"
-        )}
-      >
-        Lista
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange("board")}
-        className={clsx(
-          "px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors",
-          value === "board" ? "bg-primary-500 text-primary-900" : "text-gray-400 hover:text-gray-200"
-        )}
-      >
-        Quadros
-      </button>
+    <div className="inline-flex p-1 rounded-full border border-gray-700 bg-primary-900 shrink-0">
+      {(["list", "board"] as ViewMode[]).map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className={clsx(
+            "px-5 py-[9px] rounded-full text-[14.5px] font-semibold transition-all",
+            value === v
+              ? "bg-gradient-to-br from-primary-300 to-primary-500 text-primary-900"
+              : "text-gray-400 hover:text-gray-200"
+          )}
+        >
+          {v === "list" ? "Lista" : "Quadros"}
+        </button>
+      ))}
     </div>
   );
 }
@@ -156,36 +151,52 @@ function SectionHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-6">
-      <div>
-        <h2 className="text-[22px] font-semibold text-gray-100">{title}</h2>
-        {description && <p className="text-[13px] text-gray-400 mt-1">{description}</p>}
+    <header className="mb-[30px]">
+      <div className="flex items-start justify-between gap-4">
+        <h2 className="text-[30px] font-bold text-gray-100 tracking-tight leading-none">{title}</h2>
+        {action}
       </div>
-      {action}
-    </div>
+      {description && <p className="text-[15.5px] text-gray-400 mt-2 max-w-[720px]">{description}</p>}
+    </header>
   );
 }
 
-function Card({ children, className }: { children: React.ReactNode; className?: string }) {
+function Card({
+  children,
+  className,
+  title,
+  desc,
+  icon: TitleIcon,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  title?: string;
+  desc?: string;
+  icon?: React.ComponentType<{ size?: number; className?: string }>;
+}) {
   return (
-    <div className={clsx("bg-primary-800 border border-primary-700 rounded-2xl p-6", className)}>
+    <div
+      className={clsx("border border-gray-700 rounded-[18px] py-[26px] px-7", className)}
+      style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--primary-600) 16%, transparent), color-mix(in srgb, var(--primary-800) 30%, transparent))" }}
+    >
+      {title && (
+        <div className="mb-[22px]">
+          <h3 className="flex items-center gap-[10px] text-[18px] font-semibold text-gray-100 m-0">
+            {TitleIcon && <TitleIcon size={19} className="text-primary-400 shrink-0" />}
+            {title}
+          </h3>
+          {desc && <p className="text-[14.5px] text-gray-400 mt-2">{desc}</p>}
+        </div>
+      )}
       {children}
     </div>
   );
 }
 
-function CardTitle({ children }: { children: React.ReactNode }) {
-  return <h3 className="text-[15px] font-semibold text-gray-200 mb-1">{children}</h3>;
-}
-
-function CardSubtitle({ children }: { children: React.ReactNode }) {
-  return <p className="text-[12px] text-gray-500 mb-5">{children}</p>;
-}
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-2 text-[14px]">
-      <span className="text-gray-400">{label}</span>
+    <label className="flex flex-col gap-[10px]">
+      <span className="text-[14.5px] font-medium text-gray-300">{label}</span>
       {children}
     </label>
   );
@@ -205,14 +216,15 @@ function PrefRow({
   return (
     <div
       className={clsx(
-        "flex items-center justify-between gap-4 py-4",
-        !last && "border-b border-primary-700"
+        "flex items-center justify-between gap-6 py-5 first:pt-0",
+        last ? "pb-0" : ""
       )}
+      style={!last ? { borderBottom: "1px solid var(--gray-700)" } : undefined}
     >
-      <div className="flex flex-col gap-0.5 min-w-0">
-        <span className="text-[14px] text-gray-200">{label}</span>
+      <div className="flex flex-col gap-[5px] min-w-0">
+        <span className="text-[16px] font-semibold text-gray-100">{label}</span>
         {description && (
-          <span className="text-[12px] text-gray-500 leading-snug">{description}</span>
+          <span className="text-[14px] text-gray-400 leading-snug">{description}</span>
         )}
       </div>
       {children}
@@ -294,10 +306,12 @@ function AvatarPickerModal({
           onDrop={handleDrop}
           className={clsx(
             "flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed py-10 px-6 transition-colors select-none",
-            isDragging
-              ? "border-primary-400 bg-primary-700/30"
-              : "border-primary-700 bg-primary-900/30"
+            isDragging ? "border-primary-400" : "border-primary-700"
           )}
+          style={{ background: isDragging
+            ? "color-mix(in srgb, var(--primary-700) 30%, transparent)"
+            : "color-mix(in srgb, var(--primary-900) 30%, transparent)"
+          }}
         >
           <div className={clsx(
             "w-12 h-12 rounded-full flex items-center justify-center transition-colors",
@@ -943,66 +957,83 @@ export default function ConfiguracoesPage() {
 
       <div className="flex flex-1 overflow-hidden">
 
-        <aside className="w-[220px] bg-primary-800 border-r border-primary-700 flex flex-col py-7 px-3 gap-0.5 shrink-0">
-          <div className="px-3 mb-5">
-            <h1 className="text-[17px] font-semibold text-gray-100">Configurações</h1>
-            <p className="text-[12px] text-gray-500 mt-0.5">Conta e preferências</p>
+        <aside className="w-[296px] bg-primary-900 flex flex-col py-[34px] px-[22px] gap-[30px] shrink-0">
+          <div className="flex items-start gap-[14px] px-2">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="grid place-items-center w-[34px] h-[34px] shrink-0 rounded-[10px] border border-gray-700 text-gray-300 hover:border-primary-500 hover:text-primary-300 transition-all"
+              style={{ background: "color-mix(in srgb, var(--primary-500) 6%, transparent)" }}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <div>
+              <h1 className="text-[25px] font-bold text-gray-100 tracking-tight leading-none">Configurações</h1>
+              <p className="text-[14px] text-gray-400 mt-[3px]">Conta e preferências</p>
+            </div>
           </div>
 
-          {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => setSection(id)}
-              className={clsx(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[14px] transition-colors text-left w-full",
-                section === id
-                  ? "bg-primary-700 text-primary-100 font-medium"
-                  : "text-gray-400 hover:bg-primary-700/50 hover:text-gray-200"
-              )}
-            >
-              <Icon size={16} className="shrink-0" />
-              {label}
-            </button>
-          ))}
+          <nav className="flex flex-col gap-1">
+            {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSection(id)}
+                className={clsx(
+                  "flex items-center gap-[14px] h-[50px] px-4 text-[16px] rounded-[13px] transition-all text-left w-full",
+                  section === id
+                    ? "text-gray-100 font-semibold"
+                    : "text-gray-300 font-medium hover:text-gray-100"
+                )}
+                style={section === id
+                  ? { background: "color-mix(in srgb, var(--primary-500) 12%, transparent)", boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--primary-500) 28%, transparent)" }
+                  : undefined}
+                onMouseEnter={section !== id ? (e) => { (e.currentTarget as HTMLElement).style.background = "color-mix(in srgb, var(--gray-300) 7%, transparent)"; } : undefined}
+                onMouseLeave={section !== id ? (e) => { (e.currentTarget as HTMLElement).style.background = ""; } : undefined}
+              >
+                <Icon
+                  size={20}
+                  className={clsx("shrink-0 transition-colors", section === id ? "text-primary-400" : "text-gray-400")}
+                />
+                {label}
+              </button>
+            ))}
+          </nav>
         </aside>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar py-8 px-8">
+        <main className="flex-1 overflow-y-auto custom-scrollbar py-10 px-12 bg-primary-800 rounded-tl-[22px] rounded-bl-[22px]" style={{ borderLeft: "1px solid var(--primary-700)" }}>
 
           {section === "perfil" && (
-            <div className="flex flex-col gap-5 w-full">
+            <div className="flex flex-col gap-[22px]">
               <SectionHeader
                 title="Perfil"
                 description="Informações exibidas no FlowDesk e nos recursos de colaboração."
               />
 
-              <Card>
-                <CardTitle>Foto de perfil</CardTitle>
-                <CardSubtitle>{IMAGE_SPECS.avatar.hint}</CardSubtitle>
-
-                <div className="flex items-center gap-6">
-                  <UserAvatar src={avatarUrl} name={nome || null} size={88} className="border border-primary-600 shrink-0" />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowAvatarPicker(true)}
-                    className="inline-flex items-center gap-2 bg-primary-700 border border-primary-600 rounded-full px-4 py-2 hover:bg-primary-600 text-[13px] text-primary-100 font-medium w-fit transition-colors"
-                  >
-                    Trocar foto
-                  </button>
+              <Card title="Foto de perfil" desc={IMAGE_SPECS.avatar.hint}>
+                <div className="flex items-center gap-[26px]">
+                  <UserAvatar src={avatarUrl} name={nome || null} size={96} className="!w-24 !h-24 border-2 border-gray-700 shrink-0" />
+                  <div className="flex flex-col gap-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setShowAvatarPicker(true)}
+                      className="cfg-btn-impl inline-flex items-center gap-[9px] h-[46px] px-5 text-[15px] font-semibold text-gray-100 rounded-[12px] border border-gray-600 hover:border-primary-500 hover:text-primary-200 transition-all whitespace-nowrap"
+                    >
+                      Trocar foto
+                    </button>
+                    <span className="text-[13.5px] text-gray-500">Recomendado: imagem quadrada nítida.</span>
+                  </div>
                 </div>
               </Card>
 
-              <Card>
-                <CardTitle>Informações pessoais</CardTitle>
-                <div className="h-px bg-primary-700 mb-5" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card title="Informações pessoais">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <Field label="Nome completo">
                     <input
                       type="text"
                       value={nome}
                       onChange={(e) => { setNome(e.target.value); setProfileDirty(true); }}
-                      className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                      className="h-[54px] bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                       placeholder="Seu nome"
                     />
                   </Field>
@@ -1012,22 +1043,22 @@ export default function ConfiguracoesPage() {
                       type="email"
                       value={email}
                       onChange={(e) => { setEmail(e.target.value); setProfileDirty(true); }}
-                      className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                      className="h-[54px] bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                       placeholder="seu@email.com"
                     />
                   </Field>
 
                   <Field label="Telefone">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-2 bg-primary-900 border border-primary-700 rounded-lg px-3 py-2.5 text-[14px] text-gray-100 shrink-0">
-                        <span className="text-base leading-none">🇧🇷</span>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-[9px] h-[54px] bg-primary-900 border border-gray-700 rounded-[13px] px-4 text-[16px] text-gray-100 font-medium shrink-0">
+                        <span className="text-[18px] leading-none">🇧🇷</span>
                         <span>+55</span>
                       </div>
                       <input
                         type="tel"
                         value={telefone}
                         onChange={(e) => { setTelefone(formatPhone(e.target.value)); setProfileDirty(true); }}
-                        className="flex-1 bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                        className="flex-1 h-[54px] bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                         placeholder="(00) 00000-0000"
                       />
                     </div>
@@ -1035,20 +1066,15 @@ export default function ConfiguracoesPage() {
                 </div>
               </Card>
 
-              <Card>
-                <div className="flex items-center gap-2 mb-1">
-                  <QrCode size={16} className="text-primary-400" />
-                  <CardTitle>Chave PIX para recebimento</CardTitle>
-                </div>
-                <CardSubtitle>Pré-preenchida automaticamente ao solicitar adiantamentos ao cliente.</CardSubtitle>
-                <div className="h-px bg-primary-700 mb-5" />
+              <Card title="Chave PIX para recebimento" icon={QrCode} desc="Pré-preenchida automaticamente ao solicitar adiantamentos ao cliente.">
                 <div className="flex flex-col gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <Field label="Tipo de chave">
                     <div className="relative">
                       <select
                         value={pixTipo}
                         onChange={(e) => { setPixTipo(e.target.value as PixTipo); setPixValor(""); setProfileDirty(true); }}
-                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 appearance-none focus:outline-none focus:border-primary-400"
+                        className="w-full h-[54px] bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 appearance-none focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                       >
                         <option value="">Selecione o tipo de chave</option>
                         <option value="email">E-mail</option>
@@ -1056,7 +1082,7 @@ export default function ConfiguracoesPage() {
                         <option value="cpf_cnpj">CPF / CNPJ</option>
                         <option value="aleatoria">Chave aleatória</option>
                       </select>
-                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
+                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]">▼</span>
                     </div>
                   </Field>
 
@@ -1067,31 +1093,31 @@ export default function ConfiguracoesPage() {
                         value={pixValor}
                         onChange={(e) => { setPixValor(e.target.value); setProfileDirty(true); }}
                         placeholder="seupix@email.com"
-                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                        className="h-[54px] w-full bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                       />
                     </Field>
                   )}
 
                   {pixTipo === "telefone" && (
                     <Field label="Telefone da chave PIX">
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <div ref={pixPaisRef} className="relative shrink-0">
                           <button
                             type="button"
                             onClick={() => setPixPaisOpen((o) => !o)}
-                            className="flex items-center gap-2 bg-primary-900 border border-primary-700 rounded-lg px-3 py-2.5 text-[14px] text-gray-100 hover:border-primary-500 focus:outline-none focus:border-primary-400 transition-colors"
+                            className="flex items-center gap-2 h-[54px] bg-primary-900 border border-gray-700 rounded-[13px] px-4 text-[16px] text-gray-100 hover:border-gray-500 focus:outline-none focus:border-primary-400 transition-colors"
                           >
                             <span className="text-[18px] leading-none">
                               {PAISES_PIX.find((p) => p.code === pixPaisCode)?.flag}
                             </span>
-                            <span className="text-gray-400 text-[13px]">
+                            <span className="text-gray-400 text-[14px]">
                               {PAISES_PIX.find((p) => p.code === pixPaisCode)?.dial}
                             </span>
                             <span className="text-gray-600 text-[10px]">▼</span>
                           </button>
 
                           {pixPaisOpen && (
-                            <div className="absolute top-full left-0 mt-1.5 z-50 bg-primary-800 border border-primary-700 rounded-xl shadow-xl overflow-hidden min-w-[180px]">
+                            <div className="absolute top-full left-0 mt-1.5 z-50 bg-primary-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden min-w-[180px]">
                               {PAISES_PIX.map((p) => (
                                 <button
                                   key={p.code}
@@ -1104,8 +1130,9 @@ export default function ConfiguracoesPage() {
                                   }}
                                   className={clsx(
                                     "w-full flex items-center gap-3 px-4 py-2.5 text-[14px] text-left hover:bg-primary-700 transition-colors",
-                                    p.code === pixPaisCode ? "text-primary-300 bg-primary-700/50" : "text-gray-200"
+                                    p.code === pixPaisCode ? "text-primary-300" : "text-gray-200"
                                   )}
+                                  style={p.code === pixPaisCode ? { background: "color-mix(in srgb, var(--primary-700) 50%, transparent)" } : undefined}
                                 >
                                   <span className="text-[20px] leading-none">{p.flag}</span>
                                   <span className="flex-1">{p.label}</span>
@@ -1121,7 +1148,7 @@ export default function ConfiguracoesPage() {
                           onChange={(e) => { setPixValor(formatPixPhone(e.target.value, pixPaisCode)); setProfileDirty(true); }}
                           placeholder={pixPhonePlaceholder(pixPaisCode)}
                           maxLength={pixPhoneMaxLen(pixPaisCode)}
-                          className="flex-1 bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                          className="flex-1 h-[54px] bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                         />
                       </div>
                     </Field>
@@ -1135,7 +1162,7 @@ export default function ConfiguracoesPage() {
                         onChange={(e) => { setPixValor(formatCpfCnpj(e.target.value)); setProfileDirty(true); }}
                         placeholder="000.000.000-00 ou 00.000.000/0000-00"
                         maxLength={18}
-                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                        className="h-[54px] w-full bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                       />
                     </Field>
                   )}
@@ -1147,15 +1174,18 @@ export default function ConfiguracoesPage() {
                         value={pixValor}
                         onChange={(e) => { setPixValor(e.target.value); setProfileDirty(true); }}
                         placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                        className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 text-[14px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400"
+                        className="h-[54px] w-full bg-primary-900 border border-gray-700 rounded-[13px] px-[18px] text-[16px] text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-400 hover:border-gray-500 transition-colors"
                       />
                     </Field>
                   )}
 
+                  </div>
+
                   {pixTipo && pixValor && (
-                    <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-primary-900/60 border border-primary-700">
-                      <QrCode size={14} className="text-primary-400 shrink-0" />
-                      <span className="text-[13px] text-primary-300 font-medium truncate">{pixValor}</span>
+                    <div className="flex items-center gap-3 mt-1 px-[18px] py-4 rounded-[13px]" style={{ border: "1px solid color-mix(in srgb, var(--primary-500) 24%, transparent)", background: "color-mix(in srgb, var(--primary-500) 6%, transparent)" }}>
+                      <QrCode size={18} className="text-primary-400 shrink-0" />
+                      <span className="text-[15.5px] text-primary-200 font-semibold truncate flex-1">{pixValor}</span>
+                      <span className="text-[12.5px] font-semibold text-primary-300 px-[11px] py-1 rounded-full shrink-0" style={{ background: "color-mix(in srgb, var(--primary-500) 12%, transparent)" }}>Chave ativa</span>
                     </div>
                   )}
                 </div>
@@ -1168,9 +1198,14 @@ export default function ConfiguracoesPage() {
                     onClick={salvarPerfil}
                     disabled={saving}
                     className={clsx(
-                      "bg-primary-500 hover:bg-primary-300 text-primary-900 rounded-lg px-5 py-2 text-[14px] font-semibold transition-colors flex items-center gap-2 shrink-0",
-                      saving && "opacity-50 cursor-not-allowed"
+                      "inline-flex items-center gap-[9px] h-[46px] px-6 text-[15px] font-semibold rounded-[12px] border-0 transition-all",
+                      saving ? "opacity-50 cursor-not-allowed" : "hover:-translate-y-px",
                     )}
+                    style={{
+                      background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
+                      color: "var(--primary-900)",
+                      boxShadow: "0 10px 24px -12px rgba(30,182,232,0.8)"
+                    }}
                   >
                     {saving ? (
                       <>
@@ -1187,17 +1222,14 @@ export default function ConfiguracoesPage() {
           )}
 
           {section === "aparencia" && (
-            <div className="flex flex-col gap-5 w-full">
+            <div className="flex flex-col gap-[22px]">
               <SectionHeader
                 title="Aparência"
                 description="Escolha o tema visual e configure o comportamento da interface."
               />
 
-              <Card>
-                <CardTitle>Tema</CardTitle>
-                <CardSubtitle>Personalize as cores da interface. A mudança é aplicada imediatamente.</CardSubtitle>
-
-                <div className="grid grid-cols-5 gap-3">
+              <Card title="Tema" desc="Personalize as cores da interface. A mudança é aplicada imediatamente.">
+                <div className="grid grid-cols-5 gap-4">
                   {THEMES.map((t) => {
                     const selected = theme === t.slug;
                     return (
@@ -1206,50 +1238,51 @@ export default function ConfiguracoesPage() {
                         type="button"
                         onClick={() => handleThemeChange(t.slug)}
                         className={clsx(
-                          "relative rounded-xl border p-0.5 transition-all flex flex-col items-center",
+                          "relative flex flex-col gap-3 p-3 rounded-[15px] border transition-all",
                           selected
-                            ? "border-primary-400 shadow-[0_0_0_2px_var(--primary-500)]"
-                            : "border-primary-700 hover:border-primary-500"
+                            ? "border-primary-500"
+                            : "border-gray-700 hover:border-gray-500 hover:-translate-y-0.5"
                         )}
+                        style={selected ? {
+                          background: "color-mix(in srgb, var(--primary-900) 30%, transparent)",
+                          boxShadow: "0 0 0 1px var(--primary-500), 0 10px 26px -14px color-mix(in srgb, var(--primary-500) 60%, transparent)"
+                        } : {
+                          background: "color-mix(in srgb, var(--primary-900) 30%, transparent)"
+                        }}
                       >
                         <div
-                          className="w-full rounded-lg px-2 py-3 flex flex-col gap-1.5"
+                          className="relative flex flex-col justify-center gap-[7px] h-[76px] px-4 rounded-[10px]"
                           style={{ backgroundColor: t.previewBg }}
                         >
                           {t.bars.map((c, i) => (
                             <div
                               key={i}
-                              className={clsx("rounded-full", i === 0 ? "h-1.5" : "h-1")}
-                              style={{ backgroundColor: c }}
+                              className="h-[6px] rounded-[3px]"
+                              style={{ backgroundColor: c, width: i === 0 ? "100%" : i === 1 ? "88%" : "70%" }}
                             />
                           ))}
+                          {selected && (
+                            <div className="absolute top-2 right-2 grid place-items-center w-[22px] h-[22px] bg-primary-500 rounded-full">
+                              <Check size={13} className="text-primary-900" strokeWidth={2.6} />
+                            </div>
+                          )}
                         </div>
-                        <span className="mt-2 pb-1 text-[12px] text-gray-300 font-medium">
+                        <span className="text-center text-[14.5px] font-semibold text-gray-200">
                           {t.name}
                         </span>
-                        {selected && (
-                          <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-primary-500 rounded-full flex items-center justify-center">
-                            <Check size={10} className="text-primary-900" strokeWidth={3} />
-                          </div>
-                        )}
                       </button>
                     );
                   })}
                 </div>
               </Card>
 
-              <Card>
-                <CardTitle>Interface</CardTitle>
-                <div className="h-px bg-primary-700 mb-1" />
-
+              <Card title="Interface">
                 <PrefRow
                   label="Sidebar aberta ao entrar"
                   description="Mantém o menu lateral visível por padrão ao acessar o dashboard."
                 >
                   <Toggle value={sidebarDefault} onChange={handleSidebarToggle} />
                 </PrefRow>
-
-                <div className="h-px bg-primary-700 my-1" />
 
                 <PrefRow
                   label="Tour de boas-vindas"
@@ -1258,13 +1291,11 @@ export default function ConfiguracoesPage() {
                   <button
                     type="button"
                     onClick={() => window.dispatchEvent(new Event("flowdesk:start-tour"))}
-                    className="px-4 py-2 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-600 text-gray-100 text-[13px] font-medium transition-colors whitespace-nowrap"
+                    className="cfg-btn-impl inline-flex items-center gap-[9px] h-[46px] px-5 text-[15px] font-semibold text-gray-100 rounded-[12px] border border-gray-600 hover:border-primary-500 hover:text-primary-200 transition-all whitespace-nowrap"
                   >
                     Ver tutorial
                   </button>
                 </PrefRow>
-
-                <div className="h-px bg-primary-700 my-1" />
 
                 <PrefRow
                   label="Mini-tutoriais por tela"
@@ -1280,7 +1311,7 @@ export default function ConfiguracoesPage() {
                       keys.forEach((k) => localStorage.removeItem(k));
                       window.location.reload();
                     }}
-                    className="px-4 py-2 rounded-lg bg-primary-700 hover:bg-primary-600 border border-primary-600 text-gray-100 text-[13px] font-medium transition-colors whitespace-nowrap"
+                    className="cfg-btn-impl inline-flex items-center gap-[9px] h-[46px] px-5 text-[15px] font-semibold text-gray-100 rounded-[12px] border border-gray-600 hover:border-primary-500 hover:text-primary-200 transition-all whitespace-nowrap"
                   >
                     Redefinir todos
                   </button>
@@ -1290,18 +1321,13 @@ export default function ConfiguracoesPage() {
           )}
 
           {section === "exibicao" && (
-            <div className="flex flex-col gap-5 w-full">
+            <div className="flex flex-col gap-[22px]">
               <SectionHeader
                 title="Exibição"
                 description="Defina como cada módulo exibe seus dados por padrão. As preferências são salvas automaticamente."
               />
 
-              <Card>
-                <CardTitle>Modo de visualização por módulo</CardTitle>
-                <CardSubtitle>
-                  Escolha se cada seção abre em lista ou em quadros por padrão. Você pode trocar a qualquer momento dentro da própria tela.
-                </CardSubtitle>
-
+              <Card title="Modo de visualização por módulo" desc="Escolha se cada seção abre em lista ou em quadros por padrão. Você pode trocar a qualquer momento dentro da própria tela.">
                 <PrefRow
                   label="Projetos"
                   description="Modo padrão ao abrir a lista de projetos."
@@ -1342,18 +1368,15 @@ export default function ConfiguracoesPage() {
           )}
 
           {section === "seguranca" && (
-            <div className="flex flex-col gap-5 w-full">
+            <div className="flex flex-col gap-[22px]">
               <SectionHeader
                 title="Segurança"
                 description="Gerencie o acesso e a proteção da sua conta."
               />
 
-              <Card>
-                <CardTitle>Acesso à conta</CardTitle>
-                <div className="h-px bg-primary-700 mb-1" />
-
-                <PrefRow label="Email de acesso">
-                  <span className="text-[14px] text-gray-400 shrink-0">{email || "—"}</span>
+              <Card title="Acesso à conta">
+                <PrefRow label="Email de acesso" description="Usado para login e recuperação de conta.">
+                  <span className="text-[15.5px] font-medium text-gray-200 shrink-0">{email || "—"}</span>
                 </PrefRow>
 
                 <PrefRow
@@ -1367,44 +1390,51 @@ export default function ConfiguracoesPage() {
                       setSenhaAtual(""); setNovaSenha(""); setConfirmarNovaSenha("");
                       setShowPasswordModal(true);
                     }}
-                    className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg px-5 py-2 text-[14px] hover:bg-primary-700 transition-colors shrink-0"
+                    className="cfg-btn-impl inline-flex items-center gap-[9px] h-[46px] px-5 text-[15px] font-semibold text-gray-100 rounded-[12px] border border-gray-600 hover:border-primary-500 hover:text-primary-200 transition-all whitespace-nowrap"
                   >
                     Trocar senha
                   </button>
                 </PrefRow>
               </Card>
 
-              <Card className="bg-primary-900/40 border-primary-800">
-                <h3 className="text-[14px] font-semibold text-gray-300 mb-3">Boas práticas de segurança</h3>
-                <ul className="text-[13px] text-gray-500 space-y-2 leading-relaxed">
-                  <li>• Use ao menos 8 caracteres na senha.</li>
-                  <li>• Combine letras maiúsculas, minúsculas, números e símbolos.</li>
-                  <li>• Evite reutilizar senhas de outros serviços.</li>
-                  <li>• Nunca compartilhe sua senha com terceiros.</li>
+              <Card title="Boas práticas de segurança">
+                <ul className="flex flex-col gap-[14px]">
+                  {[
+                    "Use ao menos 8 caracteres na senha.",
+                    "Combine letras maiúsculas, minúsculas, números e símbolos.",
+                    "Evite reutilizar senhas de outros serviços.",
+                    "Nunca compartilhe sua senha com terceiros.",
+                  ].map((tip) => (
+                    <li key={tip} className="relative pl-[22px] text-[15px] text-gray-300 list-none">
+                      <span className="absolute left-1 top-2 w-[6px] h-[6px] rounded-full bg-primary-400 shrink-0" />
+                      {tip}
+                    </li>
+                  ))}
                 </ul>
               </Card>
             </div>
           )}
 
           {section === "assinatura" && (
-            <div className="flex flex-col gap-5 w-full">
+            <div className="flex flex-col gap-[22px]">
               <SectionHeader
                 title="Assinatura"
                 description="Gerencie seu plano, faturamento e recursos disponíveis."
               />
 
               {!subscription.loading && (
-                <Card>
+                <div
+                  className="border border-gray-700 rounded-[18px] p-7"
+                  style={{ background: "color-mix(in srgb, var(--primary-800) 34%, transparent)" }}
+                >
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={clsx(
-                          "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-semibold",
-                          subscription.plan === "profissional" && "bg-primary-500/20 text-primary-300 border border-primary-500/30",
-                          subscription.plan === "essencial" && "bg-primary-800 text-gray-300 border border-primary-700",
-                          subscription.plan === "trial" && "bg-amber-500/15 text-amber-300 border border-amber-500/30",
-                        )}>
-                          <Zap size={11} />
+                        <span
+                          className="inline-flex items-center gap-1.5 px-[14px] py-[7px] rounded-full text-[14.5px] font-bold text-primary-200"
+                          style={{ background: "color-mix(in srgb, var(--primary-500) 10%, transparent)", border: "1px solid color-mix(in srgb, var(--primary-500) 28%, transparent)" }}
+                        >
+                          <Zap size={15} className="text-primary-400" />
                           {subscription.plan === "trial" ? "Trial — Profissional" : subscription.plan === "profissional" ? "Profissional" : "Essencial"}
                         </span>
                         {subscription.status === "active" && (
@@ -1456,9 +1486,9 @@ export default function ConfiguracoesPage() {
                           type="button"
                           onClick={openPortal}
                           disabled={portalLoading}
-                          className="flex items-center gap-2 bg-primary-700 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[13px] hover:bg-primary-600 transition-colors"
+                          className="cfg-btn-impl inline-flex items-center gap-[9px] h-[46px] px-5 text-[15px] font-semibold text-gray-100 rounded-[12px] border border-gray-600 hover:border-primary-500 hover:text-primary-200 transition-all whitespace-nowrap"
                         >
-                          <ExternalLink size={14} />
+                          <ExternalLink size={16} />
                           {portalLoading ? "Abrindo..." : "Gerenciar faturamento"}
                         </button>
                       )}
@@ -1485,7 +1515,7 @@ export default function ConfiguracoesPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-5 border-t border-primary-700 grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="mt-5 pt-5 border-t border-gray-700 grid grid-cols-2 md:grid-cols-4 gap-[14px]">
                     {[
                       {
                         label: "Projetos",
@@ -1508,25 +1538,27 @@ export default function ConfiguracoesPage() {
                             : `${subscription.limits.coworkingMembros} membros`,
                       },
                     ].map((item) => (
-                      <div key={item.label} className="bg-primary-900 rounded-xl p-3">
-                        <p className="text-[11px] text-gray-500 mb-0.5">{item.label}</p>
-                        <p className="text-[14px] font-semibold text-gray-200">{item.value}</p>
+                      <div key={item.label} className="flex flex-col gap-[7px] bg-primary-900 border border-gray-700 rounded-[13px] p-4">
+                        <p className="text-[13.5px] text-gray-400">{item.label}</p>
+                        <p className="text-[18px] font-bold text-gray-100">{item.value}</p>
                       </div>
                     ))}
                   </div>
-                </Card>
+                </div>
               )}
 
-              <div className="flex items-center gap-3">
-                <div className="flex items-center bg-primary-900 border border-primary-700 rounded-full p-1">
+              <div className="flex justify-center">
+                <div className="inline-flex items-center p-1 rounded-full border border-gray-700 bg-primary-900">
                   {(["mensal", "anual"] as BillingPeriod[]).map((p) => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => setBillingPeriod(p)}
                       className={clsx(
-                        "px-4 py-1.5 rounded-full text-[13px] font-medium transition-colors capitalize",
-                        billingPeriod === p ? "bg-primary-500 text-primary-900" : "text-gray-400 hover:text-gray-200"
+                        "px-[26px] py-[11px] rounded-full text-[15px] font-semibold transition-all capitalize",
+                        billingPeriod === p
+                          ? "bg-gradient-to-br from-primary-300 to-primary-500 text-primary-900"
+                          : "text-gray-400 hover:text-gray-200"
                       )}
                     >
                       {p === "mensal" ? "Mensal" : "Anual"}
@@ -1534,38 +1566,46 @@ export default function ConfiguracoesPage() {
                   ))}
                 </div>
                 {billingPeriod === "anual" && (
-                  <span className="text-[12px] text-green-400 font-medium">20% de desconto</span>
+                  <span className="ml-3 self-center text-[13px] text-green-400 font-medium">20% de desconto</span>
                 )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card>
-                  <div className="flex items-start justify-between gap-2 mb-4">
+                <div
+                  className="flex flex-col p-7 rounded-[18px] border border-gray-700"
+                  style={{ background: "color-mix(in srgb, var(--primary-800) 34%, transparent)" }}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-5">
                     <div>
-                      <h3 className="text-[17px] font-bold text-gray-100">Essencial</h3>
-                      <p className="text-[12px] text-gray-500 mt-0.5">Para quem está começando</p>
+                      <h3 className="text-[19px] font-bold text-gray-100 tracking-tight">Essencial</h3>
+                      <p className="text-[13.5px] text-gray-400 mt-[3px]">Para quem está começando</p>
                     </div>
                     {isCurrentPlan("essencial") && (
-                      <span className="text-[11px] bg-primary-700 text-primary-300 px-2 py-1 rounded-full border border-primary-600 shrink-0">Plano atual</span>
+                      <span className="inline-flex items-center gap-1.5 px-[10px] py-[5px] text-[12px] font-semibold text-primary-300 rounded-full shrink-0" style={{ background: "color-mix(in srgb, var(--primary-500) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--primary-500) 24%, transparent)" }}>
+                        <Check size={11} strokeWidth={2.5} />
+                        Plano atual
+                      </span>
                     )}
                   </div>
 
                   <div className="mb-5">
-                    <span className="text-[28px] font-bold text-gray-100">
-                      R${" "}
-                      {billingPeriod === "mensal"
-                        ? PLAN_PRICES.essencial.mensal.toFixed(2).replace(".", ",")
-                        : (PLAN_PRICES.essencial.anual / 12).toFixed(2).replace(".", ",")}
-                    </span>
-                    <span className="text-[13px] text-gray-500">/mês</span>
+                    <div className="flex items-end gap-1 leading-none">
+                      <span className="text-[14px] font-semibold text-gray-400 mb-[9px]">R$</span>
+                      <span className="text-[40px] font-bold text-gray-100 tracking-tight leading-none">
+                        {billingPeriod === "mensal"
+                          ? PLAN_PRICES.essencial.mensal.toFixed(2).replace(".", ",")
+                          : (PLAN_PRICES.essencial.anual / 12).toFixed(2).replace(".", ",")}
+                      </span>
+                      <span className="text-[14px] text-gray-400 mb-[9px] ml-[2px]">/mês</span>
+                    </div>
                     {billingPeriod === "anual" && (
-                      <p className="text-[11px] text-gray-500 mt-0.5">
+                      <p className="text-[12.5px] text-gray-500 mt-1">
                         R$ {PLAN_PRICES.essencial.anual.toFixed(2).replace(".", ",")} cobrado anualmente
                       </p>
                     )}
                   </div>
 
-                  <ul className="space-y-2 mb-6">
+                  <ul className="flex flex-col gap-[13px] mb-7">
                     {[
                       "10 projetos ativos",
                       "10 clientes",
@@ -1575,150 +1615,185 @@ export default function ConfiguracoesPage() {
                       "Propostas ilimitadas",
                       "Time tracker e briefings",
                     ].map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-[13px] text-gray-300">
-                        <Check size={14} className="text-primary-400 shrink-0" />
+                      <li key={f} className="flex items-center gap-[10px] text-[15px] text-gray-200">
+                        <Check size={15} className="text-primary-400 shrink-0" strokeWidth={2.5} />
                         {f}
                       </li>
                     ))}
                   </ul>
 
-                  {isCurrentPlan("essencial") ? (
-                    <div className="w-full bg-primary-900 border border-primary-700 text-gray-500 rounded-xl py-2.5 text-[14px] text-center">
-                      Plano atual
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => startCheckout("essencial")}
-                      disabled={checkoutLoading === "essencial"}
-                      className="w-full bg-primary-700 border border-primary-600 text-gray-200 rounded-xl py-2.5 text-[14px] font-semibold hover:bg-primary-600 transition-colors disabled:opacity-60"
-                    >
-                      {checkoutLoading === "essencial" ? "Aguarde..." : "Escolher Essencial"}
-                    </button>
-                  )}
-                </Card>
+                  <div className="mt-auto">
+                    {isCurrentPlan("essencial") ? (
+                      <div className="w-full h-[52px] flex items-center justify-center rounded-[13px] border border-gray-700 text-[16px] font-semibold text-gray-500 cfg-plan-current-btn">
+                        Plano atual
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => startCheckout("essencial")}
+                        disabled={checkoutLoading === "essencial"}
+                        className="cfg-btn-impl w-full h-[52px] rounded-[13px] border border-gray-600 text-[16px] font-semibold text-gray-100 hover:border-primary-500 transition-all disabled:opacity-60"
+                      >
+                        {checkoutLoading === "essencial" ? "Aguarde..." : "Escolher Essencial"}
+                      </button>
+                    )}
+                  </div>
+                </div>
 
                 {(() => {
                   const isProfissionalAtivo = isCurrentPlan("profissional");
                   return (
-                <Card className={clsx(
-                  "relative",
-                  !isProfissionalAtivo && "ring-2 ring-primary-500"
-                )}>
-                  {!isProfissionalAtivo && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <span className="bg-primary-500 text-primary-950 text-[11px] font-bold px-3 py-1 rounded-full">
-                        RECOMENDADO
-                      </span>
-                    </div>
-                  )}
-
-                  <div className={clsx("flex items-start justify-between gap-2 mb-4", !isProfissionalAtivo && "mt-2")}>
-                    <div>
-                      <h3 className="text-[17px] font-bold text-gray-100">Profissional</h3>
-                      <p className="text-[12px] text-gray-500 mt-0.5">Para freelancers ativos</p>
-                    </div>
-                    {isCurrentPlan("profissional") && (
-                      <span className="text-[11px] bg-primary-700 text-primary-300 px-2 py-1 rounded-full border border-primary-600 shrink-0">Plano atual</span>
-                    )}
-                    {subscription.isTrialActive && (
-                      <span className="text-[11px] bg-amber-500/15 text-amber-300 px-2 py-1 rounded-full border border-amber-500/30 shrink-0">Trial</span>
-                    )}
-                  </div>
-
-                  <div className="mb-5">
-                    <span className="text-[28px] font-bold text-gray-100">
-                      R${" "}
-                      {billingPeriod === "mensal"
-                        ? PLAN_PRICES.profissional.mensal.toFixed(2).replace(".", ",")
-                        : (PLAN_PRICES.profissional.anual / 12).toFixed(2).replace(".", ",")}
-                    </span>
-                    <span className="text-[13px] text-gray-500">/mês</span>
-                    {billingPeriod === "anual" && (
-                      <p className="text-[11px] text-gray-500 mt-0.5">
-                        R$ {PLAN_PRICES.profissional.anual.toFixed(2).replace(".", ",")} cobrado anualmente
-                      </p>
-                    )}
-                  </div>
-
-                  <ul className="space-y-2 mb-6">
-                    {[
-                      "Projetos ilimitados",
-                      "Clientes ilimitados",
-                      "20 GB de armazenamento",
-                      "Até 5 colaboradores por projeto",
-                      "Portal do cliente completo",
-                      "Aprovação de demandas pelo cliente",
-                      "Propostas ilimitadas",
-                      "Relatórios completos",
-                    ].map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-[13px] text-gray-300">
-                        <Check size={14} className="text-primary-400 shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {isProfissionalAtivo ? (
-                    <div className="w-full bg-primary-900 border border-primary-700 text-gray-500 rounded-xl py-2.5 text-[14px] text-center">
-                      Plano atual
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => startCheckout("profissional")}
-                      disabled={checkoutLoading === "profissional"}
-                      className="w-full bg-primary-500 hover:bg-primary-400 text-primary-900 rounded-xl py-2.5 text-[14px] font-bold transition-colors disabled:opacity-60"
+                    <div
+                      className="relative flex flex-col p-7 rounded-[18px] border"
+                      style={{
+                        borderColor: "var(--primary-500)",
+                        background: "linear-gradient(180deg, color-mix(in srgb, var(--primary-500) 7%, transparent), color-mix(in srgb, var(--primary-800) 34%, transparent))",
+                        boxShadow: "0 0 0 1px rgba(30,182,232,0.4), 0 18px 50px -28px rgba(30,182,232,0.5)"
+                      }}
                     >
-                      {checkoutLoading === "profissional"
-                        ? "Aguarde..."
-                        : subscription.isTrialActive
-                          ? "Assinar Profissional"
-                          : subscription.plan === "profissional"
-                            ? "Trocar para " + (billingPeriod === "anual" ? "anual" : "mensal")
-                            : "Fazer upgrade"}
-                    </button>
-                  )}
-                </Card>
+                      {!isProfissionalAtivo && (
+                        <div className="absolute -top-[14px] left-1/2 -translate-x-1/2">
+                          <span
+                            className="inline-flex items-center gap-[6px] px-[14px] py-[5px] text-[12px] font-bold rounded-full"
+                            style={{
+                              background: "linear-gradient(135deg, var(--primary-300), var(--primary-500))",
+                              color: "var(--primary-900)"
+                            }}
+                          >
+                            <Zap size={12} strokeWidth={2.5} />
+                            RECOMENDADO
+                          </span>
+                        </div>
+                      )}
+
+                      <div className={clsx("flex items-start justify-between gap-2 mb-5", !isProfissionalAtivo && "mt-2")}>
+                        <div>
+                          <h3 className="text-[19px] font-bold text-gray-100 tracking-tight">Profissional</h3>
+                          <p className="text-[13.5px] text-gray-400 mt-[3px]">Para freelancers ativos</p>
+                        </div>
+                        {isProfissionalAtivo && (
+                          <span className="inline-flex items-center gap-1.5 px-[10px] py-[5px] text-[12px] font-semibold text-primary-300 rounded-full shrink-0" style={{ background: "color-mix(in srgb, var(--primary-500) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--primary-500) 24%, transparent)" }}>
+                            <Check size={11} strokeWidth={2.5} />
+                            Plano atual
+                          </span>
+                        )}
+                        {subscription.isTrialActive && (
+                          <span className="text-[11px] text-amber-300 px-2 py-1 rounded-full shrink-0" style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.30)" }}>Trial</span>
+                        )}
+                      </div>
+
+                      <div className="mb-5">
+                        <div className="flex items-end gap-1 leading-none">
+                          <span className="text-[14px] font-semibold text-gray-400 mb-[9px]">R$</span>
+                          <span className="text-[40px] font-bold text-gray-100 tracking-tight leading-none">
+                            {billingPeriod === "mensal"
+                              ? PLAN_PRICES.profissional.mensal.toFixed(2).replace(".", ",")
+                              : (PLAN_PRICES.profissional.anual / 12).toFixed(2).replace(".", ",")}
+                          </span>
+                          <span className="text-[14px] text-gray-400 mb-[9px] ml-[2px]">/mês</span>
+                        </div>
+                        {billingPeriod === "anual" && (
+                          <p className="text-[12.5px] text-gray-500 mt-1">
+                            R$ {PLAN_PRICES.profissional.anual.toFixed(2).replace(".", ",")} cobrado anualmente
+                          </p>
+                        )}
+                      </div>
+
+                      <ul className="flex flex-col gap-[13px] mb-7">
+                        {[
+                          "Projetos ilimitados",
+                          "Clientes ilimitados",
+                          "20 GB de armazenamento",
+                          "Até 5 colaboradores por projeto",
+                          "Portal do cliente completo",
+                          "Aprovação de demandas pelo cliente",
+                          "Propostas ilimitadas",
+                          "Relatórios completos",
+                        ].map((f) => (
+                          <li key={f} className="flex items-center gap-[10px] text-[15px] text-gray-200">
+                            <Check size={15} className="text-primary-400 shrink-0" strokeWidth={2.5} />
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div className="mt-auto">
+                        {isProfissionalAtivo ? (
+                          <div className="w-full h-[52px] flex items-center justify-center rounded-[13px] border border-gray-700 text-[16px] font-semibold text-gray-500 cfg-plan-current-btn">
+                            Plano atual
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => startCheckout("profissional")}
+                            disabled={checkoutLoading === "profissional"}
+                            className="w-full h-[52px] rounded-[13px] text-[16px] font-semibold transition-all disabled:opacity-60"
+                            style={{
+                              background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
+                              color: "var(--primary-900)",
+                              boxShadow: "0 10px 28px -10px rgba(30,182,232,0.6)"
+                            }}
+                          >
+                            {checkoutLoading === "profissional"
+                              ? "Aguarde..."
+                              : subscription.isTrialActive
+                                ? "Assinar Profissional"
+                                : subscription.plan === "profissional"
+                                  ? "Trocar para " + (billingPeriod === "anual" ? "anual" : "mensal")
+                                  : "Fazer upgrade"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   );
                 })()}
               </div>
 
-              <Card>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-primary-700 border border-primary-600 flex items-center justify-center shrink-0">
-                      <HardDrive size={16} className="text-primary-300" />
-                    </div>
-                    <div>
-                      <p className="text-[14px] font-semibold text-gray-200">
-                        Armazenamento extra
-                        {subscription.extraStorageAddons > 0 && (
-                          <span className="ml-2 text-[12px] text-primary-300 font-normal">
-                            +{subscription.extraStorageAddons * 5} GB adicionados
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-[12px] text-gray-500">
-                        +5 GB por R$ {PLAN_PRICES.storage_extra.toFixed(2).replace(".", ",")}/mês — acumula com quantas compras quiser.
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={addStorage}
-                    disabled={checkoutLoading === "storage"}
-                    className="flex items-center gap-1.5 bg-primary-700 border border-primary-600 text-gray-200 rounded-lg px-4 py-2 text-[13px] font-medium hover:bg-primary-600 transition-colors shrink-0 disabled:opacity-60"
-                  >
-                    {checkoutLoading === "storage" ? "Aguarde..." : (
-                      <>Adicionar <ChevronRight size={14} /></>
-                    )}
-                  </button>
+              <div
+                className="flex items-center gap-5 p-7 rounded-[18px] border border-gray-700"
+                style={{ background: "color-mix(in srgb, var(--primary-800) 34%, transparent)" }}
+              >
+                <div
+                  className="w-[52px] h-[52px] rounded-[13px] flex items-center justify-center shrink-0"
+                  style={{
+                    border: "1px solid color-mix(in srgb, var(--primary-500) 24%, transparent)",
+                    background: "color-mix(in srgb, var(--primary-500) 7%, transparent)"
+                  }}
+                >
+                  <HardDrive size={22} className="text-primary-300" />
                 </div>
-              </Card>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[16.5px] font-semibold text-gray-100">
+                    Armazenamento extra
+                    {subscription.extraStorageAddons > 0 && (
+                      <span className="ml-2 text-[13px] text-primary-300 font-normal">
+                        +{subscription.extraStorageAddons * 5} GB adicionados
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[13.5px] text-gray-400 mt-[3px]">
+                    +5 GB por R$ {PLAN_PRICES.storage_extra.toFixed(2).replace(".", ",")}/mês — acumula com quantas compras quiser.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addStorage}
+                  disabled={checkoutLoading === "storage"}
+                  className="inline-flex items-center gap-[9px] h-[46px] px-5 text-[15px] font-semibold rounded-[12px] transition-all disabled:opacity-60 shrink-0"
+                  style={{
+                    background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
+                    color: "var(--primary-900)",
+                    boxShadow: "0 10px 24px -12px rgba(30,182,232,0.8)"
+                  }}
+                >
+                  {checkoutLoading === "storage" ? "Aguarde..." : (
+                    <>Adicionar <ChevronRight size={16} /></>
+                  )}
+                </button>
+              </div>
 
               {!subscription.isTrialActive && !subscription.trialUsed && (
-                <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl p-4">
+                <div className="flex items-start gap-3 rounded-xl p-4" style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.25)" }}>
                   <Zap size={16} className="text-amber-400 mt-0.5 shrink-0" />
                   <p className="text-[13px] text-amber-200 leading-relaxed">
                     <span className="font-semibold">7 dias grátis</span> com acesso completo ao plano Profissional. Cancele a qualquer momento antes do trial terminar sem ser cobrado.
@@ -1729,33 +1804,35 @@ export default function ConfiguracoesPage() {
           )}
 
           {section === "armazenamento" && (
-            <div className="flex flex-col gap-5 w-full">
+            <div className="flex flex-col gap-[22px]">
               <SectionHeader
                 title="Armazenamento"
                 description="Gerencie o espaço usado pelos seus projetos."
               />
 
               <Card>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[14px] text-gray-300 font-medium">Uso de armazenamento</span>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[18px] font-semibold text-gray-100">Uso de armazenamento</span>
                   {storageUsage && (
-                    <span className="text-[13px] text-gray-400">
-                      {storageUsage.usedGB < 1
-                        ? `${(storageUsage.usedGB * 1024).toFixed(0)} MB`
-                        : `${storageUsage.usedGB.toFixed(2)} GB`}
-                      {" "}<span className="text-gray-600">de {storageUsage.limitGB} GB</span>
+                    <span className="text-[15px] text-gray-400">
+                      <span className="font-bold text-gray-100">
+                        {storageUsage.usedGB < 1
+                          ? `${(storageUsage.usedGB * 1024).toFixed(0)} MB`
+                          : `${storageUsage.usedGB.toFixed(2)} GB`}
+                      </span>
+                      {" "}de {storageUsage.limitGB} GB
                     </span>
                   )}
                 </div>
-                <div className="w-full h-2.5 bg-primary-700 rounded-full overflow-hidden">
+                <div className="h-3 rounded-full bg-primary-900 border border-gray-700 overflow-hidden">
                   {storageUsage && (
                     <div
-                      className={`h-full rounded-full transition-all ${
+                      className={`h-full min-w-[14px] rounded-full transition-all ${
                         storageUsage.usedGB / storageUsage.limitGB > 0.85
                           ? "bg-red-400"
                           : storageUsage.usedGB / storageUsage.limitGB > 0.6
                           ? "bg-amber-400"
-                          : "bg-primary-400"
+                          : "bg-gradient-to-r from-primary-400 to-primary-500"
                       }`}
                       style={{ width: `${Math.min((storageUsage.usedGB / storageUsage.limitGB) * 100, 100)}%` }}
                     />
@@ -1767,18 +1844,14 @@ export default function ConfiguracoesPage() {
                     Armazenamento quase cheio. Exclua arquivos ou faça upgrade do plano.
                   </p>
                 )}
-                <div className="mt-3 pt-3 border-t border-primary-700 flex flex-col gap-2">
-                  <div className="flex items-center gap-2 text-[12px]">
-                    <span className="w-2 h-2 rounded-full bg-primary-400 shrink-0" />
-                    <span className="text-gray-500">
-                      <span className="text-gray-300 font-medium">Projetos ativos</span> — arquivos em uso, não podem ser excluídos aqui
-                    </span>
+                <div className="mt-5 flex flex-col gap-[11px]">
+                  <div className="flex items-baseline gap-[10px] text-[14px] text-gray-400">
+                    <span className="w-[9px] h-[9px] rounded-full bg-primary-400 shrink-0 translate-y-[1px]" />
+                    <span><span className="font-semibold text-gray-200">Projetos ativos</span> — arquivos em uso, não podem ser excluídos aqui</span>
                   </div>
-                  <div className="flex items-center gap-2 text-[12px]">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                    <span className="text-gray-500">
-                      <span className="text-gray-300 font-medium">Projetos finalizados / arquivados</span> — arquivos listados abaixo, podem ser excluídos para liberar espaço
-                    </span>
+                  <div className="flex items-baseline gap-[10px] text-[14px] text-gray-400">
+                    <span className="w-[9px] h-[9px] rounded-full bg-amber-400 shrink-0 translate-y-[1px]" />
+                    <span><span className="font-semibold text-gray-200">Projetos finalizados / arquivados</span> — arquivos listados abaixo, podem ser excluídos para liberar espaço</span>
                   </div>
                 </div>
               </Card>
@@ -1790,14 +1863,17 @@ export default function ConfiguracoesPage() {
                   ))}
                 </div>
               ) : storageProjects.length === 0 ? (
-                <Card>
-                  <div className="flex flex-col items-center gap-3 py-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-primary-700 flex items-center justify-center">
-                      <HardDrive size={20} className="text-gray-500" />
+                <Card className="!p-0">
+                  <div className="flex flex-col items-center gap-[14px] py-16 px-6 text-center">
+                    <div
+                      className="grid place-items-center w-16 h-16 rounded-[18px]"
+                      style={{ background: "color-mix(in srgb, var(--primary-500) 7%, transparent)" }}
+                    >
+                      <HardDrive size={28} className="text-primary-400" />
                     </div>
                     <div>
-                      <p className="text-[14px] text-gray-300 font-medium">Nenhum arquivo para gerenciar</p>
-                      <p className="text-[12px] text-gray-500 mt-1">
+                      <p className="text-[18px] font-semibold text-gray-100">Nenhum arquivo para gerenciar</p>
+                      <p className="text-[14.5px] text-gray-400 mt-2">
                         Arquivos de projetos finalizados aparecerão aqui.
                       </p>
                     </div>
@@ -1813,17 +1889,14 @@ export default function ConfiguracoesPage() {
 
                     return (
                       <Card key={proj.id}>
-                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary-700">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-700">
                           <div className="flex items-center gap-2">
                             <FolderOpen size={16} className="text-gray-500 shrink-0" />
                             <span className="text-[14px] font-medium text-gray-200">{proj.titulo}</span>
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                              proj.status === "arquivado"
-                                ? "bg-gray-700 text-gray-400"
-                                : proj.status === "finalizado"
-                                ? "bg-primary-600/30 text-primary-300"
-                                : "bg-gray-700 text-gray-400"
-                            }`}>
+                            <span
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${proj.status === "finalizado" ? "text-primary-300" : "bg-gray-700 text-gray-400"}`}
+                              style={proj.status === "finalizado" ? { background: "color-mix(in srgb, var(--primary-700) 30%, transparent)" } : undefined}
+                            >
                               {proj.status === "arquivado" ? "Arquivado" : proj.status === "finalizado" ? "Finalizado" : "Concluído"}
                             </span>
                           </div>
@@ -1849,7 +1922,7 @@ export default function ConfiguracoesPage() {
                             return (
                               <div
                                 key={file.id}
-                                className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-primary-700/40 transition-colors group"
+                                className="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group cfg-file-row"
                               >
                                 {isPdf || !isImage ? (
                                   <FileText size={15} className="text-gray-500 shrink-0" />
@@ -1928,7 +2001,7 @@ export default function ConfiguracoesPage() {
                 type={showSenhaAtual ? "text" : "password"}
                 value={senhaAtual}
                 onChange={(e) => setSenhaAtual(e.target.value)}
-                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 pr-12 text-gray-100 focus:outline-none focus:border-primary-400"
+                className="w-full bg-primary-900 border border-gray-700 rounded-lg px-4 py-2.5 pr-12 text-gray-100 focus:outline-none focus:border-primary-400"
               />
               <button
                 type="button"
@@ -1947,7 +2020,7 @@ export default function ConfiguracoesPage() {
                 type={showNovaSenha ? "text" : "password"}
                 value={novaSenha}
                 onChange={(e) => setNovaSenha(e.target.value)}
-                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 pr-12 text-gray-100 focus:outline-none focus:border-primary-400"
+                className="w-full bg-primary-900 border border-gray-700 rounded-lg px-4 py-2.5 pr-12 text-gray-100 focus:outline-none focus:border-primary-400"
               />
               <button
                 type="button"
@@ -1966,7 +2039,7 @@ export default function ConfiguracoesPage() {
                 type={showConfirmar ? "text" : "password"}
                 value={confirmarNovaSenha}
                 onChange={(e) => setConfirmarNovaSenha(e.target.value)}
-                className="w-full bg-primary-900 border border-primary-700 rounded-lg px-4 py-2.5 pr-12 text-gray-100 focus:outline-none focus:border-primary-400"
+                className="w-full bg-primary-900 border border-gray-700 rounded-lg px-4 py-2.5 pr-12 text-gray-100 focus:outline-none focus:border-primary-400"
               />
               <button
                 type="button"

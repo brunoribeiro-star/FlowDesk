@@ -82,3 +82,17 @@ select.flow-select {
 .page-progress-bar {
   animation: page-progress 0.8s ease-out forwards;
 }
+
+/* Settings page — cfg-btn uses CSS-variable-aware backgrounds for theme compatibility */
+.cfg-btn-impl {
+  background: color-mix(in srgb, var(--primary-500) 5%, transparent);
+}
+.cfg-btn-impl:hover {
+  background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+}
+.cfg-plan-current-btn {
+  background: color-mix(in srgb, var(--primary-800) 40%, transparent);
+}
+.cfg-file-row:hover {
+  background: color-mix(in srgb, var(--primary-700) 40%, transparent);
+}
