@@ -426,7 +426,7 @@ export default function ProposalsList() {
         <div className="pr-glow pr-glow-a" />
         <div className="pr-glow pr-glow-b" />
 
-        <header className="relative z-30 flex items-center gap-5 px-8 xl:px-11 py-[26px] border-b" style={{ borderColor: "var(--gray-700)" }}>
+        <header className="relative z-30 flex items-center gap-4 px-8 xl:px-11 py-[16px] border-b" style={{ borderColor: "var(--gray-700)" }}>
           <button
             type="button"
             className="pr-back-btn"
@@ -434,15 +434,7 @@ export default function ProposalsList() {
           >
             <ArrowLeft size={18} />
           </button>
-          <span className="text-[26px] font-bold tracking-tight" style={{ color: "var(--gray-100)" }}>
-            Propostas
-          </span>
-          <div className="ml-auto">
-            <HeaderProfile />
-          </div>
-        </header>
 
-        <div className="relative z-20 flex items-center gap-4 px-8 xl:px-11 pt-6 pb-5">
           <label className="pr-search-bar" style={{ flex: 1 }}>
             <Search size={19} />
             <input
@@ -481,9 +473,11 @@ export default function ProposalsList() {
             <Plus size={19} />
             Nova Proposta
           </button>
-        </div>
 
-        <main className="relative z-10 flex-1 px-8 xl:px-11 pb-8 min-h-0 flex flex-col overflow-hidden">
+          <HeaderProfile />
+        </header>
+
+        <main className="relative z-10 flex-1 px-8 xl:px-11 pt-6 pb-8 min-h-0 flex flex-col overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-40">
               <div

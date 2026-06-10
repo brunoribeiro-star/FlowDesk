@@ -21,7 +21,7 @@ interface Props {
 }
 
 const PALETTE = [
-  "var(--primary-500)",
+  "var(--primary-400)",
   "#60a5fa",
   "#f59e0b",
   "#a78bfa",
@@ -40,7 +40,7 @@ function CustomTooltip({ active, payload }: any) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="bg-primary-900 border border-primary-600 rounded-lg px-3 py-2.5 text-[12px] shadow-xl">
+    <div className="bg-primary-900 border border-primary-600 rounded-[12px] px-3 py-2.5 text-[12px] shadow-xl">
       <div className="text-gray-200 font-medium mb-1 max-w-[160px] truncate">{d.titulo}</div>
       <div className="text-gray-400">
         {fmtH(d.horas_rastreadas)}{" "}
@@ -80,8 +80,8 @@ export default function ProjectTimeDonut({ data, totalHoras }: Props) {
   const active = activeIndex !== null ? data[activeIndex] : null;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="relative h-[220px]">
+    <div className="flex flex-col">
+      <div className="relative h-[220px] mt-[18px] mb-[22px] mx-auto w-[220px]">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -109,7 +109,7 @@ export default function ProjectTimeDonut({ data, totalHoras }: Props) {
                 />
               ))}
             </Pie>
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip />} wrapperStyle={{ zIndex: 9999 }} />
           </PieChart>
         </ResponsiveContainer>
 
@@ -117,55 +117,55 @@ export default function ProjectTimeDonut({ data, totalHoras }: Props) {
           <div className="text-center px-2">
             {active ? (
               <>
-                <div className="text-[18px] font-semibold text-gray-200 leading-tight">
+                <div className="text-[19px] font-bold text-gray-100 leading-tight tracking-tight">
                   {fmtH(active.horas_rastreadas)}
                 </div>
-                <div className="text-[11px] text-gray-500 mt-0.5 max-w-[80px] truncate mx-auto">
+                <div className="text-[13.5px] text-gray-400 mt-0.5 max-w-[80px] truncate mx-auto">
                   {active.titulo}
                 </div>
               </>
             ) : (
               <>
-                <div className="text-[20px] font-semibold text-gray-200 leading-tight">
+                <div className="text-[19px] font-bold text-gray-100 leading-tight tracking-tight">
                   {fmtH(totalHoras)}
                 </div>
-                <div className="text-[11px] text-gray-500 mt-0.5">total</div>
+                <div className="text-[13.5px] text-gray-400 mt-0.5">total</div>
               </>
             )}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
+      <ul className="list-none m-0 p-0 border-t border-primary-700 pt-[18px] flex flex-col gap-[13px]">
         {data.slice(0, 6).map((item, i) => (
-          <div
+          <li
             key={item.projeto_id}
-            className="flex items-center gap-2 text-[12px]"
+            className="flex items-center gap-[11px] text-[14.5px]"
             onMouseEnter={() => setActiveIndex(i)}
             onMouseLeave={() => setActiveIndex(null)}
             style={{ cursor: "default" }}
           >
             <span
-              className="w-2.5 h-2.5 rounded-sm shrink-0"
+              className="w-[11px] h-[11px] rounded-[3px] flex-none"
               style={{ background: PALETTE[i % PALETTE.length] }}
             />
             <span
               className="flex-1 truncate transition-colors"
-              style={{ color: activeIndex === i ? "#e5e7eb" : "#9ca3af" }}
+              style={{ color: activeIndex === i ? "var(--gray-100)" : "var(--gray-200)" }}
             >
               {item.titulo}
             </span>
-            <span className="text-gray-500 tabular-nums shrink-0">
+            <span className="text-gray-400 font-semibold tabular-nums flex-none">
               {item.percentual}%
             </span>
-          </div>
+          </li>
         ))}
         {data.length > 6 && (
-          <div className="text-[11px] text-gray-600 pl-[18px]">
+          <li className="text-[12px] text-gray-500 pl-[22px]">
             +{data.length - 6} outros projetos
-          </div>
+          </li>
         )}
-      </div>
+      </ul>
     </div>
   );
 }

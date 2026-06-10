@@ -12,7 +12,7 @@ import type { ProjectForStatus } from "@/components/reports/ProjectStatusDonut";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ReportPeriod } from "@/lib/reportUtils";
-import { BarChart3, RefreshCw, AlertCircle, Lock, Zap } from "lucide-react";
+import { BarChart3, RefreshCw, AlertCircle, Lock, Zap, ArrowLeft } from "lucide-react";
 import { useRouter } from "next/router";
 import { useSubscription } from "@/hooks/useSubscription";
 import PageTour from "@/components/PageTour";
@@ -173,31 +173,62 @@ export default function RelatoriosPage() {
     <>
       <PageTour name="relatorios" steps={RELATORIOS_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-y-auto min-w-0">
+      <div className="flex flex-col flex-1 gap-[38px] pr-6 py-6 overflow-y-auto min-w-0">
 
-        <header className="w-full flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <BarChart3 size={26} className="text-primary-400" />
+        <header className="w-full flex items-center justify-between gap-6 flex-wrap">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="grid place-items-center flex-none cursor-pointer transition-colors duration-200"
+              style={{ width: 46, height: 46, borderRadius: 13, border: "1px solid var(--gray-700)", background: "var(--primary-800)", color: "var(--gray-200)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-500)"; (e.currentTarget as HTMLElement).style.color = "var(--primary-300)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--gray-700)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-200)"; }}
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <span
+              className="w-[52px] h-[52px] rounded-[15px] flex-none flex items-center justify-center border border-primary-600 text-primary-400"
+              style={{ background: "color-mix(in srgb, var(--primary-500) 10%, transparent)" }}
+            >
+              <BarChart3 size={26} />
+            </span>
             <div>
-              <div className="text-[20px] font-semibold text-gray-200">Relatórios</div>
-              <div className="text-[13px] text-gray-400">
+              <h1 className="text-[30px] font-bold text-gray-100 leading-tight tracking-tight m-0">
+                Relatórios
+              </h1>
+              <p className="text-[15.5px] text-gray-400 mt-1 m-0">
                 Métricas e desempenho do seu trabalho
-              </div>
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-1 rounded-lg bg-primary-800 border border-primary-700 p-1">
+          <div className="flex items-center gap-[14px] flex-wrap">
+            <div className="flex items-center gap-[2px] rounded-[14px] bg-primary-800 border border-primary-700 p-[5px]">
               {PERIODS.map((p) => (
                 <button
                   key={p.value}
                   onClick={() => setPeriod(p.value)}
-                  className={[
-                    "px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors",
+                  className="px-[18px] py-[10px] rounded-[10px] text-[14.5px] font-semibold transition-colors whitespace-nowrap"
+                  style={
                     period === p.value
-                      ? "bg-primary-600 text-gray-100"
-                      : "text-gray-400 hover:text-gray-200 hover:bg-primary-700",
-                  ].join(" ")}
+                      ? {
+                          background: "linear-gradient(135deg, var(--primary-300), var(--primary-500))",
+                          color: "var(--primary-900)",
+                          boxShadow: "0 6px 16px -8px rgba(30,182,232,0.8)",
+                        }
+                      : { color: "var(--gray-400)" }
+                  }
+                  onMouseEnter={(e) => {
+                    if (period !== p.value) {
+                      (e.currentTarget as HTMLButtonElement).style.color = "var(--gray-200)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (period !== p.value) {
+                      (e.currentTarget as HTMLButtonElement).style.color = "var(--gray-400)";
+                    }
+                  }}
                 >
                   {p.label}
                 </button>
@@ -207,9 +238,9 @@ export default function RelatoriosPage() {
             <button
               onClick={fetchReports}
               disabled={isLoading}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-800 border border-primary-700 text-gray-300 hover:text-gray-200 hover:bg-primary-700 transition-colors text-[13px] disabled:opacity-50"
+              className="flex items-center gap-[9px] h-[52px] px-5 rounded-[14px] bg-primary-800 border border-primary-700 text-gray-100 text-[15px] font-semibold transition-colors hover:border-primary-600 hover:text-primary-200 disabled:opacity-50 whitespace-nowrap"
             >
-              <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+              <RefreshCw size={18} className={["text-primary-400", isLoading ? "animate-spin" : ""].join(" ")} />
               Atualizar
             </button>
             <HeaderProfile />
@@ -240,11 +271,11 @@ export default function RelatoriosPage() {
 
         {(subscription.loading || subscription.limits.relatoriosCompletos) && (
         <>
-        <section className="flex flex-col gap-3">
-          <div className="text-[15px] font-medium text-gray-300">Visão geral</div>
+        <section className="flex flex-col gap-[18px]">
+          <h2 className="text-[17px] font-semibold text-gray-200 tracking-tight m-0">Visão geral</h2>
 
           {loadingOverview ? (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-[18px]">
               {Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonStatCard key={i} />
               ))}
@@ -256,43 +287,43 @@ export default function RelatoriosPage() {
           ) : null}
         </section>
 
-        <section className="flex flex-col gap-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="text-[15px] font-medium text-gray-300">
+        <section className="flex flex-col gap-[18px]">
+          <div className="flex items-baseline justify-between flex-wrap gap-2">
+            <h2 className="text-[17px] font-semibold text-gray-200 tracking-tight m-0">
               Faturamento
-            </div>
+            </h2>
 
             {revenueTotais && !loadingRevenue && (
-              <div className="flex items-center gap-4 text-[12px] text-gray-400 flex-wrap">
+              <div className="flex items-center gap-[26px] text-[14.5px] text-gray-400 flex-wrap">
                 <span>
                   Recebido:{" "}
-                  <span className="text-gray-200 font-medium">
+                  <b className="text-gray-100 font-bold">
                     {toCurrency(revenueTotais.valor_recebido)}
-                  </span>
+                  </b>
                 </span>
                 <span>
                   Líquido:{" "}
-                  <span className="text-gray-200 font-medium">
+                  <b className="text-gray-100 font-bold">
                     {toCurrency(revenueTotais.faturamento_liquido)}
-                  </span>
+                  </b>
                 </span>
                 <span>
                   Repasses:{" "}
-                  <span className="text-gray-200 font-medium">
+                  <b className="text-gray-100 font-bold">
                     {toCurrency(revenueTotais.repasses_colaboradores)}
-                  </span>
+                  </b>
                 </span>
                 <span>
                   A receber:{" "}
-                  <span className="text-gray-200 font-medium">
+                  <b className="text-gray-100 font-bold">
                     {toCurrency(revenueTotais.valor_pendente)}
-                  </span>
+                  </b>
                 </span>
               </div>
             )}
           </div>
 
-          <div className="rounded-lg bg-primary-800 border border-primary-700 p-5">
+          <div className="rounded-[18px] bg-primary-800 border border-primary-700 px-[30px] pt-[30px] pb-[22px]">
             {errorRevenue ? (
               <ErrorCard message={errorRevenue} onRetry={fetchReports} />
             ) : revenueData.length > 0 ? (
@@ -303,10 +334,10 @@ export default function RelatoriosPage() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-3">
-          <div className="text-[15px] font-medium text-gray-300">Distribuição</div>
+        <section className="flex flex-col gap-[18px]">
+          <h2 className="text-[17px] font-semibold text-gray-200 tracking-tight m-0">Distribuição</h2>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-[18px]">
             <DonutCard title="Tempo por projeto" subtitle="Horas rastreadas via time tracker">
               {loadingProductivity ? (
                 <DonutSpinner />
@@ -357,19 +388,19 @@ export default function RelatoriosPage() {
           </div>
         </section>
 
-        <section className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1">
-            <div className="text-[15px] font-medium text-gray-300">Performance</div>
-            <div className="text-[12px] text-gray-500">
-              <strong className="text-gray-400">Tempo de ciclo</strong> = dias corridos (inclui
+        <section className="flex flex-col gap-[18px]">
+          <div>
+            <h2 className="text-[17px] font-semibold text-gray-200 tracking-tight m-0">Performance</h2>
+            <p className="text-[14.5px] text-gray-400 mt-2 m-0">
+              <strong className="text-gray-200 font-semibold">Tempo de ciclo</strong> = dias corridos (inclui
               espera).{" "}
-              <strong className="text-gray-400">Tempo de execução</strong> = horas rastreadas via
+              <strong className="text-gray-200 font-semibold">Tempo de execução</strong> = horas rastreadas via
               time tracker.
-            </div>
+            </p>
           </div>
 
           {loadingPerformance ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px]">
               {Array.from({ length: 4 }).map((_, i) => (
                 <SkeletonStatCard key={i} />
               ))}
@@ -405,10 +436,10 @@ const emptyOverview: OverviewData = {
 
 function DonutCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 p-5 rounded-lg bg-primary-800 border border-primary-700">
-      <div>
-        <div className="text-[14px] font-medium text-gray-200">{title}</div>
-        <div className="text-[12px] text-gray-500 mt-0.5">{subtitle}</div>
+    <div className="flex flex-col px-7 pt-[26px] pb-[30px] rounded-[18px] bg-primary-800 border border-primary-700">
+      <div className="mb-2">
+        <div className="text-[18px] font-semibold text-gray-100">{title}</div>
+        <div className="text-[14px] text-gray-400 mt-[6px]">{subtitle}</div>
       </div>
       {children}
     </div>
@@ -440,7 +471,7 @@ function InlineError({ message, onRetry }: { message: string; onRetry: () => voi
 
 function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-lg bg-primary-800 border border-primary-700">
+    <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-[18px] bg-primary-800 border border-primary-700">
       <div className="flex items-center gap-3 text-[13px] text-gray-400">
         <AlertCircle size={16} className="text-red-400 shrink-0" />
         <span>{message}</span>

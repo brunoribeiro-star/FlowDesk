@@ -51,6 +51,7 @@ export default function OverviewCards({ data }: Props) {
       tooltip: 'Soma dos pagamentos com status "pago"',
       value: toCurrency(data.valor_recebido),
       sublabel: `${toCurrency(data.valor_pendente)} a receber`,
+      muted: false,
     },
     {
       icon: TrendingDown,
@@ -58,6 +59,7 @@ export default function OverviewCards({ data }: Props) {
       tooltip: "Valor recebido menos repasses pagos a colaboradores",
       value: toCurrency(data.faturamento_liquido),
       sublabel: `${toCurrency(data.repasses_colaboradores)} em repasses pagos`,
+      muted: false,
     },
     {
       icon: FolderKanban,
@@ -65,6 +67,7 @@ export default function OverviewCards({ data }: Props) {
       tooltip: "Projetos que não estão concluídos, finalizados ou arquivados",
       value: String(data.projetos_ativos),
       sublabel: `${data.projetos_total} no total`,
+      muted: false,
     },
     {
       icon: CheckCircle2,
@@ -75,6 +78,7 @@ export default function OverviewCards({ data }: Props) {
         data._meta.projetos_com_ciclo_completo > 0
           ? `ciclo médio: ${fmtDias(data.tempo_ciclo_medio_projeto_dias)}`
           : "conclua projetos para ver o ciclo médio",
+      muted: false,
     },
     {
       icon: Clock,
@@ -86,6 +90,7 @@ export default function OverviewCards({ data }: Props) {
         data._meta.projetos_com_ciclo_completo > 0
           ? `${data._meta.projetos_com_ciclo_completo} proj. com dado completo`
           : "conclua projetos para calcular",
+      muted: false,
     },
     {
       icon: Timer,
@@ -97,25 +102,45 @@ export default function OverviewCards({ data }: Props) {
         data._meta.tarefas_com_rastreio > 0
           ? `${data._meta.tarefas_com_rastreio} tarefa(s) com rastreio`
           : "use o time tracker para calcular",
+      muted: data.tempo_execucao_medio_tarefa_horas === null,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-[18px]">
       {cards.map((card) => (
         <div
           key={card.label}
           title={card.tooltip}
-          className="flex flex-col gap-2 p-4 rounded-lg bg-primary-800 border border-primary-700"
+          className="flex flex-col p-[24px_26px] rounded-[18px] bg-primary-800 border border-primary-700 hover:border-primary-600 hover:-translate-y-0.5 transition-all duration-200 cursor-default"
         >
-          <div className="flex items-center gap-2">
-            <card.icon size={18} className="text-primary-400 shrink-0" />
-            <span className="text-[13px] text-gray-400">{card.label}</span>
+          <div className="flex items-center gap-[11px] mb-[18px]">
+            <span
+              className={[
+                "w-[38px] h-[38px] rounded-[11px] flex-none flex items-center justify-center border",
+                card.muted
+                  ? "text-gray-400 border-primary-700"
+                  : "text-primary-400 border-primary-600",
+              ].join(" ")}
+              style={{
+                background: card.muted
+                  ? "color-mix(in srgb, var(--gray-400) 7%, transparent)"
+                  : "color-mix(in srgb, var(--primary-500) 10%, transparent)",
+              }}
+            >
+              <card.icon size={20} />
+            </span>
+            <span className="text-[15px] font-medium text-gray-300">{card.label}</span>
           </div>
-          <div className="text-[22px] font-semibold text-gray-200 leading-tight">
+          <p
+            className={[
+              "text-[33px] font-bold leading-[1.1] tracking-tight m-0",
+              card.muted ? "text-gray-500" : "text-gray-100",
+            ].join(" ")}
+          >
             {card.value}
-          </div>
-          <div className="text-[12px] text-gray-500">{card.sublabel}</div>
+          </p>
+          <p className="text-[13.5px] text-gray-500 mt-[9px] m-0">{card.sublabel}</p>
         </div>
       ))}
     </div>

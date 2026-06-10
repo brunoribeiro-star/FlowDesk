@@ -8,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { SkeletonList } from "@/components/Skeleton";
 import { jsonToPlainText, calcularUrgencia, formatarDataCurta, tempoRelativo } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
+import HeaderProfile from "@/components/HeaderProfile";
 import PageTour from "@/components/PageTour";
 import type { Step } from "react-joyride";
 
@@ -426,7 +427,7 @@ export default function TarefasPage() {
         <header className="tk-top-bar">
           <div className="tk-top-left">
             <button type="button" onClick={() => router.push("/dashboard")} className="tk-back-btn">
-              <IconChevLeft /> Voltar
+              <IconChevLeft />
             </button>
             <h1 className="tk-page-title">Tarefas</h1>
           </div>
@@ -452,6 +453,7 @@ export default function TarefasPage() {
             >
               <IconPlus /> Nova tarefa
             </button>
+            <HeaderProfile />
           </div>
         </header>
 
@@ -771,27 +773,26 @@ export default function TarefasPage() {
           align-items: center;
           justify-content: space-between;
           gap: 20px;
-          padding: 0 0 24px 0;
+          padding: 0 0 20px 0;
+          margin-bottom: 20px;
+          border-bottom: 1px solid var(--gray-700);
         }
         .tk-top-left {
           display: flex;
           align-items: center;
-          gap: 24px;
+          gap: 20px;
         }
         .tk-back-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 9px;
-          height: 44px;
-          padding: 0 18px 0 14px;
-          font-family: inherit;
-          font-size: 15px;
-          font-weight: 500;
-          color: var(--gray-300);
-          cursor: pointer;
-          border-radius: 12px;
+          display: grid;
+          place-items: center;
+          flex: none;
+          width: 46px;
+          height: 46px;
+          border-radius: 13px;
           border: 1px solid var(--gray-700);
           background: var(--primary-800);
+          color: var(--gray-200);
+          cursor: pointer;
           transition: .2s;
         }
         .tk-back-btn:hover {
@@ -800,7 +801,7 @@ export default function TarefasPage() {
         }
         .tk-page-title {
           margin: 0;
-          font-size: 32px;
+          font-size: 26px;
           font-weight: 700;
           color: var(--gray-100);
           letter-spacing: -0.02em;

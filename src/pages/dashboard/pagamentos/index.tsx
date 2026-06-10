@@ -236,27 +236,27 @@ export default function PagamentosPage() {
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 520, height: 520, right: -180, top: -180, background: 'radial-gradient(circle, rgba(30,182,232,0.12), transparent 70%)', filter: 'blur(100px)' }} />
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 460, height: 460, right: -160, bottom: -200, background: 'radial-gradient(circle, rgba(16,66,83,0.5), transparent 70%)', filter: 'blur(100px)' }} />
 
-        <header className="relative z-10 flex items-center justify-between">
+        <header
+          className="relative z-10 flex items-center gap-5 pb-[22px] border-b"
+          style={{ borderColor: 'var(--gray-700)' }}
+        >
           <button
             type="button"
             onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-[11px] cursor-pointer transition-colors duration-200"
-            style={{ height: 46, padding: '0 18px', borderRadius: 13, border: '1px solid var(--gray-700)', background: 'none', color: 'var(--gray-300)', fontSize: 16, fontWeight: 500 }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-500)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; }}
+            className="grid place-items-center cursor-pointer transition-colors duration-200 flex-none"
+            style={{ width: 46, height: 46, borderRadius: 13, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', color: 'var(--gray-200)' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary-500)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-300)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-200)'; }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
             </svg>
-            Voltar
           </button>
-          <HeaderProfile />
+          <span className="font-bold tracking-tight" style={{ fontSize: 26, color: 'var(--gray-100)' }}>Pagamentos</span>
+          <div className="ml-auto">
+            <HeaderProfile />
+          </div>
         </header>
-
-        <div className="relative z-10">
-          <h1 className="m-0 font-bold text-white" style={{ fontSize: 38, letterSpacing: '-0.02em' }}>Pagamentos</h1>
-          <p className="m-0 mt-[10px]" style={{ fontSize: 16.5, color: 'var(--gray-400)' }}>Overview geral dos pagamentos dos seus projetos.</p>
-        </div>
 
         <div className="relative z-10 flex items-center justify-between">
           <span className="flex items-center gap-[11px]" style={{ fontSize: 16, color: 'var(--gray-400)' }}>

@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -6,7 +7,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from "recharts";
 
 export interface RevenueMensal {
@@ -28,13 +28,17 @@ function toCurrency(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, activeKey }: any) {
   if (!active || !payload?.length) return null;
+  const filtered = activeKey
+    ? payload.filter((p: any) => p.dataKey === activeKey)
+    : payload;
+  if (!filtered.length) return null;
   return (
-    <div className="bg-primary-900 border border-primary-600 rounded-lg px-4 py-3 text-[13px] shadow-xl">
+    <div className="bg-primary-900 border border-primary-600 rounded-[12px] px-4 py-3 text-[13px] shadow-xl">
       <div className="text-gray-300 font-medium mb-2">{label}</div>
-      {payload.map((entry: any) => (
-        <div key={entry.dataKey} className="flex items-center gap-2 mb-1">
+      {filtered.map((entry: any) => (
+        <div key={entry.dataKey} className="flex items-center gap-2">
           <span
             className="w-2.5 h-2.5 rounded-full shrink-0"
             style={{ background: entry.color }}
@@ -47,7 +51,61 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
+const LEGEND_ITEMS = [
+  {
+    label: "A receber (previsto)",
+    borderStyle: "dashed",
+    color: "var(--gray-400)",
+    strokeWidth: 2.5,
+  },
+  {
+    label: "Bruto recebido",
+    borderStyle: "solid",
+    color: "var(--primary-500)",
+    strokeWidth: 3.5,
+  },
+  {
+    label: "Líquido (após repasses)",
+    borderStyle: "solid",
+    color: "var(--primary-300)",
+    strokeWidth: 3,
+  },
+];
+
 export default function RevenueChart({ data }: Props) {
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+
+  const yMax = useMemo(() => {
+    if (!data.length) return 10000;
+    const maxVal = Math.max(...data.flatMap((d) => [d.valor_recebido, d.faturamento_liquido]));
+    if (maxVal === 0) return 1000;
+    return Math.ceil((maxVal * 1.2) / 1000) * 1000;
+  }, [data]);
+
+  const handleMouseMove = (chartData: any) => {
+    if (!chartData?.activeCoordinate || !chartData?.activePayload?.length) return;
+
+    const cursorY = chartData.activeCoordinate.y;
+    const payload = chartData.activePayload;
+    const plotTop = 4;
+    const plotHeight = 258;
+
+    let minDist = Infinity;
+    let closest = "";
+
+    payload.forEach((p: any) => {
+      if (p.value === undefined || p.value === null) return;
+      const pixY = plotTop + (1 - Math.max(0, p.value) / yMax) * plotHeight;
+      const dist = Math.abs(cursorY - pixY);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = p.dataKey;
+      }
+    });
+
+    setActiveKey(closest || null);
+  };
+
   const formatYAxis = (v: number) => {
     if (v === 0) return "R$ 0";
     if (v >= 1000)
@@ -56,80 +114,99 @@ export default function RevenueChart({ data }: Props) {
   };
 
   return (
-    <div className="w-full h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="gradLiquido" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--primary-500)" stopOpacity={0.35} />
-              <stop offset="95%" stopColor="var(--primary-500)" stopOpacity={0} />
-            </linearGradient>
-            <linearGradient id="gradPendente" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#6b7280" stopOpacity={0.2} />
-              <stop offset="95%" stopColor="#6b7280" stopOpacity={0} />
-            </linearGradient>
-          </defs>
+    <div>
+      <div className="w-full h-72">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={data}
+            margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setActiveKey(null)}
+          >
+            <defs>
+              <linearGradient id="gradBruto" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--primary-500)" stopOpacity={0.26} />
+                <stop offset="100%" stopColor="var(--primary-500)" stopOpacity={0} />
+              </linearGradient>
+            </defs>
 
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--primary-700)" vertical={false} />
+            <CartesianGrid strokeDasharray="4 6" stroke="rgba(148,169,173,0.12)" vertical={false} />
 
-          <XAxis
-            dataKey="mes"
-            tick={{ fill: "#9ca3af", fontSize: 12 }}
-            axisLine={false}
-            tickLine={false}
-          />
+            <XAxis
+              dataKey="mes"
+              tick={{ fill: "var(--gray-400)", fontSize: 13 }}
+              axisLine={false}
+              tickLine={false}
+            />
 
-          <YAxis
-            tickFormatter={formatYAxis}
-            tick={{ fill: "#9ca3af", fontSize: 11 }}
-            axisLine={false}
-            tickLine={false}
-            width={70}
-          />
+            <YAxis
+              tickFormatter={formatYAxis}
+              tick={{ fill: "var(--gray-500)", fontSize: 13 }}
+              axisLine={false}
+              tickLine={false}
+              width={70}
+            />
 
-          <Tooltip content={<CustomTooltip />} />
+            <Tooltip
+              content={(props: any) => <CustomTooltip {...props} activeKey={activeKey} />}
+              wrapperStyle={{ zIndex: 50 }}
+            />
 
-          <Legend
-            formatter={(value) => (
-              <span style={{ color: "#d1d5db", fontSize: 12 }}>{value}</span>
-            )}
-          />
+            <Area
+              type="monotone"
+              dataKey="valor_pendente"
+              name="A receber (previsto)"
+              stroke="var(--gray-400)"
+              strokeWidth={2.5}
+              strokeDasharray="3 7"
+              fill="none"
+              dot={false}
+              activeDot={{ r: 3, fill: "var(--gray-400)" }}
+            />
 
-          <Area
-            type="monotone"
-            dataKey="faturamento_liquido"
-            name="Líquido (após repasses)"
-            stroke="var(--primary-500)"
-            strokeWidth={2}
-            fill="url(#gradLiquido)"
-            dot={false}
-            activeDot={{ r: 4, fill: "var(--primary-500)" }}
-          />
+            <Area
+              type="monotone"
+              dataKey="faturamento_liquido"
+              name="Líquido (após repasses)"
+              stroke="var(--primary-300)"
+              strokeWidth={3}
+              fill="none"
+              dot={false}
+              activeDot={{ r: 4, fill: "var(--primary-300)" }}
+            />
 
-          <Area
-            type="monotone"
-            dataKey="valor_recebido"
-            name="Bruto recebido"
-            stroke="#60a5fa"
-            strokeWidth={2}
-            fill="none"
-            dot={false}
-            activeDot={{ r: 4, fill: "#60a5fa" }}
-          />
+            <Area
+              type="monotone"
+              dataKey="valor_recebido"
+              name="Bruto recebido"
+              stroke="var(--primary-500)"
+              strokeWidth={3.5}
+              fill="url(#gradBruto)"
+              dot={false}
+              activeDot={{ r: 5, fill: "var(--primary-500)" }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
 
-          <Area
-            type="monotone"
-            dataKey="valor_pendente"
-            name="A receber (previsto)"
-            stroke="#6b7280"
-            strokeWidth={1.5}
-            strokeDasharray="4 3"
-            fill="url(#gradPendente)"
-            dot={false}
-            activeDot={{ r: 3, fill: "#9ca3af" }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+      <div className="flex justify-center gap-[30px] mt-[14px] flex-wrap">
+        {LEGEND_ITEMS.map((item) => (
+          <span key={item.label} className="flex items-center gap-[9px] text-[14.5px] text-gray-300">
+            <span
+              style={{
+                display: "inline-block",
+                width: 26,
+                height: 0,
+                borderTopWidth: item.strokeWidth,
+                borderTopStyle: item.borderStyle as any,
+                borderTopColor: item.color,
+                borderRadius: 3,
+              }}
+            />
+            {item.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

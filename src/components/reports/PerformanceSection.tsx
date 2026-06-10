@@ -72,11 +72,17 @@ function StatusBadge({ status }: { status: string }) {
   const isConcluido = s === "concluído" || s === "concluido" || s === "finalizado";
   return (
     <span
-      className={`text-[11px] px-2 py-0.5 rounded-full border ${
+      className={[
+        "text-[12px] font-semibold px-3 py-[5px] rounded-full border flex-none",
         isConcluido
-          ? "bg-primary-700 border-primary-600 text-primary-200"
-          : "bg-primary-800 border-primary-700 text-gray-400"
-      }`}
+          ? "text-primary-300 border-primary-600"
+          : "text-gray-400 border-primary-700",
+      ].join(" ")}
+      style={
+        isConcluido
+          ? { background: "color-mix(in srgb, var(--primary-500) 10%, transparent)" }
+          : undefined
+      }
     >
       {status}
     </span>
@@ -94,27 +100,37 @@ function RankTable<T extends { titulo: string }>({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="py-6 text-center text-[13px] text-gray-500">Nenhum dado disponível ainda.</div>
+      <div className="flex items-center justify-center min-h-[180px] text-[15px] text-gray-500">
+        Nenhum dado disponível ainda.
+      </div>
     );
   }
   return (
-    <div className="flex flex-col divide-y divide-primary-700">
+    <ol className="list-none m-0 p-0">
       {rows.map((row, i) => (
-        <div key={(row as any).id ?? i} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-          <span className="text-[12px] text-gray-500 w-5 shrink-0 text-right">{i + 1}.</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-[13px] text-gray-200 truncate">{row.titulo}</div>
+        <li
+          key={(row as any).id ?? i}
+          className={[
+            "flex items-center gap-[14px] py-[15px]",
+            i < rows.length - 1 ? "border-b border-primary-700" : "",
+          ].join(" ")}
+        >
+          <span className="text-[13.5px] font-semibold text-gray-500 w-[22px] flex-none text-center">
+            {i + 1}
+          </span>
+          <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
+            <span className="text-[15.5px] font-medium text-gray-100 truncate">{row.titulo}</span>
             {subtitleKey && subtitleKey(row) && (
-              <div className="text-[11px] text-gray-500 truncate">{subtitleKey(row)}</div>
+              <span className="text-[13px] text-gray-500 truncate">{subtitleKey(row)}</span>
             )}
           </div>
           {(row as any).status && <StatusBadge status={(row as any).status} />}
-          <span className="text-[13px] font-semibold text-primary-300 shrink-0 tabular-nums">
+          <span className="text-[17px] font-bold text-primary-300 flex-none min-w-[56px] text-right tabular-nums">
             {metricValue(row)}
           </span>
-        </div>
+        </li>
       ))}
-    </div>
+    </ol>
   );
 }
 
@@ -134,20 +150,25 @@ function RankCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-4 p-5 rounded-lg bg-primary-800 border border-primary-700">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon size={16} className="text-primary-400 shrink-0" />
-          <span className="text-[14px] font-medium text-gray-200">{title}</span>
-        </div>
-        <div className="text-right shrink-0">
-          <div className="text-[18px] font-semibold text-gray-200">{avg}</div>
-          <div className="text-[11px] text-gray-500">{avgLabel}</div>
+    <div className="flex flex-col p-[26px_28px] rounded-[18px] bg-primary-800 border border-primary-700">
+      <div className="flex items-start justify-between gap-4">
+        <h4 className="flex items-center gap-[11px] m-0 text-[18px] font-semibold text-gray-100">
+          <span
+            className="w-9 h-9 rounded-[10px] flex-none flex items-center justify-center border border-primary-600 text-primary-400"
+            style={{ background: "color-mix(in srgb, var(--primary-500) 10%, transparent)" }}
+          >
+            <Icon size={19} />
+          </span>
+          {title}
+        </h4>
+        <div className="text-right flex-none">
+          <span className="block text-[24px] font-bold text-gray-100 leading-tight tracking-tight">
+            {avg}
+          </span>
+          <span className="text-[12.5px] text-gray-500">{avgLabel}</span>
         </div>
       </div>
-      <div title={tooltip} className="text-[11px] text-gray-500 -mt-2">
-        {tooltip}
-      </div>
+      <p className="text-[13.5px] text-gray-500 mt-[14px] mb-[6px] leading-[1.5]">{tooltip}</p>
       {children}
     </div>
   );
@@ -158,10 +179,10 @@ export default function PerformanceSection({ data }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wide">
+      <p className="text-[12.5px] font-bold tracking-[0.12em] uppercase text-gray-500 mt-[28px] mb-[14px] m-0">
         Projetos
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px]">
         <RankCard
           icon={Clock}
           title="Maior tempo de ciclo"
@@ -171,7 +192,7 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={projetos.mais_lentos_ciclo}
-                        metricValue={(r) => fmtDias(r.ciclo_dias)}
+            metricValue={(r) => fmtDias(r.ciclo_dias)}
           />
         </RankCard>
 
@@ -184,15 +205,15 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={projetos.mais_tempo_execucao}
-                        metricValue={(r) => fmtHoras(r.execucao_horas)}
+            metricValue={(r) => fmtHoras(r.execucao_horas)}
           />
         </RankCard>
       </div>
 
-      <div className="text-[12px] font-medium text-gray-400 uppercase tracking-wide mt-2">
+      <p className="text-[12.5px] font-bold tracking-[0.12em] uppercase text-gray-500 mt-[28px] mb-[14px] m-0">
         Tarefas
-      </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[18px]">
         <RankCard
           icon={Clock}
           title="Maior tempo de ciclo"
@@ -202,7 +223,7 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={tarefas.mais_lentas_ciclo}
-                        metricValue={(r) => fmtDias(r.ciclo_dias)}
+            metricValue={(r) => fmtDias(r.ciclo_dias)}
             subtitleKey={(r) => r.projeto_titulo}
           />
         </RankCard>
@@ -216,7 +237,7 @@ export default function PerformanceSection({ data }: Props) {
         >
           <RankTable
             rows={tarefas.mais_tempo_execucao}
-                        metricValue={(r) => fmtHoras(r.execucao_horas)}
+            metricValue={(r) => fmtHoras(r.execucao_horas)}
             subtitleKey={(r) => r.projeto_titulo}
           />
         </RankCard>

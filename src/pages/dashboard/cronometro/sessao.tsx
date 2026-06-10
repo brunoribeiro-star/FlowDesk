@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { Minus, Plus, Play, Pause, RotateCcw, CheckCircle2, Pencil, Focus, X, ArrowLeft, Coffee } from "lucide-react";
+import HeaderProfile from "@/components/HeaderProfile";
 
 const SESSION_KEY = "tt_free_session";
 
@@ -370,20 +371,25 @@ export default function CronometroSessaoPage() {
         )}
 
         {!focusMode && (
-          <>
-            <header className="relative z-10 flex items-center px-8 xl:px-11 py-6">
-              <button type="button" onClick={handleBack}
-                className="group flex items-center gap-4 bg-transparent border-0 p-0 cursor-pointer">
-                <span className="flex items-center justify-center w-11 h-11 rounded-full border border-gray-600 text-gray-300 transition-all duration-200 group-hover:border-primary-500 group-hover:text-primary-300">
-                  <ArrowLeft size={18} />
-                </span>
-                <span className="text-[19px] font-medium text-gray-200">Voltar</span>
-              </button>
-            </header>
-            <div className="relative z-10 h-px" style={{
-              background: "linear-gradient(90deg, transparent, rgba(148,169,173,0.18) 30%, rgba(148,169,173,0.18) 70%, transparent)",
-            }} />
-          </>
+          <header
+            className="relative z-10 flex items-center gap-5 px-8 xl:px-11 py-[20px] border-b"
+            style={{ borderColor: "var(--gray-700)" }}
+          >
+            <button
+              type="button"
+              onClick={handleBack}
+              className="grid place-items-center flex-none cursor-pointer transition-colors duration-200"
+              style={{ width: 46, height: 46, borderRadius: 13, border: "1px solid var(--gray-700)", background: "var(--primary-800)", color: "var(--gray-200)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-500)"; (e.currentTarget as HTMLElement).style.color = "var(--primary-300)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--gray-700)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-200)"; }}
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <span className="font-bold tracking-tight" style={{ fontSize: 26, color: "var(--gray-100)" }}>Time Tracker</span>
+            <div className="ml-auto">
+              <HeaderProfile />
+            </div>
+          </header>
         )}
 
         <main className="relative z-10 flex-1 flex flex-col items-center justify-center gap-8 px-8 py-4 overflow-hidden">
