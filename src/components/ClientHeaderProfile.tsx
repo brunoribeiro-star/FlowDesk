@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
-import { ChevronUp, ChevronDown, Pencil, SlidersHorizontal } from "lucide-react";
+import { ChevronUp, ChevronDown, SlidersHorizontal } from "lucide-react";
 import UserAvatar from "@/components/UserAvatar";
+import ThemeModal from "@/components/ThemeModal";
 
 type ClientHeaderProfileProps = {
   user?: any;
@@ -11,6 +12,7 @@ type ClientHeaderProfileProps = {
 export default function ClientHeaderProfile({ user }: ClientHeaderProfileProps) {
   const router = useRouter();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [themeOpen, setThemeOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const [currentUser, setCurrentUser] = useState<any>(user ?? null);
 
@@ -36,6 +38,8 @@ export default function ClientHeaderProfile({ user }: ClientHeaderProfileProps) 
   const displayName = currentUser?.user_metadata?.nome || currentUser?.email?.split("@")[0] || null;
 
   return (
+    <>
+    <ThemeModal open={themeOpen} onClose={() => setThemeOpen(false)} />
     <div className="relative" ref={profileRef}>
       <button
         type="button"
@@ -61,15 +65,7 @@ export default function ClientHeaderProfile({ user }: ClientHeaderProfileProps) 
 
           <button
             className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
-            onClick={() => { setProfileOpen(false); router.push("/dashboard/perfil"); }}
-          >
-            <Pencil size={18} className="text-primary-200" />
-            <span className="text-[14px]">Editar perfil</span>
-          </button>
-
-          <button
-            className="flex items-center gap-3 text-gray-200 hover:text-primary-100 transition-colors"
-            onClick={() => { setProfileOpen(false); router.push("/dashboard/tema"); }}
+            onClick={() => { setProfileOpen(false); setThemeOpen(true); }}
           >
             <SlidersHorizontal size={18} className="text-primary-200" />
             <span className="text-[14px]">Personalizar tema</span>
@@ -93,5 +89,6 @@ export default function ClientHeaderProfile({ user }: ClientHeaderProfileProps) 
         </div>
       )}
     </div>
+    </>
   );
 }

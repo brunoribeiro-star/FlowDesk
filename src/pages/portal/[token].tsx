@@ -53,7 +53,7 @@ export default function PortalTokenPage() {
       if (cancelled) return;
 
       if (!session) {
-        router.replace("/portal/login");
+        router.replace(`/portal/login?returnTo=${encodeURIComponent(`/portal/${token}`)}`);
         return;
       }
 

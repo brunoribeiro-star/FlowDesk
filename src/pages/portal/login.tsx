@@ -76,11 +76,13 @@ export default function PortalLoginPage() {
     setOtpLoading(true);
     setOtpError(null);
 
+    const returnTo = typeof router.query.returnTo === "string" ? router.query.returnTo : undefined;
+
     try {
       const res = await fetch("/api/portal/verify-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), token: code }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), token: code, returnTo }),
       });
 
       const json = await res.json().catch(() => ({}));

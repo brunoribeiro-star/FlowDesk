@@ -6,8 +6,7 @@ import { getClientProjects, getClientDashboardStats, getClientActivities, getCli
 import { getAdiantamentosPendentesCliente } from "@/lib/supabaseQueries/adiantamentos";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
-import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock, BellRing, Copy, Check, X, AlertCircle } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock, BellRing, Copy, Check, X, AlertCircle, ArrowRight } from "lucide-react";
 
 type DashboardProject = {
   id: string;
@@ -107,6 +106,11 @@ export default function PortalDashboardPage() {
       if (!session) { router.replace("/portal/login"); return; }
       setUser(session.user);
 
+      await fetch("/api/client-invites/accept-pending", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
       const { data: memberRows } = await getClientProjects(session.user.id);
       if (!memberRows.length) { setLoading(false); return; }
 
@@ -153,7 +157,6 @@ export default function PortalDashboardPage() {
 
       return () => { supabase.removeChannel(channel); };
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleAprovarAdiantamento(adiantamentoId: string) {
@@ -194,7 +197,7 @@ export default function PortalDashboardPage() {
   }
 
   const displayName = user?.user_metadata?.nome || user?.email?.split("@")[0] || "Cliente";
-  const avatarSrc = user?.user_metadata?.avatar_url || "/perfil.svg";
+  const avatarUrl = user?.user_metadata?.avatar_url || null;
 
   const totalApprovals = projects.reduce((s, p) => s + p.pendingApprovals, 0);
   const totalBriefings = projects.reduce((s, p) => s + p.pendingBriefings, 0);
@@ -203,9 +206,9 @@ export default function PortalDashboardPage() {
   const firstProject = projects[0];
 
   const METRICS = [
-    { icon: Package, label: "Para aprovar", value: totalApprovals === 0 ? "Nenhum" : `${totalApprovals} entregável${totalApprovals > 1 ? "is" : ""}`, onClick: () => router.push("/portal/aprovacoes") },
-    { icon: ClipboardList, label: "Briefings pendentes", value: totalBriefings === 0 ? "Nenhum" : `${totalBriefings} briefing${totalBriefings > 1 ? "s" : ""}`, onClick: () => router.push("/portal/briefings") },
-    { icon: Wallet, label: "Pagamentos pendentes", value: totalPayments === 0 ? "Nenhum" : `${totalPayments} pagamento${totalPayments > 1 ? "s" : ""}`, onClick: () => router.push("/portal/pagamentos") },
+    { icon: Package, label: "Para aprovar", value: totalApprovals === 0 ? "Nenhum" : `${totalApprovals} entregável${totalApprovals > 1 ? "is" : ""}`, onClick: () => router.push("/portal/aprovacoes"), accent: totalApprovals > 0 },
+    { icon: ClipboardList, label: "Briefings pendentes", value: totalBriefings === 0 ? "Nenhum" : `${totalBriefings} briefing${totalBriefings > 1 ? "s" : ""}`, onClick: () => router.push("/portal/briefings"), accent: false },
+    { icon: Wallet, label: "Pagamentos pendentes", value: totalPayments === 0 ? "Nenhum" : `${totalPayments} pagamento${totalPayments > 1 ? "s" : ""}`, onClick: () => router.push("/portal/pagamentos"), accent: false },
   ];
 
   const aggTarefas = {
@@ -234,33 +237,36 @@ export default function PortalDashboardPage() {
   }
 
   const chartData = [
-    { name: "Tarefas", pct: toPct(aggTarefas.done, aggTarefas.total), done: aggTarefas.done, total: aggTarefas.total },
-    { name: "Subtarefas", pct: toPct(aggSubs.done, aggSubs.total), done: aggSubs.done, total: aggSubs.total },
-    { name: "Entregáveis", pct: toPct(aggEntregaveis.done, aggEntregaveis.total), done: aggEntregaveis.done, total: aggEntregaveis.total },
-    { name: "Briefings", pct: toPct(aggBriefings.done, aggBriefings.total), done: aggBriefings.done, total: aggBriefings.total },
-    { name: "Pagamentos", pct: toPct(aggPagamentos.done, aggPagamentos.total), done: aggPagamentos.done, total: aggPagamentos.total },
+    { name: "Tarefas", pct: toPct(aggTarefas.done, aggTarefas.total) },
+    { name: "Subtarefas", pct: toPct(aggSubs.done, aggSubs.total) },
+    { name: "Entregáveis", pct: toPct(aggEntregaveis.done, aggEntregaveis.total) },
+    { name: "Briefings", pct: toPct(aggBriefings.done, aggBriefings.total) },
+    { name: "Pagamentos", pct: toPct(aggPagamentos.done, aggPagamentos.total) },
   ];
 
   const hasAnyData = projects.length > 0;
+  const hasNotifications = cobrancasPendentes.length > 0 || adiantamentosPendentes.length > 0;
 
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
+      <div className="h-screen w-screen flex overflow-hidden" style={{ background: "var(--primary-900)" }}>
         <ClientSidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
-        <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-hidden">
-          <div className="flex items-center gap-4">
-            <div className="w-[60px] h-[60px] rounded-full bg-primary-800 animate-pulse" />
+        <div style={{ flex: 1, minWidth: 0, padding: "44px 52px 52px", overflowY: "auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "20px", marginBottom: "34px" }}>
+            <div className="w-[66px] h-[66px] rounded-full bg-primary-800 animate-pulse flex-none" />
             <div className="flex flex-col gap-2">
-              <div className="h-5 w-40 rounded-lg bg-primary-800 animate-pulse" />
-              <div className="h-3 w-56 rounded-lg bg-primary-800 animate-pulse" />
+              <div className="h-8 w-52 rounded-xl bg-primary-800 animate-pulse" />
+              <div className="h-4 w-64 rounded-lg bg-primary-800 animate-pulse" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
-            {[1,2,3].map(i => <div key={i} className="h-24 rounded-lg bg-primary-800 animate-pulse" />)}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "22px", marginBottom: "24px" }}>
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-36 rounded-[18px] bg-primary-800 animate-pulse" />
+            ))}
           </div>
-          <div className="flex-1 grid grid-cols-[1.2fr,0.8fr] gap-4">
-            <div className="rounded-lg bg-primary-800 animate-pulse" />
-            <div className="rounded-lg bg-primary-800 animate-pulse" />
+          <div style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: "22px" }}>
+            <div className="h-72 rounded-[18px] bg-primary-800 animate-pulse" />
+            <div className="h-72 rounded-[18px] bg-primary-800 animate-pulse" />
           </div>
         </div>
       </div>
@@ -268,275 +274,479 @@ export default function PortalDashboardPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
+    <div className="h-screen w-screen flex overflow-hidden" style={{ background: "var(--primary-900)" }}>
       <ClientSidebar defaultOpen={false} onOpenChange={setSidebarOpen} />
 
-      <div className="flex flex-col flex-1 gap-6 pr-6 py-6 w-full overflow-hidden">
+      <div className="po">
+        <div className="po-bg" />
 
-        <header className="w-full flex items-center gap-8">
-          <div className="flex items-center gap-3">
-            <div className="w-[60px] h-[60px] rounded-full overflow-hidden border border-primary-600 flex-shrink-0">
-              <Image src={avatarSrc} alt="Avatar" width={60} height={60} className="object-cover" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <div className="text-[22px] text-gray-200 font-medium">Olá, {displayName}!</div>
-              <div className="text-[14px] text-gray-300">Aqui está o resumo dos seus projetos.</div>
+        <header className="po-top">
+          <div className="po-greet">
+            <span className="po-avatar">
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt="Avatar"
+                  width={50}
+                  height={50}
+                  style={{ width: "50px", height: "50px", objectFit: "cover" }}
+                />
+              ) : (
+                displayName.charAt(0).toUpperCase()
+              )}
+            </span>
+            <div>
+              <h1 className="po-hello">Olá, {displayName}!</h1>
             </div>
           </div>
-          <div className="flex-1 flex items-center justify-end gap-3 min-w-0">
-            <span className="text-[14px] text-gray-400">{user?.email}</span>
+          <div className="po-account">
+            <span className="po-email">{user?.email}</span>
             <ClientHeaderProfile user={user} />
           </div>
         </header>
 
-        <section className="flex-1 flex flex-col gap-4 min-h-0">
-
-          {cobrancasPendentes.length > 0 && (
-            <button
-              type="button"
-              onClick={() => router.push("/portal/pagamentos")}
-              className="w-full flex items-center gap-3 px-5 py-3.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 hover:bg-yellow-500/15 transition-colors text-left"
-            >
-              <BellRing size={18} className="text-yellow-400 flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <span className="text-[14px] font-semibold text-yellow-300">
-                  {cobrancasPendentes.length === 1
-                    ? "Você tem 1 cobrança pendente"
-                    : `Você tem ${cobrancasPendentes.length} cobranças pendentes`}
-                </span>
-                <span className="text-[13px] text-yellow-400/70 ml-2">— clique para ver e pagar</span>
-              </div>
-              <span className="text-yellow-400/60 text-[13px] flex-shrink-0">Ver pagamentos →</span>
-            </button>
-          )}
-
-          {adiantamentosPendentes.map((ad) => {
-            const fmtValor = Number(ad.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-            const projetoTitulo = ad.projetos?.titulo ?? "Projeto";
-            const isRecusando = recusandoConfirmId === ad.id;
-            return (
-              <div key={ad.id} className="w-full flex flex-col gap-3 px-5 py-4 rounded-xl bg-primary-700/40 border border-primary-600 transition-colors">
-                <div className="flex items-start gap-3">
-                  <BellRing size={18} className="text-primary-300 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[14px] font-semibold text-gray-100">
-                      Solicitação de adiantamento — {projetoTitulo}
-                    </div>
-                    <div className="text-[13px] text-gray-400 mt-0.5">
-                      Valor: <span className="text-primary-300 font-medium">{fmtValor}</span>
-                    </div>
-                    <div className="text-[13px] text-gray-400 mt-1 leading-relaxed">{ad.motivo}</div>
-                  </div>
+        {hasNotifications && (
+          <div className="po-notifications">
+            {cobrancasPendentes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => router.push("/portal/pagamentos")}
+                className="w-full flex items-center gap-3 px-5 py-3.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 hover:bg-yellow-500/15 transition-colors text-left"
+              >
+                <BellRing size={18} className="text-yellow-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-[14px] font-semibold text-yellow-300">
+                    {cobrancasPendentes.length === 1
+                      ? "Você tem 1 cobrança pendente"
+                      : `Você tem ${cobrancasPendentes.length} cobranças pendentes`}
+                  </span>
+                  <span className="text-[13px] text-yellow-400/70 ml-2">— clique para ver e pagar</span>
                 </div>
+                <span className="text-yellow-400/60 text-[13px] flex-shrink-0">Ver pagamentos →</span>
+              </button>
+            )}
 
-                {ad.pix_chave && (
-                  <AdiantamentoPixCard pixChave={ad.pix_chave} />
-                )}
-
-                {!isRecusando ? (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleAprovarAdiantamento(ad.id)}
-                      disabled={aprovandoId === ad.id}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-third-500/15 hover:bg-third-500/25 border border-third-500/30 text-[13px] font-medium text-third-400 transition-colors disabled:opacity-60"
-                    >
-                      <Check size={14} />
-                      {aprovandoId === ad.id ? "Aprovando..." : "Aprovar e transferir"}
-                    </button>
-                    <button
-                      onClick={() => setRecusandoConfirmId(ad.id)}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-[13px] font-medium text-red-400 transition-colors"
-                    >
-                      <X size={14} />
-                      Recusar
-                    </button>
+            {adiantamentosPendentes.map((ad) => {
+              const fmtValor = Number(ad.valor).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+              const projetoTitulo = ad.projetos?.titulo ?? "Projeto";
+              const isRecusando = recusandoConfirmId === ad.id;
+              return (
+                <div key={ad.id} className="w-full flex flex-col gap-3 px-5 py-4 rounded-xl bg-primary-700/40 border border-primary-600 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <BellRing size={18} className="text-primary-300 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[14px] font-semibold text-gray-100">
+                        Solicitação de adiantamento — {projetoTitulo}
+                      </div>
+                      <div className="text-[13px] text-gray-400 mt-0.5">
+                        Valor: <span className="text-primary-300 font-medium">{fmtValor}</span>
+                      </div>
+                      <div className="text-[13px] text-gray-400 mt-1 leading-relaxed">{ad.motivo}</div>
+                    </div>
                   </div>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    <textarea
-                      value={recusaFeedback[ad.id] ?? ""}
-                      onChange={(e) => setRecusaFeedback((prev) => ({ ...prev, [ad.id]: e.target.value }))}
-                      placeholder="Informe o motivo da recusa para o freelancer..."
-                      rows={2}
-                      className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-500 outline-none resize-none"
-                    />
+
+                  {ad.pix_chave && <AdiantamentoPixCard pixChave={ad.pix_chave} />}
+
+                  {!isRecusando ? (
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setRecusandoConfirmId(null)}
-                        className="flex-1 py-2 rounded-xl border border-primary-600 text-[13px] text-gray-400 hover:bg-primary-700 transition-colors"
+                        onClick={() => handleAprovarAdiantamento(ad.id)}
+                        disabled={aprovandoId === ad.id}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-third-500/15 hover:bg-third-500/25 border border-third-500/30 text-[13px] font-medium text-third-400 transition-colors disabled:opacity-60"
                       >
-                        Voltar
+                        <Check size={14} />
+                        {aprovandoId === ad.id ? "Aprovando..." : "Aprovar e transferir"}
                       </button>
                       <button
-                        onClick={() => handleRecusarAdiantamento(ad.id)}
-                        disabled={recusandoId === ad.id || !recusaFeedback[ad.id]?.trim()}
-                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-[13px] font-medium text-red-400 transition-colors disabled:opacity-60"
+                        onClick={() => setRecusandoConfirmId(ad.id)}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-[13px] font-medium text-red-400 transition-colors"
                       >
-                        {recusandoId === ad.id ? "Enviando..." : "Confirmar recusa"}
+                        <X size={14} />
+                        Recusar
                       </button>
                     </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        value={recusaFeedback[ad.id] ?? ""}
+                        onChange={(e) => setRecusaFeedback((prev) => ({ ...prev, [ad.id]: e.target.value }))}
+                        placeholder="Informe o motivo da recusa para o freelancer..."
+                        rows={2}
+                        className="w-full bg-primary-900 border border-primary-700 focus:border-primary-500 rounded-xl px-4 py-2.5 text-[13px] text-gray-100 placeholder-gray-500 outline-none resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setRecusandoConfirmId(null)}
+                          className="flex-1 py-2 rounded-xl border border-primary-600 text-[13px] text-gray-400 hover:bg-primary-700 transition-colors"
+                        >
+                          Voltar
+                        </button>
+                        <button
+                          onClick={() => handleRecusarAdiantamento(ad.id)}
+                          disabled={recusandoId === ad.id || !recusaFeedback[ad.id]?.trim()}
+                          className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-500/20 text-[13px] font-medium text-red-400 transition-colors disabled:opacity-60"
+                        >
+                          {recusandoId === ad.id ? "Enviando..." : "Confirmar recusa"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-          <div className="w-full grid grid-cols-3 gap-4">
-            {METRICS.map((m) => (
-              <button
-                key={m.label}
-                type="button"
-                onClick={m.onClick}
-                className="flex flex-col justify-center items-start gap-2 p-4 rounded-lg bg-primary-800 border border-primary-700 w-full h-full transition-colors cursor-pointer hover:[background:linear-gradient(180deg,var(--primary-500),var(--primary-800))]"
-              >
-                <m.icon size={24} className="text-primary-200" />
-                <div className="text-[13px] text-gray-300">{m.label}</div>
-                <div className="text-[22px] text-gray-200 font-semibold">{m.value}</div>
-              </button>
-            ))}
+        <section className="po-stats">
+          {METRICS.map((m) => (
+            <button
+              key={m.label}
+              type="button"
+              onClick={m.onClick}
+              className={"po-stat" + (m.accent ? " accent" : "")}
+            >
+              <span className="po-stat-ico">
+                <m.icon size={22} />
+              </span>
+              <span className="po-stat-label">{m.label}</span>
+              <span className="po-stat-value">{m.value}</span>
+            </button>
+          ))}
+        </section>
+
+        <section className="po-grid">
+          <div className="po-panel">
+            <div className="po-panel-head">
+              <div>
+                <h2 className="po-panel-title">Saúde dos projetos</h2>
+                <p className="po-panel-sub">% de conclusão por categoria</p>
+              </div>
+              {projects.length > 0 && (
+                <button
+                  type="button"
+                  className="po-link"
+                  onClick={() =>
+                    router.push(projects.length === 1 ? `/portal/projeto/${firstProject!.id}` : "/portal/projetos")
+                  }
+                >
+                  {projects.length === 1 ? "Ver projeto" : "Ver projetos"}
+                  <ArrowRight size={17} />
+                </button>
+              )}
+            </div>
+
+            {!hasAnyData ? (
+              <div className="po-empty">
+                <span className="po-empty-ico">
+                  <Package size={26} strokeWidth={1.8} />
+                </span>
+                <p className="po-empty-txt">Nenhum projeto disponível</p>
+              </div>
+            ) : (
+              <div className="po-chart">
+                {chartData.map(({ name, pct }) => (
+                  <div key={name} className="po-chart-row">
+                    <span className="po-chart-label">{name}</span>
+                    <div className="po-chart-bar-area">
+                      <div className="po-chart-track">
+                        {pct > 0 && <div className="po-chart-fill" style={{ width: `${pct}%` }} />}
+                      </div>
+                      <span className="po-chart-pct">{pct}%</span>
+                    </div>
+                  </div>
+                ))}
+                <div className="po-chart-axis">
+                  {["0%", "25%", "50%", "75%", "100%"].map((t) => (
+                    <span key={t}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex-1 grid grid-cols-[1.2fr,0.8fr] gap-4 min-h-0">
-
-            <div className="flex flex-col rounded-lg bg-primary-800 border border-primary-700 overflow-hidden min-h-0">
-              <div className="px-5 py-4 border-b border-primary-700 flex-shrink-0 flex items-center justify-between">
-                <div>
-                  <div className="text-[15px] font-semibold text-gray-200">Saúde dos projetos</div>
-                  <div className="text-[12px] text-gray-500 mt-0.5">% de conclusão por categoria</div>
-                </div>
-                {projects.length > 0 && (
-                  <button
-                    onClick={() => router.push(projects.length === 1 ? `/portal/projeto/${firstProject!.id}` : "/portal/projetos")}
-                    className="text-[12px] text-primary-300 hover:text-primary-200 border border-primary-600 hover:border-primary-500 rounded-lg px-3 py-1.5 transition-colors flex-shrink-0"
-                  >
-                    {projects.length === 1 ? "Ver projeto →" : "Ver projetos →"}
-                  </button>
-                )}
+          <div className="po-panel">
+            <div className="po-panel-head">
+              <div>
+                <h2 className="po-panel-title">Atividades recentes</h2>
+                <p className="po-panel-sub">Últimas ações nos seus projetos</p>
               </div>
+            </div>
 
-              <div className="flex-1 p-4 min-h-0">
-                {!hasAnyData ? (
-                  <div className="h-full flex items-center justify-center">
-                    <p className="text-gray-500 text-[13px]">Nenhum projeto disponível</p>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={chartData}
-                      layout="vertical"
-                      margin={{ top: 0, right: 52, left: 0, bottom: 0 }}
-                      barCategoryGap="30%"
+            {activities.length === 0 ? (
+              <div className="po-empty">
+                <span className="po-empty-ico">
+                  <Clock size={26} strokeWidth={1.8} />
+                </span>
+                <p className="po-empty-txt">Nenhuma atividade registrada ainda</p>
+              </div>
+            ) : (
+              <div className="po-activities custom-scrollbar">
+                {activities.map((act, i) => {
+                  const { icon: Icon, color } = getActivityMeta(act.tipo);
+                  const timeAgo = formatTimeAgo(act.created_at);
+                  return (
+                    <div
+                      key={act.id}
+                      className={`flex items-start gap-3 py-3.5${i < activities.length - 1 ? " po-activity-divider" : ""}`}
                     >
-                      <XAxis
-                        type="number"
-                        domain={[0, 100]}
-                        tick={{ fill: "var(--gray-400, #9ca3af)", fontSize: 11 }}
-                        axisLine={{ stroke: "var(--primary-700, #334155)" }}
-                        tickLine={false}
-                        tickFormatter={(v) => `${v}%`}
-                        tickCount={5}
-                      />
-                      <YAxis
-                        type="category"
-                        dataKey="name"
-                        tick={(props: any) => (
-                          <text
-                            x={props.x - 82}
-                            y={props.y}
-                            dy={4}
-                            textAnchor="start"
-                            fill="var(--gray-300, #cbd5e1)"
-                            fontSize={12}
-                          >
-                            {props.payload.value}
-                          </text>
-                        )}
-                        axisLine={false}
-                        tickLine={false}
-                        width={90}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: "var(--primary-800, #1e293b)",
-                          border: "1px solid var(--primary-600, #475569)",
-                          borderRadius: 10,
-                          color: "#e2e8f0",
-                          fontSize: 12,
-                          padding: "8px 12px",
-                        }}
-                        cursor={{ fill: "rgba(100,116,139,0.06)" }}
-                        formatter={(value: any, _name: any, props: any) => [
-                          `${value}% (${props.payload.done}/${props.payload.total})`,
-                          "Concluído",
-                        ]}
-                      />
-                      <Bar
-                        dataKey="pct"
-                        fill="var(--primary-500, #6366f1)"
-                        radius={[0, 4, 4, 0]}
-                        background={{ fill: "var(--primary-900, #0f172a)", radius: 4 } as any}
-                        label={{ position: "right", formatter: (v: any) => `${v}%`, fill: "var(--gray-400, #94a3b8)", fontSize: 11 }}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            <div className="h-full rounded-lg bg-primary-800 border border-primary-700 flex flex-col min-h-0 overflow-hidden">
-              <div className="px-5 py-4 border-b border-primary-700 flex-shrink-0">
-                <div className="text-[15px] font-semibold text-gray-200">Atividades recentes</div>
-                <div className="text-[12px] text-gray-500 mt-0.5">Últimas ações nos seus projetos</div>
-              </div>
-
-              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-                {activities.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center gap-2 py-12 text-center px-4">
-                    <Clock size={24} className="text-gray-600" />
-                    <p className="text-gray-500 text-[13px]">Nenhuma atividade registrada ainda</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col">
-                    {activities.map((act, i) => {
-                      const { icon: Icon, color } = getActivityMeta(act.tipo);
-                      const timeAgo = formatTimeAgo(act.created_at);
-                      return (
-                        <div
-                          key={act.id}
-                          className={`flex items-start gap-3 px-5 py-3.5 ${i < activities.length - 1 ? "border-b border-primary-700" : ""}`}
-                        >
-                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${color}`}>
-                            <Icon size={13} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] text-gray-200 leading-snug">
-                              {act.descricao || formatActivityLabel(act.tipo)}
-                            </p>
-                            <div className="flex items-center gap-1.5 mt-1">
-                              {act.projetos && (
-                                <span className="text-[11px] text-primary-400 truncate max-w-[120px]">{(act.projetos as any).titulo}</span>
-                              )}
-                              {act.projetos && <span className="text-gray-700 text-[11px]">·</span>}
-                              <span className="text-[11px] text-gray-600 flex-shrink-0">{timeAgo}</span>
-                            </div>
-                          </div>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${color}`}>
+                        <Icon size={13} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] leading-snug" style={{ color: "var(--gray-200)" }}>
+                          {act.descricao || formatActivityLabel(act.tipo)}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          {act.projetos && (
+                            <span className="text-[11px] truncate max-w-[120px]" style={{ color: "var(--primary-400)" }}>
+                              {(act.projetos as any).titulo}
+                            </span>
+                          )}
+                          {act.projetos && (
+                            <span className="text-[11px]" style={{ color: "var(--gray-700)" }}>·</span>
+                          )}
+                          <span className="text-[11px] flex-shrink-0" style={{ color: "var(--gray-500)" }}>
+                            {timeAgo}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            </div>
-
+            )}
           </div>
         </section>
       </div>
 
       <style jsx global>{`
+        .po {
+          position: relative;
+          flex: 1;
+          min-width: 0;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          padding: 44px 52px 52px;
+          overflow: hidden;
+          background: var(--primary-900);
+          color: var(--gray-100);
+          -webkit-font-smoothing: antialiased;
+        }
+        .po-bg {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          z-index: 0;
+          background:
+            radial-gradient(42% 40% at 88% 0%, rgba(30,182,232,0.10), transparent 70%),
+            radial-gradient(36% 38% at 4% 6%, rgba(16,66,83,0.42), transparent 70%);
+        }
+        .po > *:not(.po-bg) { position: relative; z-index: 1; }
+
+        /* header */
+        .po-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          margin-bottom: 22px;
+        }
+        .po-greet { display: flex; align-items: center; gap: 16px; }
+        .po-avatar {
+          display: grid;
+          place-items: center;
+          width: 50px;
+          height: 50px;
+          flex: none;
+          border-radius: 50%;
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--primary-200);
+          background: rgba(30,182,232,0.10);
+          border: 1px solid rgba(30,182,232,0.30);
+          overflow: hidden;
+        }
+        .po-hello {
+          margin: 0;
+          font-size: 26px;
+          font-weight: 700;
+          color: var(--gray-100);
+          letter-spacing: -0.02em;
+        }
+        .po-account { display: flex; align-items: center; gap: 18px; }
+        .po-email { font-size: 15.5px; color: var(--gray-300); }
+
+        /* notifications */
+        .po-notifications {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-bottom: 22px;
+        }
+
+        /* stat cards */
+        .po-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 18px;
+          margin-bottom: 18px;
+        }
+        .po-stat {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          padding: 18px 22px;
+          border-radius: 16px;
+          border: 1px solid var(--gray-700);
+          background: linear-gradient(180deg, rgba(16,66,83,0.16), rgba(8,34,42,0.34));
+          text-align: left;
+          cursor: pointer;
+          transition: opacity 0.18s;
+          width: 100%;
+        }
+        .po-stat:hover { opacity: 0.82; }
+        .po-stat.accent {
+          border-color: rgba(30,182,232,0.30);
+          background: linear-gradient(180deg, rgba(30,182,232,0.10), rgba(8,34,42,0.40));
+        }
+        .po-stat-ico {
+          display: grid;
+          place-items: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 11px;
+          color: var(--primary-400);
+          background: rgba(30,182,232,0.10);
+          border: 1px solid rgba(30,182,232,0.22);
+        }
+        .po-stat-label { font-size: 14px; color: var(--gray-400); }
+        .po-stat-value { font-size: 22px; font-weight: 700; color: var(--gray-100); letter-spacing: -0.015em; }
+
+        /* main grid */
+        .po-grid {
+          display: grid;
+          grid-template-columns: 1.55fr 1fr;
+          gap: 22px;
+          align-items: stretch;
+          flex: 1;
+          min-height: 0;
+        }
+        .po-panel {
+          display: flex;
+          flex-direction: column;
+          padding: 22px 26px;
+          border-radius: 18px;
+          border: 1px solid var(--gray-700);
+          background: linear-gradient(180deg, rgba(16,66,83,0.12), rgba(8,34,42,0.30));
+          min-height: 0;
+        }
+        .po-panel-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
+          padding-bottom: 16px;
+          margin-bottom: 18px;
+          border-bottom: 1px solid rgba(29,38,40,0.7);
+          flex-shrink: 0;
+        }
+        .po-panel-title { margin: 0; font-size: 19px; font-weight: 700; color: var(--gray-100); }
+        .po-panel-sub { margin: 6px 0 0; font-size: 14.5px; color: var(--gray-500); }
+        .po-link {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          height: 42px;
+          padding: 0 18px;
+          flex: none;
+          font-family: inherit;
+          font-size: 14.5px;
+          font-weight: 600;
+          color: var(--primary-300);
+          cursor: pointer;
+          white-space: nowrap;
+          border-radius: 11px;
+          border: 1px solid rgba(30,182,232,0.28);
+          background: rgba(30,182,232,0.07);
+          transition: background 0.18s, color 0.18s;
+        }
+        .po-link:hover { background: rgba(30,182,232,0.13); color: var(--primary-200); }
+
+        /* health bar chart */
+        .po-chart { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: hidden; }
+        .po-chart-row { display: grid; grid-template-columns: 110px 1fr; align-items: stretch; gap: 18px; flex: 1; min-height: 0; }
+        .po-chart-bar-area { display: flex; align-items: center; gap: 12px; height: 100%; }
+        .po-chart-label { font-size: 15px; color: var(--gray-300); display: flex; align-items: center; }
+        .po-chart-track {
+          flex: 1;
+          height: 100%;
+          min-height: 22px;
+          border-radius: 9px;
+          background: rgba(6,25,31,0.6);
+          border: 1px solid var(--gray-700);
+          overflow: hidden;
+        }
+        .po-chart-fill {
+          height: 100%;
+          min-width: 2px;
+          border-radius: 8px;
+          background: linear-gradient(90deg, var(--primary-500), var(--primary-400));
+          box-shadow: 0 0 22px -6px rgba(30,182,232,0.7);
+        }
+        .po-chart-pct {
+          font-size: 14.5px;
+          font-weight: 600;
+          color: var(--gray-300);
+          flex-shrink: 0;
+          min-width: 36px;
+          text-align: right;
+        }
+        .po-chart-axis {
+          display: flex;
+          justify-content: space-between;
+          margin: 4px 48px 0 128px;
+          font-size: 13px;
+          color: var(--gray-500);
+        }
+
+        /* recent activities */
+        .po-activities {
+          flex: 1;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+        }
+        .po-activity-divider { border-bottom: 1px solid var(--gray-700); }
+
+        /* empty state */
+        .po-empty {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          padding: 40px 20px;
+          text-align: center;
+        }
+        .po-empty-ico {
+          display: grid;
+          place-items: center;
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          color: var(--gray-500);
+          background: rgba(148,169,173,0.06);
+          border: 1px solid var(--gray-700);
+        }
+        .po-empty-txt { margin: 0; font-size: 15.5px; color: var(--gray-500); }
+
+        /* scrollbar */
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--primary-700); border-radius: 9999px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--primary-600); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--gray-700); border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--gray-600); }
       `}</style>
     </div>
   );
@@ -580,4 +790,3 @@ function formatTimeAgo(dateStr: string): string {
   if (days < 7) return `há ${days} dia${days > 1 ? "s" : ""}`;
   return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
-

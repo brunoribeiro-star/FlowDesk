@@ -9,7 +9,7 @@ const supabaseAdmin = createClient(
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).end();
 
-  const { email, token } = req.body as { email?: string; token?: string };
+  const { email, token, returnTo } = req.body as { email?: string; token?: string; returnTo?: string };
   if (!email?.trim() || !token?.trim()) {
     return res.status(400).json({ error: "E-mail e token são obrigatórios." });
   }
@@ -44,10 +44,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     (req.headers.origin as string) ||
     (req.headers.host ? `https://${req.headers.host}` : "https://app.oflowdesk.com");
 
+  const safeReturnTo =
+    returnTo && /^\/portal\/[a-zA-Z0-9_\-]+$/.test(returnTo)
+      ? `${origin}${returnTo}`
+      : `${origin}/portal/dashboard`;
+
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: "magiclink",
     email: trimmedEmail,
-    options: { redirectTo: `${origin}/portal/dashboard` },
+    options: { redirectTo: safeReturnTo },
   });
 
   if (linkError || !linkData?.properties?.action_link) {
