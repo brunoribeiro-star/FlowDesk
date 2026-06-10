@@ -212,7 +212,7 @@ export default function PortalLoginPage() {
                 </label>
 
                 <div
-                  style={{ display: "flex", gap: "8px" }}
+                  style={{ display: "flex", gap: "8px", justifyContent: "center" }}
                   onPaste={handleOtpPaste}
                 >
                   {otp.map((digit, idx) => (
@@ -227,8 +227,9 @@ export default function PortalLoginPage() {
                       onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                       autoFocus={idx === 0}
                       style={{
-                        flex: 1,
-                        aspectRatio: "1",
+                        width: "100%",
+                        maxWidth: "56px",
+                        height: "56px",
                         textAlign: "center",
                         fontSize: "22px",
                         fontWeight: 700,
