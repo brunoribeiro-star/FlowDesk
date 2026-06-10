@@ -83,7 +83,6 @@ select.flow-select {
   animation: page-progress 0.8s ease-out forwards;
 }
 
-/* Settings page — cfg-btn uses CSS-variable-aware backgrounds for theme compatibility */
 .cfg-btn-impl {
   background: color-mix(in srgb, var(--primary-500) 5%, transparent);
 }
@@ -95,4 +94,8 @@ select.flow-select {
 }
 .cfg-file-row:hover {
   background: color-mix(in srgb, var(--primary-700) 40%, transparent);
+}
+/* Auth logo — inverted in light themes */
+[data-theme="claro"] .auth-logo-wrap img {
+  filter: brightness(0) saturate(0) opacity(0.75);
 }

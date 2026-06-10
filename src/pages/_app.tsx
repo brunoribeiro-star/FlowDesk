@@ -22,7 +22,6 @@ function PageContent({ Component, pageProps, pathname }: { Component: any; pageP
     && pathname !== "/portal/[token]";
 
   const isDashboard = pathname.startsWith("/dashboard");
-  // Configuracoes is always accessible so the user can subscribe
   const isConfiguracoes = pathname.startsWith("/dashboard/configuracoes");
 
   const hasValidSubscription =
@@ -128,6 +127,7 @@ export default function App({ Component, pageProps, router }: AppProps) {
       link.id = "flowdesk-theme";
       link.href = `/styles/themes/${selectedTheme}.css`;
       document.head.appendChild(link);
+      document.documentElement.setAttribute("data-theme", selectedTheme);
     };
 
     loadTheme();

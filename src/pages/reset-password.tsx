@@ -47,19 +47,29 @@ export default function ResetPassword() {
     }
   }
 
+  const logoBlock = (
+    <div style={{ display: "flex", justifyContent: "center", marginBottom: "30px" }}>
+      <span className="auth-logo-wrap"><Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority /></span>
+    </div>
+  );
+
   if (!ready) {
     return (
       <AuthBackground>
         <AuthCard>
-          <div className="flex justify-center mb-8">
-            <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
-          </div>
-          <div className="flex flex-col items-center gap-3 py-4">
+          {logoBlock}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "16px 0" }}>
             <div
-              className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-              style={{ borderColor: "var(--primary-500)", borderTopColor: "transparent" }}
+              className="animate-spin"
+              style={{
+                width: "24px",
+                height: "24px",
+                border: "2px solid var(--primary-500)",
+                borderTopColor: "transparent",
+                borderRadius: "50%",
+              }}
             />
-            <p className="text-sm" style={{ color: "var(--gray-400)" }}>
+            <p style={{ fontSize: "15px", color: "var(--gray-400)", margin: 0 }}>
               Validando link de recuperação...
             </p>
           </div>
@@ -72,28 +82,58 @@ export default function ResetPassword() {
     return (
       <AuthBackground>
         <AuthCard>
-          <div className="flex justify-center mb-8">
-            <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
-          </div>
-          <div className="flex flex-col items-center gap-5">
+          {logoBlock}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center"
-              style={{ background: "color-mix(in srgb, var(--primary-500) 15%, transparent)" }}
+              style={{
+                display: "grid",
+                placeItems: "center",
+                width: "72px",
+                height: "72px",
+                margin: "8px auto 22px",
+                borderRadius: "50%",
+                color: "var(--primary-400)",
+                background: "color-mix(in srgb, var(--primary-500) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--primary-500) 26%, transparent)",
+              }}
             >
-              <CheckCircle className="w-6 h-6" style={{ color: "var(--primary-500)" }} />
+              <CheckCircle size={28} strokeWidth={1.9} />
             </div>
-            <div className="text-center">
-              <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--gray-100)" }}>
+
+            <div style={{ marginBottom: "28px" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "27px",
+                  fontWeight: 700,
+                  color: "var(--gray-100)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
                 Senha redefinida
-              </h2>
-              <p className="text-sm" style={{ color: "var(--gray-400)" }}>
+              </h1>
+              <p style={{ margin: "9px 0 0", fontSize: "15.5px", lineHeight: 1.5, color: "var(--gray-400)" }}>
                 Sua senha foi atualizada com sucesso. Faça login para continuar.
               </p>
             </div>
+
             <Link
               href="/login"
-              className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center transition-opacity mt-2"
-              style={{ background: "var(--primary-500)", color: "var(--primary-900)" }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                height: "58px",
+                fontFamily: "inherit",
+                fontSize: "16.5px",
+                fontWeight: 700,
+                color: "var(--primary-900)",
+                textDecoration: "none",
+                borderRadius: "14px",
+                background: "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+                boxShadow: "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)",
+              }}
             >
               Ir para o login
             </Link>
@@ -106,24 +146,32 @@ export default function ResetPassword() {
   return (
     <AuthBackground>
       <AuthCard>
-        <div className="flex justify-center mb-8">
-          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
+        {logoBlock}
+
+        <div style={{ textAlign: "center", marginBottom: "28px" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "27px",
+              fontWeight: 700,
+              color: "var(--gray-100)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Criar nova senha
+          </h1>
+          <p style={{ margin: "9px 0 0", fontSize: "15.5px", lineHeight: 1.5, color: "var(--gray-400)" }}>
+            Escolha uma senha segura para sua conta.
+          </p>
         </div>
 
-        <h1 className="text-xl font-semibold text-center mb-1" style={{ color: "var(--gray-100)" }}>
-          Criar nova senha
-        </h1>
-        <p className="text-sm text-center mb-7" style={{ color: "var(--gray-400)" }}>
-          Escolha uma senha segura para sua conta.
-        </p>
-
-        <form onSubmit={handleReset} className="flex flex-col gap-4">
+        <form onSubmit={handleReset} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
           <AuthInput
             label="Nova senha"
             type="password"
             placeholder="Digite sua nova senha"
             required
-            icon={<Lock className="w-4 h-4" />}
+            icon={<Lock size={19} />}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
@@ -134,7 +182,7 @@ export default function ResetPassword() {
             type="password"
             placeholder="Repita a nova senha"
             required
-            icon={<Lock className="w-4 h-4" />}
+            icon={<Lock size={19} />}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
@@ -142,7 +190,7 @@ export default function ResetPassword() {
           />
 
           {error && (
-            <p className="text-xs text-center" style={{ color: "var(--error-medium)" }}>
+            <p style={{ fontSize: "13px", textAlign: "center", color: "var(--error-medium)", margin: 0 }}>
               {error}
             </p>
           )}
@@ -150,11 +198,29 @@ export default function ResetPassword() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-11 rounded-xl text-sm font-semibold transition-opacity mt-1"
             style={{
-              background: "var(--primary-500)",
+              height: "58px",
+              fontFamily: "inherit",
+              fontSize: "16.5px",
+              fontWeight: 700,
               color: "var(--primary-900)",
+              cursor: loading ? "not-allowed" : "pointer",
+              border: "none",
+              borderRadius: "14px",
+              background: "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+              boxShadow: "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)",
               opacity: loading ? 0.6 : 1,
+              transition: "transform 0.2s, box-shadow 0.2s, opacity 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 20px 40px -14px color-mix(in srgb, var(--primary-500) 95%, transparent)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.transform = "none";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)";
             }}
           >
             {loading ? "Redefinindo..." : "Redefinir senha"}

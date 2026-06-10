@@ -5,46 +5,16 @@ export default function AuthBackground({ children }: { children: React.ReactNode
       style={{ background: "var(--primary-900)" }}
     >
       <div
-        className="pointer-events-none absolute"
+        className="pointer-events-none absolute inset-0"
         style={{
-          top: "5%",
-          left: "15%",
-          width: "500px",
-          height: "500px",
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, color-mix(in srgb, var(--secondary-500) 28%, transparent) 0%, transparent 70%)",
-          filter: "blur(50px)",
+          background: [
+            "radial-gradient(40% 50% at 22% 38%, color-mix(in srgb, var(--secondary-600) 16%, transparent), transparent 70%)",
+            "radial-gradient(45% 55% at 82% 72%, color-mix(in srgb, var(--primary-500) 12%, transparent), transparent 70%)",
+            "radial-gradient(38% 45% at 88% 30%, color-mix(in srgb, var(--primary-600) 40%, transparent), transparent 70%)",
+          ].join(", "),
         }}
       />
-      <div
-        className="pointer-events-none absolute"
-        style={{
-          bottom: "10%",
-          right: "10%",
-          width: "420px",
-          height: "420px",
-          borderRadius: "50%",
-          background:
-            "radial-gradient(circle, color-mix(in srgb, var(--primary-500) 18%, transparent) 0%, transparent 70%)",
-          filter: "blur(60px)",
-        }}
-      />
-      <div
-        className="pointer-events-none absolute"
-        style={{
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: "640px",
-          height: "320px",
-          borderRadius: "50%",
-          background:
-            "radial-gradient(ellipse, color-mix(in srgb, var(--secondary-600) 12%, transparent) 0%, transparent 70%)",
-          filter: "blur(40px)",
-        }}
-      />
-      <div className="relative z-10 w-full flex items-center justify-center px-4 py-12">
+      <div className="relative z-10 w-full flex items-center justify-center px-4 py-4">
         {children}
       </div>
     </div>

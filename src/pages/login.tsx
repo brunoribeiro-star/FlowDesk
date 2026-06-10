@@ -70,136 +70,213 @@ export default function LoginPage() {
 
   return (
     <>
-    <Head><title>Entrar — FlowDesk</title></Head>
-    <AuthBackground>
-      <AuthCard>
-        <div className="flex justify-center mb-8">
-          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
-        </div>
-
-        {/* Role toggle */}
-        <div
-          className="flex items-center gap-1 p-1 rounded-xl mb-7"
-          style={{ background: "var(--primary-900)", border: "1px solid var(--primary-700)" }}
-        >
-          <button
-            type="button"
-            className="flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors"
-            style={{ background: "var(--primary-700)", color: "var(--gray-100)" }}
-          >
-            Freelancer
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push("/portal/login")}
-            className="flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors"
-            style={{ color: "var(--gray-500)" }}
-          >
-            Cliente
-          </button>
-        </div>
-
-        <h1
-          className="text-xl font-semibold text-center mb-1"
-          style={{ color: "var(--gray-100)" }}
-        >
-          Entrar no FlowDesk
-        </h1>
-        <p className="text-sm text-center mb-7" style={{ color: "var(--gray-400)" }}>
-          Acesse sua conta para continuar
-        </p>
-
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
-          <AuthInput
-            label="E-mail"
-            name="email"
-            type="email"
-            placeholder="seu@email.com"
-            required
-            icon={<Mail className="w-4 h-4" />}
-            autoComplete="email"
-            maxLength={254}
-          />
-          <AuthInput
-            label="Senha"
-            name="password"
-            type="password"
-            placeholder="Sua senha"
-            required
-            icon={<Lock className="w-4 h-4" />}
-            autoComplete="current-password"
-            maxLength={128}
-          />
-
-          <div className="flex justify-end -mt-1">
-            <Link
-              href="/forgot-password"
-              className="text-xs transition-colors"
-              style={{ color: "var(--primary-400)" }}
-            >
-              Esqueceu a senha?
-            </Link>
+      <Head><title>Entrar — FlowDesk</title></Head>
+      <AuthBackground>
+        <AuthCard>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+            <span className="auth-logo-wrap"><Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority /></span>
           </div>
 
-          {error && (
-            <p className="text-xs text-center" style={{ color: "var(--error-medium)" }}>
-              {error}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full h-11 rounded-xl text-sm font-semibold transition-opacity mt-1"
+          <div
             style={{
-              background: "var(--primary-500)",
-              color: "var(--primary-900)",
-              opacity: loading ? 0.6 : 1,
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "6px",
+              padding: "6px",
+              marginBottom: "14px",
+              borderRadius: "15px",
+              border: "1px solid var(--gray-600)",
+              background: "var(--primary-900)",
             }}
           >
-            {loading ? "Entrando..." : "Entrar"}
-          </button>
-        </form>
+            <button
+              type="button"
+              style={{
+                height: "46px",
+                fontFamily: "inherit",
+                fontSize: "15.5px",
+                fontWeight: 600,
+                color: "var(--gray-100)",
+                background: "linear-gradient(180deg, color-mix(in srgb, var(--primary-500) 16%, transparent), color-mix(in srgb, var(--primary-600) 50%, transparent))",
+                border: "none",
+                borderRadius: "11px",
+                cursor: "pointer",
+                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--primary-500) 34%, transparent)",
+              }}
+            >
+              Freelancer
+            </button>
+            <button
+              type="button"
+              onClick={() => router.push("/portal/login")}
+              style={{
+                height: "46px",
+                fontFamily: "inherit",
+                fontSize: "15.5px",
+                fontWeight: 600,
+                color: "var(--gray-400)",
+                background: "none",
+                border: "none",
+                borderRadius: "11px",
+                cursor: "pointer",
+                transition: "color 0.18s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--gray-200)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--gray-400)"; }}
+            >
+              Cliente
+            </button>
+          </div>
 
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px" style={{ background: "var(--primary-700)" }} />
-          <span className="text-xs" style={{ color: "var(--gray-500)" }}>
-            ou
-          </span>
-          <div className="flex-1 h-px" style={{ background: "var(--primary-700)" }} />
-        </div>
+          <div style={{ textAlign: "center", marginBottom: "14px" }}>
+            <h1
+              style={{
+                margin: 0,
+                fontSize: "27px",
+                fontWeight: 700,
+                color: "var(--gray-100)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Entrar no FlowDesk
+            </h1>
+            <p style={{ margin: "5px 0 0", fontSize: "15.5px", lineHeight: 1.5, color: "var(--gray-400)" }}>
+              Acesse sua conta para continuar
+            </p>
+          </div>
 
-        <button
-          onClick={handleGoogleAuth}
-          className="w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-sm transition-colors"
-          style={{
-            background: "var(--primary-800)",
-            border: "1px solid var(--primary-700)",
-            color: "var(--gray-200)",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary-500)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary-700)";
-          }}
-        >
-          <Image src="/google.svg" alt="Google" width={18} height={18} />
-          Continuar com Google
-        </button>
+          <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <AuthInput
+              label="E-mail"
+              name="email"
+              type="email"
+              placeholder="seu@email.com"
+              required
+              icon={<Mail size={19} />}
+              autoComplete="email"
+              maxLength={254}
+            />
+            <AuthInput
+              label="Senha"
+              name="password"
+              type="password"
+              placeholder="Sua senha"
+              required
+              icon={<Lock size={19} />}
+              autoComplete="current-password"
+              maxLength={128}
+            />
 
-        <p className="text-center text-xs mt-7" style={{ color: "var(--gray-500)" }}>
-          Não tem uma conta?{" "}
-          <Link
-            href="/signup"
-            className="transition-colors"
-            style={{ color: "var(--primary-400)" }}
-          >
-            Criar conta
-          </Link>
-        </p>
-      </AuthCard>
-    </AuthBackground>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "-4px" }}>
+              <Link
+                href="/forgot-password"
+                style={{
+                  fontSize: "14.5px",
+                  fontWeight: 600,
+                  color: "var(--primary-400)",
+                  textDecoration: "none",
+                }}
+              >
+                Esqueceu a senha?
+              </Link>
+            </div>
+
+            {error && (
+              <p style={{ fontSize: "13px", textAlign: "center", color: "var(--error-medium)", margin: 0 }}>
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                height: "50px",
+                fontFamily: "inherit",
+                fontSize: "16.5px",
+                fontWeight: 700,
+                color: "var(--primary-900)",
+                cursor: loading ? "not-allowed" : "pointer",
+                border: "none",
+                borderRadius: "14px",
+                background: "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+                boxShadow: "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)",
+                opacity: loading ? 0.6 : 1,
+                transition: "transform 0.2s, box-shadow 0.2s, opacity 0.2s",
+              }}
+              onMouseEnter={(e) => {
+                if (!loading) {
+                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 20px 40px -14px color-mix(in srgb, var(--primary-500) 95%, transparent)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.transform = "none";
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)";
+              }}
+            >
+              {loading ? "Entrando..." : "Entrar"}
+            </button>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "16px",
+                margin: "2px 0",
+                color: "var(--gray-500)",
+                fontSize: "14px",
+              }}
+            >
+              <span style={{ flex: 1, height: "1px", background: "var(--gray-700)" }} />
+              ou
+              <span style={{ flex: 1, height: "1px", background: "var(--gray-700)" }} />
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleAuth}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "12px",
+                height: "50px",
+                fontFamily: "inherit",
+                fontSize: "16px",
+                fontWeight: 600,
+                color: "var(--gray-100)",
+                cursor: "pointer",
+                borderRadius: "14px",
+                border: "1px solid var(--gray-600)",
+                background: "var(--primary-900)",
+                transition: "border-color 0.18s, background 0.18s",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--gray-500)";
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--primary-800)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--gray-600)";
+                (e.currentTarget as HTMLButtonElement).style.background = "var(--primary-900)";
+              }}
+            >
+              <Image src="/google.svg" alt="Google" width={20} height={20} />
+              Continuar com Google
+            </button>
+          </form>
+
+          <p style={{ margin: "14px 0 0", textAlign: "center", fontSize: "15px", color: "var(--gray-400)" }}>
+            Não tem uma conta?{" "}
+            <Link
+              href="/signup"
+              style={{ color: "var(--primary-400)", fontWeight: 600, textDecoration: "none" }}
+            >
+              Criar conta
+            </Link>
+          </p>
+        </AuthCard>
+      </AuthBackground>
     </>
   );
 }

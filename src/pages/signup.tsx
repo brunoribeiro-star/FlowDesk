@@ -22,6 +22,7 @@ function traduzirErroSupabase(msg: string): string {
 export default function SignupPage() {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
+  const [emailFocused, setEmailFocused] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -109,41 +110,65 @@ export default function SignupPage() {
   return (
     <AuthBackground>
       <AuthCard>
-        <div className="flex justify-center mb-6">
-          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+          <span className="auth-logo-wrap"><Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority /></span>
         </div>
 
-        <h1 className="text-lg font-semibold mb-1" style={{ color: "var(--gray-100)" }}>
-          Criar conta
-        </h1>
-        <p className="text-xs mb-6" style={{ color: "var(--gray-400)" }}>
-          Comece seus 7 dias grátis, sem cartão de crédito.
-        </p>
+        <div style={{ textAlign: "left", marginBottom: "14px" }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "27px",
+              fontWeight: 700,
+              color: "var(--gray-100)",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Criar conta
+          </h1>
+          <p style={{ margin: "5px 0 0", fontSize: "15.5px", lineHeight: 1.5, color: "var(--gray-400)" }}>
+            Comece seus 7 dias grátis, sem cartão de crédito.
+          </p>
+        </div>
 
-        <form onSubmit={handleSignup} className="flex flex-col gap-4">
+        <form onSubmit={handleSignup} style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <AuthInput
             label="Nome completo"
             type="text"
             placeholder="Seu nome"
             required
-            icon={<User className="w-4 h-4" />}
+            icon={<User size={19} />}
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             autoComplete="name"
             maxLength={100}
           />
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium" style={{ color: "var(--gray-200)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+            <label style={{ fontSize: "14.5px", fontWeight: 600, color: "var(--gray-200)" }}>
               E-mail
             </label>
-            <div className="relative flex items-center">
-              <span
-                className="absolute left-3.5 w-4 h-4 flex items-center justify-center"
-                style={{ color: "var(--gray-400)" }}
-              >
-                <Mail className="w-4 h-4" />
-              </span>
+            <div
+              className="relative"
+              style={{
+                height: "50px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "0 16px",
+                borderRadius: "14px",
+                border: `1px solid ${emailError ? "var(--error-medium)" : emailFocused ? "var(--primary-500)" : "var(--gray-600)"}`,
+                background: emailFocused
+                  ? "color-mix(in srgb, var(--primary-600) 30%, var(--primary-900))"
+                  : "var(--primary-900)",
+                boxShadow: emailFocused && !emailError ? "0 0 0 3px color-mix(in srgb, var(--primary-500) 16%, transparent)" : "none",
+                transition: "border-color 0.18s, background 0.18s, box-shadow 0.18s",
+              }}
+            >
+              <Mail
+                size={19}
+                style={{ color: emailFocused ? "var(--primary-400)" : "var(--gray-500)", flexShrink: 0 }}
+              />
               <input
                 type="email"
                 placeholder="seu@email.com"
@@ -153,37 +178,40 @@ export default function SignupPage() {
                   setEmail(e.target.value);
                   if (emailError) setEmailError(null);
                 }}
-                onBlur={() => checkEmailExists(email)}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => {
+                  setEmailFocused(false);
+                  checkEmailExists(email);
+                }}
                 autoComplete="email"
                 maxLength={254}
-                className="w-full h-11 rounded-xl text-sm focus:outline-none transition-colors"
                 style={{
-                  background: "var(--primary-800)",
-                  border: emailError
-                    ? "1px solid var(--error-medium)"
-                    : "1px solid var(--primary-700)",
+                  flex: 1,
+                  fontSize: "16px",
                   color: "var(--gray-100)",
-                  paddingLeft: "2.5rem",
-                  paddingRight: "1rem",
-                }}
-                onFocus={(e) => {
-                  if (!emailError) e.currentTarget.style.borderColor = "var(--primary-500)";
-                }}
-                onBlurCapture={(e) => {
-                  if (!emailError) e.currentTarget.style.borderColor = "var(--primary-700)";
+                  background: "transparent",
+                  border: "none",
+                  outline: "none",
+                  paddingRight: checkingEmail ? "28px" : "0",
                 }}
               />
               {checkingEmail && (
-                <span className="absolute right-3">
+                <span style={{ position: "absolute", right: "16px" }}>
                   <div
-                    className="w-3.5 h-3.5 border-2 border-t-transparent rounded-full animate-spin"
-                    style={{ borderColor: "var(--primary-500)", borderTopColor: "transparent" }}
+                    style={{
+                      width: "14px",
+                      height: "14px",
+                      border: "2px solid var(--primary-500)",
+                      borderTopColor: "transparent",
+                      borderRadius: "50%",
+                    }}
+                    className="animate-spin"
                   />
                 </span>
               )}
             </div>
             {emailError && (
-              <p className="text-xs" style={{ color: "var(--error-medium)" }}>
+              <p style={{ fontSize: "13px", color: "var(--error-medium)", margin: 0 }}>
                 {emailError}{" "}
                 <Link href="/login" style={{ color: "var(--primary-400)" }}>
                   Fazer login?
@@ -197,7 +225,7 @@ export default function SignupPage() {
             type="password"
             placeholder="Crie uma senha"
             required
-            icon={<Lock className="w-4 h-4" />}
+            icon={<Lock size={19} />}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
@@ -208,7 +236,7 @@ export default function SignupPage() {
             type="password"
             placeholder="Repita a senha"
             required
-            icon={<Lock className="w-4 h-4" />}
+            icon={<Lock size={19} />}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
@@ -216,7 +244,7 @@ export default function SignupPage() {
           />
 
           {error && (
-            <p className="text-xs text-center" style={{ color: "var(--error-medium)" }}>
+            <p style={{ fontSize: "13px", textAlign: "center", color: "var(--error-medium)", margin: 0 }}>
               {error}
             </p>
           )}
@@ -224,45 +252,84 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading || !!emailError || checkingEmail}
-            className="w-full h-11 rounded-xl text-sm font-semibold mt-1 transition-opacity"
             style={{
-              background: "var(--primary-500)",
+              height: "50px",
+              fontFamily: "inherit",
+              fontSize: "16.5px",
+              fontWeight: 700,
               color: "var(--primary-900)",
+              cursor: loading || emailError || checkingEmail ? "not-allowed" : "pointer",
+              border: "none",
+              borderRadius: "14px",
+              background: "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+              boxShadow: "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)",
               opacity: loading || emailError || checkingEmail ? 0.6 : 1,
+              transition: "transform 0.2s, box-shadow 0.2s, opacity 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              if (!loading && !emailError && !checkingEmail) {
+                (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 20px 40px -14px color-mix(in srgb, var(--primary-500) 95%, transparent)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.transform = "none";
+              (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)";
             }}
           >
             {loading ? "Criando conta..." : "Criar conta"}
           </button>
 
-          <div className="flex items-center gap-3 mt-1">
-            <div className="flex-1 h-px" style={{ background: "var(--primary-700)" }} />
-            <span className="text-xs" style={{ color: "var(--gray-500)" }}>ou</span>
-            <div className="flex-1 h-px" style={{ background: "var(--primary-700)" }} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "16px",
+              margin: "2px 0",
+              color: "var(--gray-500)",
+              fontSize: "14px",
+            }}
+          >
+            <span style={{ flex: 1, height: "1px", background: "var(--gray-700)" }} />
+            ou
+            <span style={{ flex: 1, height: "1px", background: "var(--gray-700)" }} />
           </div>
 
           <button
             type="button"
             onClick={handleGoogleAuth}
-            className="w-full h-11 rounded-xl flex items-center justify-center gap-2.5 text-sm transition-colors"
             style={{
-              background: "var(--primary-800)",
-              border: "1px solid var(--primary-700)",
-              color: "var(--gray-200)",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "12px",
+              height: "50px",
+              fontFamily: "inherit",
+              fontSize: "16px",
+              fontWeight: 600,
+              color: "var(--gray-100)",
+              cursor: "pointer",
+              borderRadius: "14px",
+              border: "1px solid var(--gray-600)",
+              background: "var(--primary-900)",
+              transition: "border-color 0.18s, background 0.18s",
             }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary-500)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--gray-500)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--primary-800)";
             }}
             onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary-700)";
+              (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--gray-600)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--primary-900)";
             }}
           >
-            <Image src="/google.svg" alt="Google" width={18} height={18} />
+            <Image src="/google.svg" alt="Google" width={20} height={20} />
             Continuar com Google
           </button>
 
-          <p className="text-center text-xs" style={{ color: "var(--gray-500)" }}>
+          <p style={{ textAlign: "center", fontSize: "15px", color: "var(--gray-400)", margin: 0 }}>
             Já tem uma conta?{" "}
-            <Link href="/login" className="transition-colors" style={{ color: "var(--primary-400)" }}>
+            <Link href="/login" style={{ color: "var(--primary-400)", fontWeight: 600, textDecoration: "none" }}>
               Entrar
             </Link>
           </p>

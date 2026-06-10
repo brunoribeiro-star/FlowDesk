@@ -1,13 +1,14 @@
 export default function AuthCard({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="w-full max-w-md rounded-2xl p-8"
+      className="w-full"
       style={{
-        background: "color-mix(in srgb, var(--primary-800) 55%, transparent)",
-        backdropFilter: "blur(28px)",
-        WebkitBackdropFilter: "blur(28px)",
-        border: "1px solid var(--primary-700)",
-        boxShadow: "0 8px 40px rgba(0,0,0,0.50)",
+        maxWidth: "480px",
+        padding: "28px 36px 22px",
+        borderRadius: "26px",
+        background: "linear-gradient(180deg, var(--primary-800), var(--primary-700))",
+        border: "1px solid var(--gray-600)",
+        boxShadow: "0 40px 90px -40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.03)",
       }}
     >
       {children}

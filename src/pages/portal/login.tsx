@@ -3,12 +3,15 @@ import Head from "next/head";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { Mail, ArrowLeft } from "lucide-react";
+import AuthBackground from "@/components/auth/AuthBackground";
+import AuthCard from "@/components/auth/AuthCard";
 
 type Step = "form" | "sent" | "verifying_otp" | "error";
 
 export default function PortalLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [emailFocused, setEmailFocused] = useState(false);
   const [step, setStep] = useState<Step>("form");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -21,12 +24,10 @@ export default function PortalLoginPage() {
   const otpValue = otp.join("");
   const otpComplete = otpValue.length === 6;
 
-  // Auto-submit when all 6 digits are filled
   useEffect(() => {
     if (otpComplete && step === "sent") {
       handleVerifyOtp();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otpComplete, otpValue]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -91,7 +92,6 @@ export default function PortalLoginPage() {
         return;
       }
 
-      // Navigate through the magic link so Supabase creates the session
       window.location.href = json.magicLink;
     } catch {
       setOtpError("Erro de conexão. Tente novamente.");
@@ -152,175 +152,314 @@ export default function PortalLoginPage() {
         <title>Acessar portal do cliente — FlowDesk</title>
       </Head>
 
-      <div className="min-h-screen bg-primary-900 flex items-center justify-center p-6">
-        <div className="w-full max-w-md">
-          <div className="flex justify-center mb-8">
-            <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={130} height={34} priority />
+      <AuthBackground>
+        <AuthCard>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "30px" }}>
+            <span className="auth-logo-wrap"><Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority /></span>
           </div>
 
-          <div className="bg-primary-800 border border-primary-700 rounded-2xl p-8 shadow-[0_24px_60px_rgba(0,0,0,0.4)]">
+          {step === "sent" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  style={{
+                    display: "grid",
+                    placeItems: "center",
+                    width: "46px",
+                    height: "46px",
+                    borderRadius: "50%",
+                    border: "1px solid var(--gray-600)",
+                    color: "var(--gray-300)",
+                    background: "none",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    transition: "border-color 0.2s, color 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--primary-500)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--primary-300)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.borderColor = "var(--gray-600)";
+                    (e.currentTarget as HTMLButtonElement).style.color = "var(--gray-300)";
+                  }}
+                >
+                  <ArrowLeft size={18} />
+                </button>
+                <div>
+                  <h1
+                    style={{
+                      margin: 0,
+                      fontSize: "19px",
+                      fontWeight: 600,
+                      color: "var(--gray-200)",
+                    }}
+                  >
+                    Verifique seu e-mail
+                  </h1>
+                  <p style={{ margin: "3px 0 0", fontSize: "13px", color: "var(--gray-500)" }}>
+                    Código enviado para{" "}
+                    <strong style={{ color: "var(--gray-300)", fontWeight: 600 }}>{email.trim()}</strong>
+                  </p>
+                </div>
+              </div>
 
-            {/* Role toggle — hidden on sent step to save space */}
-            {step !== "sent" && (
-              <div className="flex items-center gap-1 p-1 bg-primary-900 border border-primary-700 rounded-xl mb-7">
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <label style={{ fontSize: "14.5px", fontWeight: 600, color: "var(--gray-200)" }}>
+                  Digite o código de 6 dígitos
+                </label>
+
+                <div
+                  style={{ display: "flex", gap: "8px" }}
+                  onPaste={handleOtpPaste}
+                >
+                  {otp.map((digit, idx) => (
+                    <input
+                      key={idx}
+                      ref={(el) => { otpRefs.current[idx] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleOtpChange(idx, e.target.value)}
+                      onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                      autoFocus={idx === 0}
+                      style={{
+                        flex: 1,
+                        aspectRatio: "1",
+                        textAlign: "center",
+                        fontSize: "22px",
+                        fontWeight: 700,
+                        borderRadius: "14px",
+                        border: `1px solid ${otpError ? "var(--error-medium)" : digit ? "var(--primary-500)" : "var(--gray-600)"}`,
+                        background: "var(--primary-900)",
+                        color: "var(--gray-100)",
+                        outline: "none",
+                        transition: "border-color 0.18s",
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {otpError && (
+                  <p style={{ fontSize: "13px", color: "var(--error-medium)", margin: 0 }}>{otpError}</p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={handleVerifyOtp}
+                disabled={!otpComplete || otpLoading}
+                style={{
+                  height: "58px",
+                  fontFamily: "inherit",
+                  fontSize: "16.5px",
+                  fontWeight: 700,
+                  color: !otpComplete || otpLoading ? "var(--primary-400)" : "var(--primary-900)",
+                  cursor: !otpComplete || otpLoading ? "not-allowed" : "pointer",
+                  border: "none",
+                  borderRadius: "14px",
+                  background: !otpComplete || otpLoading
+                    ? "var(--primary-700)"
+                    : "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+                  boxShadow: !otpComplete || otpLoading ? "none" : "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)",
+                  transition: "all 0.2s",
+                }}
+              >
+                {otpLoading ? "Verificando..." : "Entrar"}
+              </button>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", textAlign: "center" }}>
+                <p style={{ fontSize: "12px", color: "var(--gray-600)", margin: 0 }}>
+                  Ou{" "}
+                  <span style={{ color: "var(--gray-500)" }}>clique no link enviado no e-mail</span>{" "}
+                  para entrar sem digitar o código.
+                </p>
+                <p style={{ fontSize: "12px", color: "var(--gray-600)", margin: 0 }}>
+                  Não recebeu?{" "}
+                  <button
+                    type="button"
+                    onClick={handleResend}
+                    style={{
+                      color: "var(--primary-400)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      fontFamily: "inherit",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    Reenviar código
+                  </button>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {(step === "form" || step === "error") && (
+            <>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "6px",
+                  padding: "6px",
+                  marginBottom: "28px",
+                  borderRadius: "15px",
+                  border: "1px solid var(--gray-600)",
+                  background: "var(--primary-900)",
+                }}
+              >
                 <button
                   type="button"
                   onClick={() => router.push("/login")}
-                  className="flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors text-gray-500 hover:text-gray-300"
+                  style={{
+                    height: "46px",
+                    fontFamily: "inherit",
+                    fontSize: "15.5px",
+                    fontWeight: 600,
+                    color: "var(--gray-400)",
+                    background: "none",
+                    border: "none",
+                    borderRadius: "11px",
+                    cursor: "pointer",
+                    transition: "color 0.18s",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--gray-200)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "var(--gray-400)"; }}
                 >
                   Freelancer
                 </button>
                 <button
                   type="button"
-                  className="flex-1 py-2 rounded-lg text-[13px] font-medium transition-colors bg-primary-700 text-gray-100"
+                  style={{
+                    height: "46px",
+                    fontFamily: "inherit",
+                    fontSize: "15.5px",
+                    fontWeight: 600,
+                    color: "var(--gray-100)",
+                    background: "linear-gradient(180deg, color-mix(in srgb, var(--primary-500) 16%, transparent), color-mix(in srgb, var(--primary-600) 50%, transparent))",
+                    border: "none",
+                    borderRadius: "11px",
+                    cursor: "default",
+                    boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--primary-500) 34%, transparent)",
+                  }}
                 >
                   Cliente
                 </button>
               </div>
-            )}
 
-            {/* ── STEP: sent — OTP input ── */}
-            {step === "sent" && (
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-700 text-gray-500 hover:text-gray-300 transition-colors shrink-0"
-                  >
-                    <ArrowLeft size={16} />
-                  </button>
-                  <div>
-                    <h1 className="text-[17px] font-semibold text-gray-100">Verifique seu e-mail</h1>
-                    <p className="text-[13px] text-gray-500 mt-0.5">
-                      Código enviado para <span className="text-gray-300">{email.trim()}</span>
-                    </p>
-                  </div>
-                </div>
+              <div style={{ textAlign: "left", marginBottom: "28px" }}>
+                <h1
+                  style={{
+                    margin: 0,
+                    fontSize: "27px",
+                    fontWeight: 700,
+                    color: "var(--gray-100)",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  Acessar portal
+                </h1>
+                <p style={{ margin: "9px 0 0", fontSize: "15.5px", lineHeight: 1.5, color: "var(--gray-400)" }}>
+                  Digite o e-mail cadastrado pelo seu contato. Enviaremos um código e um link de acesso.
+                </p>
+              </div>
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-[13px] font-medium text-gray-400">
-                    Digite o código de 6 dígitos
+              <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "9px" }}>
+                  <label style={{ fontSize: "14.5px", fontWeight: 600, color: "var(--gray-200)" }}>
+                    E-mail
                   </label>
-
                   <div
-                    className="flex gap-2 justify-between"
-                    onPaste={handleOtpPaste}
+                    style={{
+                      height: "56px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      padding: "0 16px",
+                      borderRadius: "14px",
+                      border: `1px solid ${errorMsg ? "var(--error-medium)" : emailFocused ? "var(--primary-500)" : "var(--gray-600)"}`,
+                      background: emailFocused
+                        ? "color-mix(in srgb, var(--primary-600) 30%, var(--primary-900))"
+                        : "var(--primary-900)",
+                      boxShadow: emailFocused && !errorMsg ? "0 0 0 3px color-mix(in srgb, var(--primary-500) 16%, transparent)" : "none",
+                      transition: "border-color 0.18s, background 0.18s, box-shadow 0.18s",
+                    }}
                   >
-                    {otp.map((digit, idx) => (
-                      <input
-                        key={idx}
-                        ref={(el) => { otpRefs.current[idx] = el; }}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(idx, e.target.value)}
-                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                        autoFocus={idx === 0}
-                        className={[
-                          "w-full aspect-square text-center text-[22px] font-bold rounded-xl border transition-all outline-none",
-                          "bg-primary-900 text-gray-100",
-                          otpError
-                            ? "border-rose-500 focus:border-rose-400"
-                            : digit
-                            ? "border-primary-500 focus:border-primary-400"
-                            : "border-primary-700 focus:border-primary-500",
-                        ].join(" ")}
-                      />
-                    ))}
+                    <Mail
+                      size={19}
+                      style={{ color: emailFocused ? "var(--primary-400)" : "var(--gray-500)", flexShrink: 0 }}
+                    />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setErrorMsg(null);
+                        if (step === "error") setStep("form");
+                      }}
+                      onFocus={() => setEmailFocused(true)}
+                      onBlur={() => setEmailFocused(false)}
+                      placeholder="seu@email.com"
+                      required
+                      autoFocus
+                      style={{
+                        flex: 1,
+                        fontSize: "16px",
+                        color: "var(--gray-100)",
+                        background: "transparent",
+                        border: "none",
+                        outline: "none",
+                      }}
+                    />
                   </div>
-
-                  {otpError && (
-                    <p className="text-[13px] text-rose-400 leading-relaxed">{otpError}</p>
-                  )}
                 </div>
+
+                {errorMsg && (
+                  <p style={{ fontSize: "13px", color: "var(--error-medium)", margin: 0, lineHeight: 1.5 }}>
+                    {errorMsg}
+                  </p>
+                )}
 
                 <button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  disabled={!otpComplete || otpLoading}
-                  className={`w-full py-3 rounded-xl font-semibold text-[15px] transition-all ${
-                    !otpComplete || otpLoading
-                      ? "bg-primary-700 text-primary-400 cursor-not-allowed"
-                      : "bg-primary-500 hover:bg-primary-400 text-white shadow-lg shadow-primary-500/20"
-                  }`}
+                  type="submit"
+                  disabled={loading || !email.trim()}
+                  style={{
+                    height: "58px",
+                    fontFamily: "inherit",
+                    fontSize: "16.5px",
+                    fontWeight: 700,
+                    color: loading || !email.trim() ? "var(--primary-400)" : "var(--primary-200)",
+                    cursor: loading || !email.trim() ? "not-allowed" : "pointer",
+                    border: `1px solid color-mix(in srgb, var(--primary-500) 34%, transparent)`,
+                    borderRadius: "14px",
+                    background: loading || !email.trim()
+                      ? "var(--primary-700)"
+                      : "color-mix(in srgb, var(--primary-500) 12%, transparent)",
+                    transition: "background 0.18s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!loading && email.trim()) {
+                      (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--primary-500) 18%, transparent)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!loading && email.trim()) {
+                      (e.currentTarget as HTMLButtonElement).style.background = "color-mix(in srgb, var(--primary-500) 12%, transparent)";
+                    }
+                  }}
                 >
-                  {otpLoading ? "Verificando..." : "Entrar"}
+                  {loading ? "Enviando..." : "Enviar código de acesso"}
                 </button>
-
-                <div className="flex flex-col gap-2 text-center">
-                  <p className="text-[12px] text-gray-600">
-                    Ou{" "}
-                    <span className="text-gray-500">clique no link enviado no e-mail</span>{" "}
-                    para entrar sem digitar o código.
-                  </p>
-                  <p className="text-[12px] text-gray-600">
-                    Não recebeu?{" "}
-                    <button
-                      type="button"
-                      onClick={handleResend}
-                      className="text-primary-400 hover:text-primary-300 transition-colors underline"
-                    >
-                      Reenviar código
-                    </button>
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* ── STEP: form or error — email input ── */}
-            {(step === "form" || step === "error") && (
-              <>
-                <div className="mb-6">
-                  <h1 className="text-[18px] font-semibold text-gray-100 mb-1">Acessar portal</h1>
-                  <p className="text-[14px] text-gray-400">
-                    Digite o e-mail cadastrado pelo seu contato. Enviaremos um código e um link de acesso.
-                  </p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[13px] font-medium text-gray-300">E-mail</label>
-                    <div className="relative">
-                      <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-primary-400 pointer-events-none" />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          setErrorMsg(null);
-                          if (step === "error") setStep("form");
-                        }}
-                        placeholder="seu@email.com"
-                        required
-                        autoFocus
-                        className="w-full bg-primary-900 border border-primary-700 rounded-xl pl-10 pr-4 py-3 text-[14px] text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  {errorMsg && (
-                    <p className="text-[13px] text-rose-400 leading-relaxed">{errorMsg}</p>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={loading || !email.trim()}
-                    className={`w-full py-3 rounded-xl font-semibold text-[15px] transition-all ${
-                      loading || !email.trim()
-                        ? "bg-primary-700 text-primary-400 cursor-not-allowed"
-                        : "bg-primary-500 hover:bg-primary-400 text-white shadow-lg shadow-primary-500/20"
-                    }`}
-                  >
-                    {loading ? "Enviando..." : "Enviar código de acesso"}
-                  </button>
-                </form>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+              </form>
+            </>
+          )}
+        </AuthCard>
+      </AuthBackground>
     </>
   );
 }

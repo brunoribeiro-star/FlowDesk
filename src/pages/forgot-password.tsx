@@ -34,52 +34,94 @@ export default function ForgotPassword() {
   return (
     <AuthBackground>
       <AuthCard>
-        <div className="flex justify-center mb-8">
-          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "30px" }}>
+          <span className="auth-logo-wrap"><Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={140} height={36} priority /></span>
         </div>
 
         {sent ? (
-          <div className="flex flex-col items-center gap-5">
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center" }}>
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center"
-              style={{ background: "color-mix(in srgb, var(--primary-500) 15%, transparent)" }}
+              style={{
+                display: "grid",
+                placeItems: "center",
+                width: "72px",
+                height: "72px",
+                margin: "8px auto 22px",
+                borderRadius: "50%",
+                color: "var(--primary-400)",
+                background: "color-mix(in srgb, var(--primary-500) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--primary-500) 26%, transparent)",
+              }}
             >
-              <Mail className="w-6 h-6" style={{ color: "var(--primary-500)" }} />
+              <Mail size={28} strokeWidth={1.9} />
             </div>
-            <div className="text-center">
-              <h2 className="text-lg font-semibold mb-1" style={{ color: "var(--gray-100)" }}>
+
+            <div style={{ marginBottom: "28px" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "27px",
+                  fontWeight: 700,
+                  color: "var(--gray-100)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
                 E-mail enviado
-              </h2>
-              <p className="text-sm" style={{ color: "var(--gray-400)" }}>
+              </h1>
+              <p style={{ margin: "9px 0 0", fontSize: "15.5px", lineHeight: 1.5, color: "var(--gray-400)" }}>
                 Enviamos um link de recuperação para{" "}
-                <span style={{ color: "var(--gray-200)" }}>{email}</span>.
-                Verifique sua caixa de entrada.
+                <strong style={{ color: "var(--gray-200)", fontWeight: 600 }}>{email}</strong>.
+                {" "}Verifique sua caixa de entrada.
               </p>
             </div>
+
             <Link
               href="/login"
-              className="w-full h-11 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-opacity mt-2"
-              style={{ background: "var(--primary-500)", color: "var(--primary-900)" }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "100%",
+                height: "58px",
+                fontFamily: "inherit",
+                fontSize: "16.5px",
+                fontWeight: 700,
+                color: "var(--primary-900)",
+                textDecoration: "none",
+                borderRadius: "14px",
+                background: "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+                boxShadow: "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)",
+              }}
             >
               Voltar para o login
             </Link>
           </div>
         ) : (
           <>
-            <h1 className="text-xl font-semibold text-center mb-1" style={{ color: "var(--gray-100)" }}>
-              Recuperar senha
-            </h1>
-            <p className="text-sm text-center mb-7" style={{ color: "var(--gray-400)" }}>
-              Informe seu e-mail e enviaremos um link para redefinir sua senha.
-            </p>
+            <div style={{ textAlign: "center", marginBottom: "28px" }}>
+              <h1
+                style={{
+                  margin: 0,
+                  fontSize: "27px",
+                  fontWeight: 700,
+                  color: "var(--gray-100)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Recuperar senha
+              </h1>
+              <p style={{ margin: "9px 0 0", fontSize: "15.5px", lineHeight: 1.5, color: "var(--gray-400)" }}>
+                Informe seu e-mail e enviaremos um link para redefinir sua senha.
+              </p>
+            </div>
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
               <AuthInput
                 label="E-mail"
                 type="email"
                 placeholder="seu@email.com"
                 required
-                icon={<Mail className="w-4 h-4" />}
+                icon={<Mail size={19} />}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
@@ -87,7 +129,7 @@ export default function ForgotPassword() {
               />
 
               {error && (
-                <p className="text-xs text-center" style={{ color: "var(--error-medium)" }}>
+                <p style={{ fontSize: "13px", textAlign: "center", color: "var(--error-medium)", margin: 0 }}>
                   {error}
                 </p>
               )}
@@ -95,27 +137,56 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-11 rounded-xl text-sm font-semibold transition-opacity mt-1"
                 style={{
-                  background: "var(--primary-500)",
+                  height: "58px",
+                  fontFamily: "inherit",
+                  fontSize: "16.5px",
+                  fontWeight: 700,
                   color: "var(--primary-900)",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  border: "none",
+                  borderRadius: "14px",
+                  background: "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+                  boxShadow: "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)",
                   opacity: loading ? 0.6 : 1,
+                  transition: "transform 0.2s, box-shadow 0.2s, opacity 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  if (!loading) {
+                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
+                    (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 20px 40px -14px color-mix(in srgb, var(--primary-500) 95%, transparent)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.transform = "none";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent)";
                 }}
               >
                 {loading ? "Enviando..." : "Enviar link de recuperação"}
               </button>
-            </form>
 
-            <div className="flex justify-center mt-6">
               <Link
                 href="/login"
-                className="flex items-center gap-1.5 text-sm transition-colors"
-                style={{ color: "var(--gray-400)" }}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                  height: "46px",
+                  fontFamily: "inherit",
+                  fontSize: "15px",
+                  fontWeight: 600,
+                  color: "var(--gray-400)",
+                  textDecoration: "none",
+                  transition: "color 0.16s",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--gray-200)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = "var(--gray-400)"; }}
               >
-                <ChevronLeft className="w-4 h-4" />
+                <ChevronLeft size={17} />
                 Voltar para o login
               </Link>
-            </div>
+            </form>
           </>
         )}
       </AuthCard>
