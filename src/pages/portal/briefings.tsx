@@ -105,7 +105,7 @@ export default function PortalBriefingsPage() {
       <ClientSidebar defaultOpen={false} />
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <header className="flex-shrink-0 border-b border-primary-700 px-6 py-4 flex items-center justify-between gap-4">
+        <header className="flex-shrink-0 border-b border-primary-700 px-6 py-4 flex items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.push("/portal/dashboard")}

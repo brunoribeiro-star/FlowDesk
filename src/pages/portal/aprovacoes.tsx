@@ -140,7 +140,7 @@ export default function PortalAprovacoesPage() {
       <ClientSidebar defaultOpen={false} />
 
       <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="flex items-center justify-between px-8 py-5 border-b border-primary-800 flex-shrink-0">
+        <header className="flex items-center justify-between px-8 py-5 border-b border-primary-800 flex-shrink-0 relative z-10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push("/portal/dashboard")}

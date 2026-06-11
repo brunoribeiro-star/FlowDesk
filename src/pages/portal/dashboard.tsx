@@ -539,10 +539,11 @@ export default function PortalDashboardPage() {
           pointer-events: none;
           z-index: 0;
           background:
-            radial-gradient(42% 40% at 88% 0%, rgba(30,182,232,0.10), transparent 70%),
-            radial-gradient(36% 38% at 4% 6%, rgba(16,66,83,0.42), transparent 70%);
+            radial-gradient(42% 40% at 88% 0%, color-mix(in srgb, var(--primary-500) 10%, transparent), transparent 70%),
+            radial-gradient(36% 38% at 4% 6%, color-mix(in srgb, var(--primary-800) 42%, transparent), transparent 70%);
         }
         .po > *:not(.po-bg) { position: relative; z-index: 1; }
+        .po > .po-top { position: relative; z-index: 10; }
 
         /* header */
         .po-top {
@@ -563,8 +564,8 @@ export default function PortalDashboardPage() {
           font-size: 20px;
           font-weight: 700;
           color: var(--primary-200);
-          background: rgba(30,182,232,0.10);
-          border: 1px solid rgba(30,182,232,0.30);
+          background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 30%, transparent);
           overflow: hidden;
         }
         .po-hello {
@@ -599,7 +600,10 @@ export default function PortalDashboardPage() {
           padding: 18px 22px;
           border-radius: 16px;
           border: 1px solid var(--gray-700);
-          background: linear-gradient(180deg, rgba(16,66,83,0.16), rgba(8,34,42,0.34));
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-800) 40%, transparent),
+            color-mix(in srgb, var(--primary-900) 50%, transparent)
+          );
           text-align: left;
           cursor: pointer;
           transition: opacity 0.18s;
@@ -607,8 +611,11 @@ export default function PortalDashboardPage() {
         }
         .po-stat:hover { opacity: 0.82; }
         .po-stat.accent {
-          border-color: rgba(30,182,232,0.30);
-          background: linear-gradient(180deg, rgba(30,182,232,0.10), rgba(8,34,42,0.40));
+          border-color: color-mix(in srgb, var(--primary-500) 30%, transparent);
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-500) 10%, transparent),
+            color-mix(in srgb, var(--primary-900) 40%, transparent)
+          );
         }
         .po-stat-ico {
           display: grid;
@@ -617,8 +624,8 @@ export default function PortalDashboardPage() {
           height: 40px;
           border-radius: 11px;
           color: var(--primary-400);
-          background: rgba(30,182,232,0.10);
-          border: 1px solid rgba(30,182,232,0.22);
+          background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 22%, transparent);
         }
         .po-stat-label { font-size: 14px; color: var(--gray-400); }
         .po-stat-value { font-size: 22px; font-weight: 700; color: var(--gray-100); letter-spacing: -0.015em; }
@@ -638,7 +645,10 @@ export default function PortalDashboardPage() {
           padding: 22px 26px;
           border-radius: 18px;
           border: 1px solid var(--gray-700);
-          background: linear-gradient(180deg, rgba(16,66,83,0.12), rgba(8,34,42,0.30));
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-800) 35%, transparent),
+            color-mix(in srgb, var(--primary-900) 45%, transparent)
+          );
           min-height: 0;
         }
         .po-panel-head {
@@ -648,7 +658,7 @@ export default function PortalDashboardPage() {
           gap: 20px;
           padding-bottom: 16px;
           margin-bottom: 18px;
-          border-bottom: 1px solid rgba(29,38,40,0.7);
+          border-bottom: 1px solid var(--gray-700);
           flex-shrink: 0;
         }
         .po-panel-title { margin: 0; font-size: 19px; font-weight: 700; color: var(--gray-100); }
@@ -667,11 +677,11 @@ export default function PortalDashboardPage() {
           cursor: pointer;
           white-space: nowrap;
           border-radius: 11px;
-          border: 1px solid rgba(30,182,232,0.28);
-          background: rgba(30,182,232,0.07);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 28%, transparent);
+          background: color-mix(in srgb, var(--primary-500) 7%, transparent);
           transition: background 0.18s, color 0.18s;
         }
-        .po-link:hover { background: rgba(30,182,232,0.13); color: var(--primary-200); }
+        .po-link:hover { background: color-mix(in srgb, var(--primary-500) 13%, transparent); color: var(--primary-200); }
 
         /* health bar chart */
         .po-chart { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; overflow: hidden; }
@@ -683,7 +693,7 @@ export default function PortalDashboardPage() {
           height: 100%;
           min-height: 22px;
           border-radius: 9px;
-          background: rgba(6,25,31,0.6);
+          background: color-mix(in srgb, var(--primary-900) 60%, transparent);
           border: 1px solid var(--gray-700);
           overflow: hidden;
         }
@@ -692,7 +702,7 @@ export default function PortalDashboardPage() {
           min-width: 2px;
           border-radius: 8px;
           background: linear-gradient(90deg, var(--primary-500), var(--primary-400));
-          box-shadow: 0 0 22px -6px rgba(30,182,232,0.7);
+          box-shadow: 0 0 22px -6px color-mix(in srgb, var(--primary-500) 70%, transparent);
         }
         .po-chart-pct {
           font-size: 14.5px;
@@ -737,7 +747,7 @@ export default function PortalDashboardPage() {
           height: 60px;
           border-radius: 50%;
           color: var(--gray-500);
-          background: rgba(148,169,173,0.06);
+          background: color-mix(in srgb, var(--gray-400) 8%, transparent);
           border: 1px solid var(--gray-700);
         }
         .po-empty-txt { margin: 0; font-size: 15.5px; color: var(--gray-500); }

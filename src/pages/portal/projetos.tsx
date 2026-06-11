@@ -6,7 +6,7 @@ import { getClientProjects } from "@/lib/supabaseQueries/clientPortal";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
 import { SkeletonList, SkeletonBoardCards } from "@/components/Skeleton";
-import { Search, Package } from "lucide-react";
+import { Search, Package, List, LayoutGrid, Calendar, ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
 
 type ViewMode = "list" | "board" | "calendar";
 
@@ -30,11 +30,6 @@ function statusLabel(ns: "em_andamento" | "concluido") {
   return ns === "concluido" ? "Concluído" : "Em andamento";
 }
 
-function statusPillClasses(ns: "em_andamento" | "concluido") {
-  if (ns === "concluido") return "bg-third-400/15 text-third-300 border-third-400";
-  return "bg-primary-500/15 text-primary-200 border-primary-500";
-}
-
 const BOARD_COLUMNS = [
   { status: "em_andamento" as const, label: "Em andamento" },
   { status: "concluido" as const, label: "Concluído" },
@@ -49,6 +44,35 @@ function getDaysInMonth(date: Date): (Date | null)[] {
   for (let i = 0; i < firstDay.getDay(); i++) days.push(null);
   for (let i = 1; i <= lastDay.getDate(); i++) days.push(new Date(year, month, i));
   return days;
+}
+
+function ProjectCoverSmall({ p }: { p: PortalProject }) {
+  if (p.cover_url) {
+    return (
+      <div className="cp-cover">
+        <Image src={p.cover_url} alt={p.titulo} width={52} height={52} className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+  return (
+    <div className="cp-cover cp-cover-grad">
+      <span>{p.titulo.charAt(0).toUpperCase()}</span>
+    </div>
+  );
+}
+
+function CpProgress({ pct }: { pct: number }) {
+  return (
+    <div className="cp-prog">
+      <div className="cp-prog-head">
+        <span>Progresso</span>
+        <span className="cp-prog-pct">{pct}%</span>
+      </div>
+      <div className="cp-prog-track">
+        <span className="cp-prog-fill" style={{ width: `${pct > 0 ? Math.max(pct, 2) : 0}%` }} />
+      </div>
+    </div>
+  );
 }
 
 export default function PortalProjetosPage() {
@@ -98,107 +122,54 @@ export default function PortalProjetosPage() {
   const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
 
-  function renderViewToggle() {
-    return (
-      <div className="flex bg-primary-800 rounded-lg p-1 border border-primary-700">
-        <button
-          onClick={() => changeView("list")}
-          className={`p-2 rounded-md transition-all ${viewMode === "list" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"}`}
-          title="Lista"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-        </button>
-        <button
-          onClick={() => changeView("board")}
-          className={`p-2 rounded-md transition-all ${viewMode === "board" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"}`}
-          title="Quadros"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" /><rect x="14" y="3" width="7" height="5" /><rect x="14" y="12" width="7" height="9" /><rect x="3" y="16" width="7" height="5" /></svg>
-        </button>
-        <button
-          onClick={() => changeView("calendar")}
-          className={`p-2 rounded-md transition-all ${viewMode === "calendar" ? "bg-primary-600 text-gray-100 shadow-sm" : "text-gray-400 hover:text-gray-200"}`}
-          title="Calendário"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
-        </button>
-      </div>
-    );
-  }
+  const totalProjetos = projects.length;
+
+  const calMonthTitle = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const calMonthFormatted = calMonthTitle.charAt(0).toUpperCase() + calMonthTitle.slice(1);
 
   function renderListView() {
     return (
-      <div className="flex-1 bg-primary-900/40 border border-primary-700 rounded-2xl overflow-hidden flex flex-col">
-        <div className="px-6 py-3 border-b border-primary-700 text-[13px] text-gray-400 flex items-center gap-4">
-          <div className="flex-1 min-w-[280px]">Projeto</div>
-          <div className="w-[160px] hidden md:block">Status</div>
-          <div className="w-[180px] hidden md:block">Progresso</div>
-          <div className="w-[130px] hidden md:block">Entrega</div>
+      <div className="cp-table">
+        <div className="cp-thead">
+          <span>Projeto</span>
+          <span>Status</span>
+          <span>Progresso</span>
+          <span className="cp-th-right">Entrega</span>
         </div>
-
-        <div className="flex-1 custom-scrollbar overflow-y-auto">
+        <div className="cp-rows">
           {loading ? (
             <SkeletonList rows={5} cols={4} />
           ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-sm text-gray-500">
-              {query ? "Nenhum projeto encontrado com essa busca." : "Nenhum projeto disponível."}
+            <div className="cp-empty">
+              <span className="cp-empty-ico"><Package size={26} strokeWidth={1.8} /></span>
+              <p style={{ margin: 0, fontSize: "15.5px", color: "var(--gray-500)" }}>
+                {query ? "Nenhum projeto encontrado." : "Nenhum projeto disponível."}
+              </p>
             </div>
           ) : (
-            <div className="px-5 py-5 flex flex-col gap-3">
-              {filtered.map((p) => {
-                const ns = statusByProject[p.id];
-                const pct = p.progresso ?? 0;
-                const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega + "T00:00:00").toLocaleDateString("pt-BR") : "—";
-
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => router.push(`/portal/projeto/${p.id}`)}
-                    className="group w-full bg-primary-900/45 hover:bg-primary-800/60 border border-primary-700 rounded-full px-5 py-3 flex items-center gap-4 cursor-pointer transition-colors"
-                  >
-                    <div className="flex items-center gap-4 flex-1 min-w-[280px]">
-                      <div className="w-[72px] h-[46px] rounded-2xl overflow-hidden border border-primary-700 bg-primary-900 shrink-0">
-                        <Image
-                          src={p.cover_url || "/project-cover-placeholder.jpg"}
-                          alt={p.titulo}
-                          width={220}
-                          height={140}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-3">
-                          <span className="text-[16px] text-gray-100 truncate">{p.titulo}</span>
-                          <span className={`hidden md:inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClasses(ns)}`}>
-                            {statusLabel(ns)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="w-[160px] hidden md:flex">
-                      <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-[12px] border w-full ${statusPillClasses(ns)}`}>
-                        {statusLabel(ns)}
-                      </span>
-                    </div>
-
-                    <div className="w-[180px] hidden md:flex flex-col gap-1">
-                      <div className="flex items-center justify-between text-[11px] text-gray-400 mb-0.5">
-                        <span>Progresso</span>
-                        <span>{pct}%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-primary-700 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary-400 rounded-full" style={{ width: `${pct}%` }} />
-                      </div>
-                    </div>
-
-                    <div className="w-[130px] hidden md:block">
-                      <span className="text-[13px] text-gray-100">{entregaTxt}</span>
-                    </div>
+            filtered.map((p) => {
+              const ns = statusByProject[p.id];
+              const pct = p.progresso ?? 0;
+              const entregaTxt = p.prazo_entrega
+                ? new Date(p.prazo_entrega + "T00:00:00").toLocaleDateString("pt-BR")
+                : "—";
+              return (
+                <div key={p.id} className="cp-row" onClick={() => router.push(`/portal/projeto/${p.id}`)}>
+                  <div className="cp-row-proj">
+                    <ProjectCoverSmall p={p} />
+                    <span className="cp-row-name">{p.titulo}</span>
                   </div>
-                );
-              })}
-            </div>
+                  <div>
+                    <span className={`cp-status ${ns === "concluido" ? "done" : "doing"}`}>
+                      <span className="cp-status-dot" />
+                      {statusLabel(ns)}
+                    </span>
+                  </div>
+                  <CpProgress pct={pct} />
+                  <div className="cp-row-due">{entregaTxt}</div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
@@ -206,145 +177,114 @@ export default function PortalProjetosPage() {
   }
 
   function renderBoardView() {
-    if (loading) return (
-      <div className="mt-6 flex gap-4">
-        {[1, 2].map((i) => (
-          <div key={i} className="flex-1 min-w-0"><SkeletonBoardCards count={2} /></div>
-        ))}
-      </div>
-    );
-    if (filtered.length === 0) return (
-      <div className="mt-8 text-gray-400 text-[14px]">
-        {query ? "Nenhum projeto encontrado com essa busca." : "Nenhum projeto disponível."}
-      </div>
-    );
+    if (loading) {
+      return (
+        <div className="cp-board">
+          {[1, 2].map((i) => (
+            <div key={i}><SkeletonBoardCards count={2} /></div>
+          ))}
+        </div>
+      );
+    }
 
     return (
-      <div className="mt-6 overflow-y-auto pb-4 custom-scrollbar h-full">
-        <div className="flex divide-x divide-primary-700 min-h-full">
-          {BOARD_COLUMNS.map((col) => {
-            const colProjects = filtered.filter((p) => statusByProject[p.id] === col.status);
-            return (
-              <div key={col.status} className="flex-1 min-w-0 px-4 flex flex-col">
-                <div className="px-2 py-4 flex items-center gap-2 sticky top-0 bg-primary-900 z-10">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[12px] border ${statusPillClasses(col.status)}`}>
-                    {col.label}
-                  </span>
-                  <span className="text-[13px] text-gray-400">{colProjects.length}</span>
-                </div>
-
-                <div className="flex flex-col gap-4 pb-4 px-2 flex-1">
-                  {colProjects.length === 0 ? (
-                    <div className="text-[13px] text-gray-500 italic px-1">Nenhum projeto.</div>
-                  ) : (
-                    colProjects.map((p) => {
-                      const pct = p.progresso ?? 0;
-                      const entregaTxt = p.prazo_entrega ? new Date(p.prazo_entrega + "T00:00:00").toLocaleDateString("pt-BR") : "—";
-                      return (
-                        <div
-                          key={p.id}
-                          className="bg-primary-900/55 border border-primary-700 rounded-2xl overflow-hidden hover:border-primary-500 transition-colors"
-                        >
-                          <div className="relative w-full h-[120px] bg-primary-900 border-b border-primary-700">
-                            <Image
-                              src={p.cover_url || "/project-cover-placeholder.jpg"}
-                              alt={p.titulo}
-                              fill
-                              className="object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-primary-900/70 via-primary-900/10 to-transparent" />
-                          </div>
-
-                          <div className="p-4 flex flex-col gap-3">
-                            <div className="text-[15px] text-gray-100 font-medium line-clamp-2">{p.titulo}</div>
-
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center justify-between text-[12px] text-gray-400">
-                                <span>Progresso</span>
-                                <span>{pct}%</span>
-                              </div>
-                              <div className="w-full h-1.5 bg-primary-700 rounded-full overflow-hidden">
-                                <div className="h-full bg-primary-400 rounded-full" style={{ width: `${pct}%` }} />
-                              </div>
-                            </div>
-
-                            {p.prazo_entrega && (
-                              <div className="text-[12px] text-gray-500">Prazo: {entregaTxt}</div>
-                            )}
-
-                            <button
-                              type="button"
-                              onClick={() => router.push(`/portal/projeto/${p.id}`)}
-                              className="mt-1 w-full bg-primary-800 border border-primary-700 text-[13px] text-gray-200 rounded-xl py-2 hover:bg-primary-700 transition-colors"
-                            >
-                              Ver detalhes
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+      <div className="cp-board">
+        {BOARD_COLUMNS.map((col) => {
+          const colProjects = filtered.filter((p) => statusByProject[p.id] === col.status);
+          const isDoing = col.status === "em_andamento";
+          return (
+            <section key={col.status} className="cp-col">
+              <div className="cp-col-head">
+                <span className={`cp-col-pill ${isDoing ? "doing" : "done"}`}>{col.label}</span>
+                <span className="cp-col-count">{colProjects.length}</span>
               </div>
-            );
-          })}
-        </div>
+              <div className="cp-col-cards">
+                {colProjects.length === 0 ? (
+                  <p className="cp-col-empty">Nenhum projeto.</p>
+                ) : (
+                  colProjects.map((p) => {
+                    const pct = p.progresso ?? 0;
+                    const entregaTxt = p.prazo_entrega
+                      ? new Date(p.prazo_entrega + "T00:00:00").toLocaleDateString("pt-BR")
+                      : null;
+                    return (
+                      <article key={p.id} className="cp-card">
+                        <div className="cp-card-cover">
+                          {p.cover_url ? (
+                            <Image src={p.cover_url} alt={p.titulo} fill className="object-cover" />
+                          ) : (
+                            <span className="cp-card-cover-letter">{p.titulo.charAt(0).toUpperCase()}</span>
+                          )}
+                        </div>
+                        <div className="cp-card-body">
+                          <h3 className="cp-card-name">{p.titulo}</h3>
+                          <CpProgress pct={pct} />
+                          {entregaTxt && <p className="cp-card-due">Prazo: {entregaTxt}</p>}
+                          <button
+                            type="button"
+                            className="cp-card-btn"
+                            onClick={() => router.push(`/portal/projeto/${p.id}`)}
+                          >
+                            Ver detalhes <ArrowRight size={16} />
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+          );
+        })}
       </div>
     );
   }
 
   function renderCalendarView() {
-    if (loading) return <div className="mt-8 text-gray-300">Carregando projetos...</div>;
+    if (loading) {
+      return (
+        <div className="cp-cal">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
+            <span style={{ color: "var(--gray-500)" }}>Carregando...</span>
+          </div>
+        </div>
+      );
+    }
 
     return (
-      <div className="flex-1 overflow-hidden flex flex-col bg-primary-900/40 border border-primary-700 rounded-2xl p-4">
-        <div className="flex items-center justify-between mb-6 px-2">
-          <button onClick={prevMonth} className="p-2 hover:bg-primary-800 rounded-full text-gray-400 hover:text-gray-100 transition-colors" type="button">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+      <div className="cp-cal">
+        <div className="cp-cal-head">
+          <button type="button" className="cp-cal-nav" onClick={prevMonth}>
+            <ChevronLeft size={20} />
           </button>
-          <h2 className="text-xl font-bold text-gray-100 capitalize">
-            {currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-          </h2>
-          <button onClick={nextMonth} className="p-2 hover:bg-primary-800 rounded-full text-gray-400 hover:text-gray-100 transition-colors" type="button">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+          <h2 className="cp-cal-title">{calMonthFormatted}</h2>
+          <button type="button" className="cp-cal-nav" onClick={nextMonth}>
+            <ChevronRight size={20} />
           </button>
         </div>
-
-        <div className="grid grid-cols-7 gap-4 px-1">
-          {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map((day) => (
-            <div key={day} className="text-center text-sm font-medium text-gray-400">{day}</div>
+        <div className="cp-cal-weekdays">
+          {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map((d) => (
+            <span key={d} className="cp-cal-weekday">{d}</span>
           ))}
         </div>
-
-        <div className="flex-1 grid grid-cols-7 auto-rows-fr gap-4 overflow-y-auto custom-scrollbar px-1 pb-2 mt-2">
+        <div className="cp-cal-grid">
           {calendarDays.map((date, i) => {
-            if (!date) return <div key={`empty-${i}`} />;
+            if (!date) return <div key={`e-${i}`} className="cp-cal-cell empty" />;
             const dateStr = date.toISOString().split("T")[0];
             const dayProjects = filtered.filter((p) => p.prazo_entrega && p.prazo_entrega.startsWith(dateStr));
             const isToday = new Date().toDateString() === date.toDateString();
             return (
-              <div
-                key={dateStr}
-                className={`flex flex-col gap-2 p-3 rounded-2xl transition-all border min-h-[140px] ${
-                  isToday ? "bg-primary-800/10 border-primary-500" : "bg-primary-800/20 border-transparent hover:bg-primary-800/40"
-                }`}
-              >
-                <div className="flex justify-between items-start">
-                  <span className={`text-lg font-bold ${isToday ? "text-primary-500" : "text-gray-100"}`}>{date.getDate()}</span>
-                  {dayProjects.length > 0 && <span className="text-[10px] text-gray-500 font-medium">{dayProjects.length}</span>}
-                </div>
-                <div className="flex flex-col gap-2 overflow-y-auto custom-scrollbar flex-1">
-                  {dayProjects.map((p) => (
-                    <div
-                      key={p.id}
-                      onClick={() => router.push(`/portal/projeto/${p.id}`)}
-                      className="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-primary-800 hover:bg-primary-700 transition-all shadow-sm min-w-0"
-                      title={p.titulo}
-                    >
-                      <span className="text-[11px] font-medium truncate flex-1 text-gray-200">{p.titulo}</span>
-                    </div>
-                  ))}
-                </div>
+              <div key={dateStr} className={`cp-cal-cell${isToday ? " today" : ""}`}>
+                <span className="cp-cal-day">{date.getDate()}</span>
+                {dayProjects.map((p) => (
+                  <span
+                    key={p.id}
+                    className="cp-cal-chip"
+                    onClick={() => router.push(`/portal/projeto/${p.id}`)}
+                  >
+                    {p.titulo}
+                  </span>
+                ))}
               </div>
             );
           })}
@@ -353,56 +293,455 @@ export default function PortalProjetosPage() {
     );
   }
 
-  const totalProjetos = projects.length;
-
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex gap-6 overflow-hidden">
+    <div className="cp-page">
       <ClientSidebar defaultOpen={false} onOpenChange={() => {}} />
 
-      <div className="flex flex-col flex-1 gap-4 pr-6 py-4 w-full overflow-hidden relative">
-        <div className="flex items-center justify-between gap-4 w-full">
-          <span className="text-[15px] text-gray-300">
-            {totalProjetos === 0 ? "Nenhum projeto" : totalProjetos === 1 ? "1 projeto" : `${totalProjetos} projetos`}
-          </span>
+      <div className="cp-content">
+        <div className="cp-bg" />
 
-          <div className="flex-1" />
+        <header className="cp-top">
+          <div className="cp-count">
+            <b>{totalProjetos}</b>{" "}
+            {totalProjetos === 1 ? "projeto" : "projetos"}
+          </div>
+          <div className="cp-top-right">
+            <div className="cp-viewtabs">
+              <button
+                type="button"
+                className={`cp-viewtab${viewMode === "list" ? " on" : ""}`}
+                onClick={() => changeView("list")}
+                title="Lista"
+              >
+                <List size={19} />
+              </button>
+              <button
+                type="button"
+                className={`cp-viewtab${viewMode === "board" ? " on" : ""}`}
+                onClick={() => changeView("board")}
+                title="Quadros"
+              >
+                <LayoutGrid size={19} />
+              </button>
+              <button
+                type="button"
+                className={`cp-viewtab${viewMode === "calendar" ? " on" : ""}`}
+                onClick={() => changeView("calendar")}
+                title="Calendário"
+              >
+                <Calendar size={19} />
+              </button>
+            </div>
 
-          <div className="flex items-center gap-3">
-            {renderViewToggle()}
-
-            <div className="flex items-center gap-3 bg-primary-800 border border-primary-700 rounded-lg px-4 py-2 w-[240px]">
-              <Search size={18} className="text-gray-400" />
+            <label className="cp-search">
+              <Search size={19} />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Buscar..."
-                className="w-full bg-transparent outline-none text-[14px] text-gray-200 placeholder-gray-400"
               />
-            </div>
+            </label>
 
             <ClientHeaderProfile user={user} />
           </div>
-        </div>
+        </header>
 
-        {loading ? null : totalProjetos === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <Package size={40} className="text-gray-600" />
-            <p className="text-gray-500 text-[14px]">Nenhum projeto foi compartilhado com você ainda.</p>
-          </div>
+        {!loading && totalProjetos === 0 ? (
+          <main className="cp-main">
+            <div className="cp-empty">
+              <span className="cp-empty-ico"><Package size={26} strokeWidth={1.8} /></span>
+              <p style={{ margin: 0, fontSize: "15.5px", color: "var(--gray-500)" }}>
+                Nenhum projeto foi compartilhado com você ainda.
+              </p>
+            </div>
+          </main>
         ) : (
-          <section className="flex-1 h-full min-h-0 overflow-hidden pr-4 flex flex-col">
+          <main className="cp-main">
             {viewMode === "list" && renderListView()}
             {viewMode === "board" && renderBoardView()}
             {viewMode === "calendar" && renderCalendarView()}
-          </section>
+          </main>
         )}
       </div>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 10px; height: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background-color: var(--primary-800); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--primary-500); border-radius: 9999px; border: 2px solid var(--primary-800); }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--primary-400); }
+        /* ====== Portal Projetos — Redesign ====== */
+
+        .cp-page {
+          height: 100vh; width: 100%; display: flex; overflow: hidden;
+          background: var(--primary-900); color: var(--gray-100);
+          -webkit-font-smoothing: antialiased;
+        }
+
+        .cp-content {
+          display: flex; flex-direction: column; flex: 1; min-width: 0;
+          position: relative; overflow: hidden;
+        }
+
+        .cp-bg {
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
+          background: radial-gradient(60% 50% at 85% 0%,
+            color-mix(in srgb, var(--primary-500) 6%, transparent), transparent 70%);
+        }
+
+        .cp-content > *:not(.cp-bg) { position: relative; z-index: 1; }
+        .cp-content > .cp-top { position: relative; z-index: 10; }
+
+        /* topbar */
+        .cp-top {
+          display: flex; align-items: center; justify-content: space-between;
+          gap: 24px; padding: 26px 40px; flex-shrink: 0;
+        }
+
+        .cp-count { font-size: 21px; color: var(--gray-300); font-weight: 500; }
+        .cp-count b { color: var(--gray-100); font-weight: 700; }
+        .cp-top-right { display: flex; align-items: center; gap: 16px; }
+
+        /* view tabs */
+        .cp-viewtabs {
+          display: flex; gap: 4px; padding: 5px; border-radius: 13px;
+          border: 1px solid var(--gray-700);
+          background: color-mix(in srgb, var(--primary-900) 50%, transparent);
+        }
+
+        .cp-viewtab {
+          display: grid; place-items: center; width: 42px; height: 38px;
+          border: 0; border-radius: 9px; background: none;
+          color: var(--gray-400); cursor: pointer; transition: .16s; font-family: inherit;
+        }
+
+        .cp-viewtab:hover {
+          color: var(--gray-200);
+          background: color-mix(in srgb, var(--gray-300) 6%, transparent);
+        }
+
+        .cp-viewtab.on {
+          color: var(--primary-300);
+          background: color-mix(in srgb, var(--primary-500) 14%, transparent);
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-500) 30%, transparent);
+        }
+
+        /* search */
+        .cp-search {
+          display: flex; align-items: center; gap: 11px; width: 340px; height: 48px;
+          padding: 0 18px; border-radius: 13px; cursor: text; flex-shrink: 0;
+          border: 1px solid var(--gray-700);
+          background: color-mix(in srgb, var(--primary-900) 50%, transparent);
+          color: var(--gray-500);
+        }
+
+        .cp-search input {
+          flex: 1; min-width: 0; border: 0; background: none; outline: none;
+          font-family: inherit; font-size: 15.5px; color: var(--gray-100);
+        }
+
+        .cp-search input::placeholder { color: var(--gray-500); }
+
+        /* main */
+        .cp-main {
+          flex: 1; min-height: 0; padding: 0 40px 40px;
+          display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* cover */
+        .cp-cover {
+          flex: none; display: grid; place-items: center;
+          width: 52px; height: 52px; border-radius: 14px; overflow: hidden;
+          border: 1px solid color-mix(in srgb, var(--gray-100) 6%, transparent);
+        }
+
+        .cp-cover-grad {
+          background: radial-gradient(120% 120% at 30% 20%, var(--primary-700), var(--primary-900));
+        }
+
+        .cp-cover-grad span {
+          font-size: 21px; font-weight: 700; color: var(--primary-200); letter-spacing: -0.02em;
+        }
+
+        /* status badge */
+        .cp-status {
+          display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px;
+          border-radius: 999px; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+        }
+
+        .cp-status.doing {
+          color: var(--primary-200);
+          background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 28%, transparent);
+        }
+
+        .cp-status.done {
+          color: var(--gray-300);
+          background: color-mix(in srgb, var(--gray-300) 7%, transparent);
+          border: 1px solid var(--gray-700);
+        }
+
+        .cp-status-dot {
+          width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: block;
+        }
+
+        .cp-status.doing .cp-status-dot {
+          background: var(--primary-400);
+          box-shadow: 0 0 8px rgba(30,182,232,0.8);
+        }
+
+        .cp-status.done .cp-status-dot { background: var(--gray-500); }
+
+        /* progress */
+        .cp-prog { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+
+        .cp-prog-head {
+          display: flex; align-items: center; justify-content: space-between;
+          font-size: 13px; color: var(--gray-400);
+        }
+
+        .cp-prog-pct { color: var(--gray-200); font-weight: 600; }
+
+        .cp-prog-track {
+          height: 7px; border-radius: 999px; overflow: hidden;
+          background: var(--primary-900); border: 1px solid var(--gray-700);
+        }
+
+        .cp-prog-fill {
+          display: block; height: 100%; border-radius: 999px;
+          background: linear-gradient(90deg, var(--primary-400), var(--primary-500));
+        }
+
+        /* ---- LIST ---- */
+        .cp-table {
+          border: 1px solid var(--gray-700); border-radius: 20px; overflow: hidden;
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-700) 16%, transparent),
+            color-mix(in srgb, var(--primary-800) 28%, transparent)
+          );
+          display: flex; flex-direction: column; flex: 1; min-height: 0;
+        }
+
+        .cp-thead {
+          display: grid; grid-template-columns: 2.4fr 1.3fr 1.6fr 1fr; gap: 24px;
+          padding: 20px 28px; border-bottom: 1px solid var(--gray-700);
+          font-size: 14px; font-weight: 600; color: var(--gray-400); flex-shrink: 0;
+        }
+
+        .cp-th-right { text-align: right; }
+
+        .cp-rows { display: flex; flex-direction: column; flex: 1; overflow-y: auto; }
+
+        .cp-row {
+          display: grid; grid-template-columns: 2.4fr 1.3fr 1.6fr 1fr;
+          gap: 24px; align-items: center; padding: 20px 28px;
+          border-bottom: 1px solid color-mix(in srgb, var(--gray-700) 55%, transparent);
+          transition: .16s; cursor: pointer;
+        }
+
+        .cp-row:last-child { border-bottom: 0; }
+
+        .cp-row:hover {
+          background: color-mix(in srgb, var(--primary-500) 4%, transparent);
+        }
+
+        .cp-row-proj { display: flex; align-items: center; gap: 16px; min-width: 0; }
+
+        .cp-row-name {
+          font-size: 17px; font-weight: 600; color: var(--gray-100);
+          overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+
+        .cp-row-due {
+          text-align: right; font-size: 15px; font-weight: 500; color: var(--gray-200);
+        }
+
+        /* ---- BOARD ---- */
+        .cp-board {
+          display: grid; grid-template-columns: 1fr 1fr; gap: 36px;
+          flex: 1; min-height: 0; overflow-y: auto;
+        }
+
+        .cp-col { display: flex; flex-direction: column; gap: 20px; }
+
+        .cp-col:first-child {
+          border-right: 1px solid var(--gray-700);
+          padding-right: 36px;
+        }
+
+        .cp-col-head { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+
+        .cp-col-pill { padding: 7px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; }
+
+        .cp-col-pill.doing {
+          color: var(--primary-200);
+          background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 28%, transparent);
+        }
+
+        .cp-col-pill.done {
+          color: var(--gray-300);
+          background: color-mix(in srgb, var(--gray-300) 7%, transparent);
+          border: 1px solid var(--gray-700);
+        }
+
+        .cp-col-count { font-size: 16px; font-weight: 600; color: var(--gray-400); }
+
+        .cp-col-cards { display: flex; flex-direction: column; gap: 22px; }
+
+        .cp-col-empty {
+          padding: 28px 4px; font-size: 15px; font-style: italic;
+          color: var(--gray-500); margin: 0;
+        }
+
+        .cp-card {
+          border: 1px solid var(--gray-700); border-radius: 18px; overflow: hidden;
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-600) 16%, transparent),
+            color-mix(in srgb, var(--primary-800) 30%, transparent)
+          );
+          transition: .18s; flex-shrink: 0;
+        }
+
+        .cp-card:hover { border-color: var(--gray-600); transform: translateY(-2px); }
+
+        .cp-card-cover {
+          width: 100%; height: 150px; position: relative;
+          display: flex; align-items: center; justify-content: center; overflow: hidden;
+          border-bottom: 1px solid color-mix(in srgb, var(--gray-100) 5%, transparent);
+          background: radial-gradient(120% 120% at 30% 20%, var(--primary-700), var(--primary-900));
+          flex-shrink: 0;
+        }
+
+        .cp-card-cover-letter {
+          font-size: 40px; font-weight: 700; letter-spacing: -0.02em;
+          color: color-mix(in srgb, var(--primary-100) 50%, transparent);
+        }
+
+        .cp-card-body {
+          display: flex; flex-direction: column; gap: 16px; padding: 22px 24px 24px;
+        }
+
+        .cp-card-name {
+          margin: 0; font-size: 20px; font-weight: 700;
+          color: var(--gray-100); letter-spacing: -0.01em;
+        }
+
+        .cp-card-due { margin: 0; font-size: 14px; color: var(--gray-400); }
+
+        .cp-card-btn {
+          display: flex; align-items: center; justify-content: center; gap: 9px;
+          height: 50px; margin-top: 2px; font-family: inherit; font-size: 15.5px; font-weight: 600;
+          color: var(--primary-200); cursor: pointer; border-radius: 13px; width: 100%;
+          border: 1px solid color-mix(in srgb, var(--primary-500) 28%, transparent);
+          background: color-mix(in srgb, var(--primary-500) 7%, transparent);
+          transition: .18s;
+        }
+
+        .cp-card-btn:hover {
+          background: color-mix(in srgb, var(--primary-500) 14%, transparent);
+          border-color: var(--primary-500);
+        }
+
+        /* ---- CALENDAR ---- */
+        .cp-cal {
+          display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
+          border: 1px solid var(--gray-700); border-radius: 20px; padding: 26px 30px 20px;
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-700) 14%, transparent),
+            color-mix(in srgb, var(--primary-800) 26%, transparent)
+          );
+        }
+
+        .cp-cal-head {
+          display: flex; align-items: center; justify-content: space-between;
+          margin-bottom: 22px; flex-shrink: 0;
+        }
+
+        .cp-cal-title {
+          margin: 0; font-size: 24px; font-weight: 700;
+          color: var(--gray-100); letter-spacing: -0.01em;
+        }
+
+        .cp-cal-nav {
+          display: grid; place-items: center; width: 42px; height: 42px;
+          border-radius: 11px; border: 1px solid var(--gray-700); font-family: inherit;
+          background: color-mix(in srgb, var(--primary-900) 40%, transparent);
+          color: var(--gray-300); cursor: pointer; transition: .16s;
+        }
+
+        .cp-cal-nav:hover { border-color: var(--primary-500); color: var(--primary-300); }
+
+        .cp-cal-weekdays {
+          display: grid; grid-template-columns: repeat(7, 1fr);
+          gap: 10px; margin-bottom: 12px; flex-shrink: 0;
+        }
+
+        .cp-cal-weekday {
+          text-align: center; font-size: 13.5px; font-weight: 600; color: var(--gray-400);
+        }
+
+        .cp-cal-grid {
+          flex: 1; min-height: 0;
+          display: grid; grid-template-columns: repeat(7, 1fr);
+          grid-auto-rows: minmax(70px, 1fr); gap: 10px; overflow-y: auto;
+        }
+
+        .cp-cal-cell {
+          display: flex; flex-direction: column; gap: 6px; padding: 12px;
+          border-radius: 13px; border: 1px solid transparent;
+          background: color-mix(in srgb, var(--primary-900) 35%, transparent);
+        }
+
+        .cp-cal-cell.empty { background: transparent; border-color: transparent; }
+
+        .cp-cal-cell.today {
+          border-color: var(--primary-500);
+          background: color-mix(in srgb, var(--primary-500) 7%, transparent);
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-500) 20%, transparent);
+        }
+
+        .cp-cal-day { font-size: 17px; font-weight: 700; color: var(--gray-200); }
+
+        .cp-cal-cell.today .cp-cal-day { color: var(--primary-300); }
+
+        .cp-cal-chip {
+          align-self: flex-start; padding: 5px 11px; border-radius: 8px;
+          font-size: 12.5px; font-weight: 600; color: var(--primary-100);
+          background: color-mix(in srgb, var(--primary-500) 14%, transparent);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 30%, transparent);
+          max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          cursor: pointer; transition: .15s;
+        }
+
+        .cp-cal-chip:hover {
+          background: color-mix(in srgb, var(--primary-500) 22%, transparent);
+        }
+
+        /* empty state */
+        .cp-empty {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          gap: 16px; padding: 40px 20px; text-align: center; flex: 1;
+        }
+
+        .cp-empty-ico {
+          display: grid; place-items: center; width: 60px; height: 60px;
+          border-radius: 50%; color: var(--gray-500);
+          background: color-mix(in srgb, var(--gray-300) 6%, transparent);
+          border: 1px solid var(--gray-700);
+        }
+
+        /* scrollbars */
+        .cp-rows::-webkit-scrollbar,
+        .cp-board::-webkit-scrollbar,
+        .cp-cal-grid::-webkit-scrollbar { width: 5px; }
+
+        .cp-rows::-webkit-scrollbar-track,
+        .cp-board::-webkit-scrollbar-track,
+        .cp-cal-grid::-webkit-scrollbar-track { background: transparent; }
+
+        .cp-rows::-webkit-scrollbar-thumb,
+        .cp-board::-webkit-scrollbar-thumb,
+        .cp-cal-grid::-webkit-scrollbar-thumb { background: var(--gray-700); border-radius: 9999px; }
+
+        .cp-rows::-webkit-scrollbar-thumb:hover,
+        .cp-board::-webkit-scrollbar-thumb:hover,
+        .cp-cal-grid::-webkit-scrollbar-thumb:hover { background: var(--gray-600); }
       `}</style>
     </div>
   );

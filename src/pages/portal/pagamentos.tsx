@@ -76,7 +76,7 @@ export default function PortalPagamentosPage() {
       <ClientSidebar defaultOpen={false} />
 
       <div className="flex flex-col flex-1 gap-6 pr-6 py-6 w-full overflow-hidden">
-        <header className="w-full flex items-center justify-between gap-4 flex-shrink-0">
+        <header className="w-full flex items-center justify-between gap-4 flex-shrink-0 relative z-10">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push("/portal/dashboard")}
