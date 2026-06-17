@@ -36,7 +36,7 @@ export default function ClientSidebar({ defaultOpen = false, onOpenChange }: Cli
   ];
 
   const utilLinks = [
-    { name: "Configurações", href: "/dashboard/configuracoes", icon: Settings },
+    { name: "Configurações", href: "/portal/configuracoes", icon: Settings },
   ];
 
   const toggleSidebar = () => {
