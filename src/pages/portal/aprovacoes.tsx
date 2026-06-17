@@ -5,7 +5,7 @@ import { getClientProjects, getClientAllEntregaveis, updateEntregavelStatus } fr
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
 import ImageAnnotatorModal from "@/components/ImageAnnotatorModal";
-import { FileText, ExternalLink, Pencil } from "lucide-react";
+import { FileText, ExternalLink, Pencil, Image as ImageIcon, Download, Eye } from "lucide-react";
 
 type EntregavelArquivo = { url: string; tipo: string; nome: string };
 type Entregavel = {
@@ -118,17 +118,31 @@ export default function PortalAprovacoesPage() {
     return e.status === "aprovado";
   });
 
+  const TABS = [
+    { key: "aguardando" as const, label: "Aguardando revisão", count: counts.aguardando, tone: "alert" },
+    { key: "para_alteracao" as const, label: "Para alterar", count: counts.para_alteracao, tone: "primary" },
+    { key: "aprovado" as const, label: "Aprovados", count: counts.aprovado, tone: "success" },
+  ];
+
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
+      <div className="h-screen w-screen flex overflow-hidden" style={{ background: "var(--primary-900)" }}>
         <ClientSidebar defaultOpen={false} />
-        <div className="flex flex-col flex-1 gap-6 px-8 py-8 overflow-hidden">
-          <div className="h-8 w-48 rounded-lg bg-primary-800 animate-pulse" />
-          <div className="flex gap-3">
-            {[1, 2, 3].map(i => <div key={i} className="h-8 w-28 rounded-full bg-primary-800 animate-pulse" />)}
+        <div className="dl-page">
+          <div className="dl-head" style={{ marginBottom: 0 }}>
+            <div className="dl-head-l">
+              <div style={{ width: 100, height: 46, borderRadius: 13, background: "var(--primary-800)" }} className="animate-pulse" />
+              <div>
+                <div style={{ width: 200, height: 32, borderRadius: 10, background: "var(--primary-800)", marginBottom: 8 }} className="animate-pulse" />
+                <div style={{ width: 300, height: 16, borderRadius: 8, background: "var(--primary-800)" }} className="animate-pulse" />
+              </div>
+            </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            {[1, 2, 3, 4].map(i => <div key={i} className="h-64 rounded-2xl bg-primary-800 animate-pulse" />)}
+          <div className="dl-tabs" style={{ marginTop: 26 }}>
+            {[1, 2, 3].map(i => <div key={i} style={{ width: 160, height: 48, borderRadius: 13, background: "var(--primary-800)" }} className="animate-pulse" />)}
+          </div>
+          <div className="dl-grid">
+            {[1, 2, 3, 4].map(i => <div key={i} style={{ height: 320, borderRadius: 20, background: "var(--primary-800)" }} className="animate-pulse" />)}
           </div>
         </div>
       </div>
@@ -136,62 +150,58 @@ export default function PortalAprovacoesPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
+    <div className="h-screen w-screen flex overflow-hidden" style={{ background: "var(--primary-900)" }}>
       <ClientSidebar defaultOpen={false} />
 
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <header className="flex items-center justify-between px-8 py-5 border-b border-primary-800 flex-shrink-0 relative z-10">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.push("/portal/dashboard")}
-              className="inline-flex items-center gap-2 bg-primary-800 border border-primary-700 text-gray-100 rounded-xl px-4 py-2 text-[15px] hover:bg-primary-700 transition-colors"
-            >
-              ← Voltar
-            </button>
-            <div>
-              <h1 className="text-[22px] font-semibold text-gray-100">Entregáveis</h1>
-              <p className="text-[13px] text-gray-500 mt-0.5">Revise e aprove os arquivos enviados pelo freelancer</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-gray-500">{user?.email}</span>
-            <ClientHeaderProfile user={user} />
-          </div>
-        </header>
+      <div className="dl-page">
+        <div className="dl-glow dl-glow-a" />
+        <div className="dl-glow dl-glow-b" />
 
-        <div className="flex items-center gap-2 px-8 py-4 border-b border-primary-800 flex-shrink-0">
-          {([
-            ["aguardando", "Aguardando revisão", counts.aguardando],
-            ["para_alteracao", "Para alterar", counts.para_alteracao],
-            ["aprovado", "Aprovados", counts.aprovado],
-          ] as const).map(([key, label, count]) => (
-            <button
-              key={key}
-              onClick={() => setActiveFilter(key)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full text-[13px] font-medium transition-colors border ${
-                activeFilter === key
-                  ? key === "aguardando" ? "bg-yellow-500/20 border-yellow-500 text-yellow-300"
-                    : key === "aprovado" ? "bg-third-400/20 border-third-400 text-third-300"
-                    : "bg-primary-600/40 border-primary-500 text-primary-200"
-                  : "bg-transparent border-primary-700 text-gray-500 hover:text-gray-300 hover:border-primary-600"
-              }`}
-            >
-              {label}
-              {count > 0 && <span className="text-[11px] font-bold bg-primary-700/60 text-gray-400 rounded-full px-1.5 py-0.5 leading-none">{count}</span>}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-8 py-6">
-          {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-              <div className="w-12 h-12 rounded-full bg-primary-800 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <header className="dl-head">
+            <div className="dl-head-l">
+              <button
+                type="button"
+                onClick={() => router.push("/portal/dashboard")}
+                className="dl-back"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                Voltar
+              </button>
+              <div>
+                <h1 className="dl-h1">Entregáveis</h1>
+                <p className="dl-sub">Revise e aprove os arquivos enviados pelo freelancer</p>
               </div>
-              <p className="text-[14px] text-gray-500">Nenhum entregável aqui.</p>
+            </div>
+            <div className="dl-user">
+              <span className="dl-email">{user?.email}</span>
+              <ClientHeaderProfile user={user} />
+            </div>
+          </header>
+
+          <div className="dl-tabs">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                className={`dl-tab${activeFilter === t.key ? ` is-on tone-${t.tone}` : ""}`}
+                onClick={() => setActiveFilter(t.key)}
+              >
+                {t.label}
+                {t.count > 0 && <span className="dl-tab-count">{t.count}</span>}
+              </button>
+            ))}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="dl-empty">
+              <div className="dl-empty-ico">
+                <FileText size={26} strokeWidth={1.5} />
+              </div>
+              <p className="dl-empty-txt">Nenhum entregável aqui.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-[900px] mx-auto">
+            <div className="dl-grid">
               {filtered.map((e) => (
                 <EntregavelItem
                   key={e.id}
@@ -215,10 +225,407 @@ export default function PortalAprovacoesPage() {
       </div>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--primary-700); border-radius: 9999px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--primary-600); }
+        .dl-page {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          padding: 30px 44px 52px;
+          position: relative;
+          min-width: 0;
+          background: var(--primary-900);
+          -webkit-font-smoothing: antialiased;
+        }
+
+        .dl-glow {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(90px);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .dl-glow-a {
+          width: 520px; height: 520px;
+          left: -160px; bottom: -200px;
+          background: radial-gradient(circle, rgba(30,182,232,0.16), transparent 70%);
+        }
+        .dl-glow-b {
+          width: 460px; height: 460px;
+          right: -150px; top: -120px;
+          background: radial-gradient(circle, color-mix(in srgb, var(--primary-600) 60%, transparent), transparent 70%);
+        }
+
+        /* Header */
+        .dl-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 24px;
+          padding-bottom: 26px;
+          border-bottom: 1px solid var(--primary-700);
+        }
+        .dl-head-l { display: flex; align-items: center; gap: 22px; }
+
+        .dl-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          height: 46px;
+          padding: 0 20px;
+          font-family: inherit;
+          font-size: 15.5px;
+          font-weight: 600;
+          color: var(--gray-200);
+          cursor: pointer;
+          border-radius: 13px;
+          border: 1px solid var(--gray-700);
+          background: color-mix(in srgb, var(--primary-800) 40%, transparent);
+          white-space: nowrap;
+          transition: .18s;
+        }
+        .dl-back:hover {
+          border-color: var(--primary-600);
+          color: var(--gray-100);
+          background: color-mix(in srgb, var(--primary-500) 8%, transparent);
+        }
+
+        .dl-h1 {
+          margin: 0;
+          font-size: 30px;
+          font-weight: 700;
+          color: var(--gray-100);
+          letter-spacing: -0.02em;
+        }
+        .dl-sub {
+          margin: 5px 0 0;
+          font-size: 15px;
+          color: var(--gray-400);
+        }
+        .dl-user { display: flex; align-items: center; gap: 14px; }
+        .dl-email { font-size: 15px; color: var(--gray-400); }
+
+        /* Tabs */
+        .dl-tabs { display: flex; gap: 12px; margin: 26px 0 30px; flex-wrap: wrap; }
+        .dl-tab {
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          height: 48px;
+          padding: 0 22px;
+          font-family: inherit;
+          font-size: 15.5px;
+          font-weight: 600;
+          color: var(--gray-400);
+          cursor: pointer;
+          border-radius: 13px;
+          border: 1px solid var(--gray-700);
+          background: color-mix(in srgb, var(--primary-800) 32%, transparent);
+          transition: .18s;
+        }
+        .dl-tab:hover { color: var(--gray-200); border-color: var(--gray-600); }
+        .dl-tab-count {
+          display: inline-grid;
+          place-items: center;
+          min-width: 24px;
+          height: 24px;
+          padding: 0 7px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--gray-300);
+          background: color-mix(in srgb, var(--gray-400) 10%, transparent);
+        }
+        .dl-tab.is-on { color: var(--gray-100); }
+        .dl-tab.is-on .dl-tab-count { color: var(--primary-900); }
+        .dl-tab.tone-alert.is-on {
+          color: var(--alert-medium);
+          border-color: rgba(255,167,38,0.5);
+          background: rgba(255,167,38,0.10);
+          box-shadow: 0 0 0 1px rgba(255,167,38,0.25);
+        }
+        .dl-tab.tone-alert.is-on .dl-tab-count { background: var(--alert-medium); color: var(--primary-900); }
+        .dl-tab.tone-primary.is-on {
+          color: var(--primary-300);
+          border-color: color-mix(in srgb, var(--primary-500) 50%, transparent);
+          background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-500) 25%, transparent);
+        }
+        .dl-tab.tone-primary.is-on .dl-tab-count { background: var(--primary-500); color: var(--primary-900); }
+        .dl-tab.tone-success.is-on {
+          color: var(--success-medium);
+          border-color: rgba(102,187,106,0.5);
+          background: rgba(102,187,106,0.10);
+          box-shadow: 0 0 0 1px rgba(102,187,106,0.25);
+        }
+        .dl-tab.tone-success.is-on .dl-tab-count { background: var(--success-medium); color: var(--primary-900); }
+
+        /* Card grid */
+        .dl-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 22px;
+        }
+
+        /* Card */
+        .dl-card {
+          display: flex;
+          flex-direction: column;
+          border-radius: 20px;
+          overflow: hidden;
+          border: 1px solid var(--gray-700);
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-800) 45%, transparent),
+            color-mix(in srgb, var(--primary-800) 28%, transparent)
+          );
+          transition: border-color .2s, transform .2s, box-shadow .2s;
+        }
+        .dl-card:hover {
+          border-color: var(--primary-600);
+          transform: translateY(-3px);
+          box-shadow: 0 24px 50px -28px rgba(0,0,0,0.65);
+        }
+
+        /* Cover (placeholder when no real file) */
+        .dl-cover {
+          position: relative;
+          aspect-ratio: 16 / 9;
+          display: grid;
+          place-items: center;
+          background: radial-gradient(
+            120% 120% at 28% 18%,
+            color-mix(in srgb, var(--primary-600) 80%, transparent),
+            color-mix(in srgb, var(--primary-800) 90%, transparent)
+          );
+        }
+        .dl-cover::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+          background-size: 22px 22px;
+          opacity: .5;
+          pointer-events: none;
+        }
+        .dl-cover-icon {
+          position: relative;
+          z-index: 1;
+          display: grid;
+          place-items: center;
+          width: 64px;
+          height: 64px;
+          border-radius: 16px;
+          color: var(--primary-300);
+          background: color-mix(in srgb, var(--primary-900) 50%, transparent);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 22%, transparent);
+          backdrop-filter: blur(2px);
+        }
+        .dl-cover-chip { position: absolute; top: 14px; right: 14px; z-index: 10; }
+
+        /* Status pills */
+        .dl-st {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 6px 13px;
+          border-radius: 999px;
+          border: 1px solid currentColor;
+          white-space: nowrap;
+        }
+        .dl-st::before {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 7px currentColor;
+          flex-shrink: 0;
+        }
+        .dl-st-alert   { color: var(--alert-medium);   background: rgba(255,167,38,0.12);  border-color: rgba(255,167,38,0.38); }
+        .dl-st-primary { color: var(--primary-300);    background: color-mix(in srgb, var(--primary-500) 12%, transparent); border-color: color-mix(in srgb, var(--primary-500) 38%, transparent); }
+        .dl-st-success { color: var(--success-medium); background: rgba(102,187,106,0.12); border-color: rgba(102,187,106,0.38); }
+
+        /* Card body */
+        .dl-body { display: flex; flex-direction: column; flex: 1; padding: 20px 22px 22px; }
+        .dl-project {
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          color: var(--gray-400);
+          text-transform: uppercase;
+        }
+        .dl-title {
+          margin: 7px 0 0;
+          font-size: 19px;
+          font-weight: 700;
+          color: var(--gray-100);
+          letter-spacing: -0.01em;
+        }
+        .dl-desc { margin: 8px 0 0; font-size: 14.5px; color: var(--gray-400); }
+        .dl-foot {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          margin-top: auto;
+          padding-top: 18px;
+        }
+
+        /* Link button */
+        .dl-link {
+          align-self: flex-start;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          font-family: inherit;
+          font-size: 14.5px;
+          font-weight: 600;
+          color: var(--primary-400);
+          background: none;
+          border: 0;
+          padding: 0;
+          cursor: pointer;
+          transition: color .16s;
+          text-decoration: none;
+        }
+        .dl-link:hover { color: var(--primary-300); }
+
+        /* Buttons */
+        .dl-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          height: 50px;
+          width: 100%;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 700;
+          cursor: pointer;
+          border: 0;
+          border-radius: 13px;
+          white-space: nowrap;
+          transition: transform .2s, box-shadow .2s, opacity .18s;
+        }
+        .dl-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+        .dl-btn-primary {
+          color: var(--primary-900);
+          background: linear-gradient(180deg, var(--primary-400), var(--primary-500));
+          box-shadow: 0 14px 30px -14px rgba(30,182,232,0.8);
+        }
+        .dl-btn-primary:not(:disabled):hover {
+          transform: translateY(-1px);
+          box-shadow: 0 18px 36px -14px rgba(30,182,232,0.9);
+        }
+        .dl-btn-outline {
+          height: 46px;
+          color: var(--gray-300);
+          border: 1px solid var(--gray-700);
+          background: color-mix(in srgb, var(--primary-800) 30%, transparent);
+        }
+        .dl-btn-outline:not(:disabled):hover {
+          color: var(--gray-100);
+          background: color-mix(in srgb, var(--primary-700) 50%, transparent);
+        }
+        .dl-btn-sm { height: 44px; font-size: 14px; }
+
+        /* Note chip ("Para alterar" state) */
+        .dl-note {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          height: 50px;
+          padding: 0 18px;
+          font-size: 14.5px;
+          font-weight: 600;
+          color: var(--primary-300);
+          border-radius: 13px;
+          border: 1px dashed color-mix(in srgb, var(--primary-500) 30%, transparent);
+          background: color-mix(in srgb, var(--primary-500) 5%, transparent);
+        }
+
+        /* Feedback text box */
+        .dl-feedback {
+          margin: 0;
+          font-size: 13px;
+          color: var(--gray-400);
+          padding: 10px 14px;
+          border-radius: 11px;
+          background: color-mix(in srgb, var(--primary-900) 60%, transparent);
+          border: 1px solid var(--primary-700);
+          line-height: 1.5;
+        }
+
+        /* Review form */
+        .dl-review-form { display: flex; flex-direction: column; gap: 10px; }
+        .dl-review-form textarea {
+          width: 100%;
+          background: color-mix(in srgb, var(--primary-900) 80%, transparent);
+          border: 1px solid var(--primary-700);
+          border-radius: 12px;
+          padding: 11px 14px;
+          font-family: inherit;
+          font-size: 13.5px;
+          color: var(--gray-100);
+          resize: none;
+          outline: none;
+          transition: border-color .16s;
+        }
+        .dl-review-form textarea:focus { border-color: var(--primary-500); }
+        .dl-review-form textarea::placeholder { color: var(--gray-500); }
+        .dl-review-form-btns { display: flex; gap: 10px; }
+        .dl-review-form-btns .dl-btn { flex: 1; height: 46px; font-size: 14.5px; }
+        .dl-cancel {
+          background: none;
+          border: 0;
+          font-family: inherit;
+          font-size: 13px;
+          color: var(--gray-500);
+          cursor: pointer;
+          text-align: center;
+          transition: color .16s;
+          padding: 2px;
+        }
+        .dl-cancel:hover { color: var(--gray-300); }
+
+        .dl-unavailable {
+          margin: 0;
+          font-size: 13px;
+          color: var(--gray-500);
+          text-align: center;
+          padding: 8px 0;
+        }
+
+        /* Download row */
+        .dl-dl-row { display: flex; gap: 10px; }
+        .dl-dl-row .dl-btn { flex: 1; }
+
+        /* Empty state */
+        .dl-empty {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          padding: 80px 20px;
+          text-align: center;
+        }
+        .dl-empty-ico {
+          display: grid;
+          place-items: center;
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          color: var(--gray-500);
+          background: color-mix(in srgb, var(--gray-400) 8%, transparent);
+          border: 1px solid var(--gray-700);
+        }
+        .dl-empty-txt { margin: 0; font-size: 15.5px; color: var(--gray-500); }
+
+        /* Scrollbar */
+        .dl-page::-webkit-scrollbar { width: 6px; }
+        .dl-page::-webkit-scrollbar-track { background: transparent; }
+        .dl-page::-webkit-scrollbar-thumb { background-color: var(--gray-700); border-radius: 9999px; }
+        .dl-page::-webkit-scrollbar-thumb:hover { background-color: var(--gray-600); }
       `}</style>
     </div>
   );
@@ -317,6 +724,16 @@ function CarouselAprov({ files, onAnnotate, canAnnotate }: { files: Array<{ url:
   );
 }
 
+function StatusPill({ status }: { status: string }) {
+  if (status === "aprovado")
+    return <span className="dl-st dl-st-success">Aprovado</span>;
+  if (status === "para_alteracao")
+    return <span className="dl-st dl-st-primary">Para alterar</span>;
+  if (status === "aguardando_aprovacao")
+    return <span className="dl-st dl-st-alert">Aguardando</span>;
+  return <span className="dl-st dl-st-primary">Rascunho</span>;
+}
+
 function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlob, submitting, setReviewingId, setFeedbackText, setAnnotatedBlob, setAnnotatedPins, setAnnotatedResults, handleReview, approvalAllowed }: any) {
   const [annotatorUrl, setAnnotatorUrl] = useState<string | null>(null);
   const isReviewing = reviewingId === e.id;
@@ -334,117 +751,161 @@ function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlo
   const isAnnotated = isReviewing && !!blobPreviewUrl;
   const entFiles = getEntregavelFilesAprov(e);
   const firstImageFile = entFiles.find((f: any) => f.tipo.startsWith("image/"));
+  const hasImageFile = !!firstImageFile;
+
+  function getCoverIcon() {
+    if (e.url && entFiles.length === 0) return <ExternalLink size={30} strokeWidth={1.7} />;
+    if (entFiles.length > 0 && !hasImageFile) return <FileText size={30} strokeWidth={1.7} />;
+    return <ImageIcon size={30} strokeWidth={1.7} />;
+  }
 
   return (
     <>
-      <div className="bg-primary-800 border border-primary-700 rounded-2xl overflow-hidden flex flex-col">
+      <article className="dl-card">
         {isAnnotated && blobPreviewUrl ? (
-          <div className="relative w-full group overflow-hidden bg-primary-900">
-            <img src={blobPreviewUrl} alt={e.titulo} className="w-full aspect-video object-cover" />
-            <div className="absolute inset-0 ring-2 ring-inset ring-primary-400/60 rounded-none pointer-events-none" />
-            <button type="button" onClick={() => { setAnnotatedBlob(null); setAnnotatedPins([]); if (firstImageFile) setAnnotatorUrl(firstImageFile.url); }}
-              className="absolute top-2 right-2 bg-black/70 backdrop-blur-sm hover:bg-black/90 text-white text-[11px] rounded-lg px-2.5 py-1 transition-colors z-10"
-            >Re-anotar</button>
-            <span className="absolute bottom-2 left-2 text-[11px] text-white bg-primary-500/80 backdrop-blur-sm rounded-md px-2 py-0.5">Anotado</span>
+          <div style={{ position: "relative", overflow: "hidden" }}>
+            <img src={blobPreviewUrl} alt={e.titulo} style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }} />
+            <div style={{ position: "absolute", top: 14, right: 14, zIndex: 10 }}>
+              <StatusPill status={e.status} />
+            </div>
+            <button
+              type="button"
+              onClick={() => { setAnnotatedBlob(null); setAnnotatedPins([]); if (firstImageFile) setAnnotatorUrl(firstImageFile.url); }}
+              style={{ position: "absolute", top: 10, left: 10, zIndex: 10 }}
+              className="bg-black/70 backdrop-blur-sm hover:bg-black/90 text-white text-[11px] rounded-lg px-2.5 py-1 transition-colors"
+            >
+              Re-anotar
+            </button>
+            <span style={{ position: "absolute", bottom: 10, left: 10, zIndex: 10 }} className="text-[11px] text-white bg-primary-500/80 backdrop-blur-sm rounded-md px-2 py-0.5">Anotado</span>
           </div>
         ) : entFiles.length > 0 ? (
-          <CarouselAprov
-            files={entFiles}
-            canAnnotate={e.status === "aguardando_aprovacao" && !!firstImageFile}
-            onAnnotate={(url) => setAnnotatorUrl(url)}
-          />
-        ) : null}
-
-        <div className="flex flex-col gap-3 p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex flex-col min-w-0 flex-1 gap-0.5">
-              <span className="text-[11px] text-gray-500 font-medium uppercase tracking-wide truncate">
-                {(e.projetos as any)?.titulo ?? "Projeto"}
-              </span>
-              <p className="text-[15px] font-semibold text-primary-100 leading-snug">{e.titulo}</p>
-              {e.descricao && <p className="text-[12px] text-gray-500 mt-0.5">{e.descricao}</p>}
+          <div style={{ position: "relative" }}>
+            <CarouselAprov
+              files={entFiles}
+              canAnnotate={e.status === "aguardando_aprovacao" && hasImageFile}
+              onAnnotate={(url: string) => setAnnotatorUrl(url)}
+            />
+            <div style={{ position: "absolute", top: 14, right: 14, zIndex: 20 }}>
+              <StatusPill status={e.status} />
             </div>
-            <EntregavelBadge status={e.status} />
           </div>
-
-          {e.url && (
-            <a href={e.url} target="_blank" rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[12px] text-primary-400 hover:text-primary-300 transition-colors"
-            >
-              <ExternalLink size={11} /> Ver entregável
-            </a>
-          )}
-
-          {e.status === "para_alteracao" && e.feedback_cliente && (
-            <div className="bg-primary-900/60 border border-primary-700 rounded-xl px-3 py-2 text-[12px] text-gray-400">
-              <span className="text-gray-300 font-medium">Seu feedback: </span>{e.feedback_cliente}
+        ) : (
+          <div className="dl-cover">
+            <span className="dl-cover-icon">{getCoverIcon()}</span>
+            <div className="dl-cover-chip">
+              <StatusPill status={e.status} />
             </div>
-          )}
+          </div>
+        )}
 
-          {e.status === "aprovado" && entFiles.length > 0 && (
-            <div className="flex items-center gap-2 pt-1 border-t border-primary-700">
-              {entFiles.length === 1 ? (
-                <button type="button" onClick={() => downloadFileAprov(entFiles[0].url, entFiles[0].nome)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[12px] transition-colors"
+        <div className="dl-body">
+          <span className="dl-project">
+            {(e.projetos as any)?.titulo ?? "Projeto"}
+          </span>
+          <h3 className="dl-title">{e.titulo}</h3>
+          {e.descricao && <p className="dl-desc">{e.descricao}</p>}
+
+          <div className="dl-foot">
+            {e.url && (
+              <a href={e.url} target="_blank" rel="noopener noreferrer" className="dl-link">
+                <ExternalLink size={16} /> Ver entregável
+              </a>
+            )}
+
+            {e.status === "para_alteracao" && (
+              <>
+                <span className="dl-note">
+                  <Pencil size={15} /> Alterações solicitadas
+                </span>
+                {e.feedback_cliente && (
+                  <p className="dl-feedback">
+                    <strong style={{ color: "var(--gray-300)", fontWeight: 600 }}>Seu feedback: </strong>
+                    {e.feedback_cliente}
+                  </p>
+                )}
+              </>
+            )}
+
+            {e.status === "aprovado" && entFiles.length > 0 && (
+              entFiles.length === 1 ? (
+                <button
+                  type="button"
+                  onClick={() => downloadFileAprov(entFiles[0].url, entFiles[0].nome)}
+                  className="dl-btn dl-btn-primary"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Baixar arquivo
+                  <Download size={18} /> Baixar arquivo
                 </button>
               ) : (
-                <>
-                  <button type="button" onClick={() => downloadFileAprov(entFiles[0].url, entFiles[0].nome)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-900/60 border border-primary-700 text-gray-300 hover:bg-primary-700 text-[12px] transition-colors"
+                <div className="dl-dl-row">
+                  <button
+                    type="button"
+                    onClick={() => downloadFileAprov(entFiles[0].url, entFiles[0].nome)}
+                    className="dl-btn dl-btn-outline dl-btn-sm"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Baixar atual
+                    <Download size={16} /> Baixar atual
                   </button>
-                  <button type="button" onClick={() => downloadAllAsZipAprov(entFiles, e.titulo)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[12px] transition-colors"
+                  <button
+                    type="button"
+                    onClick={() => downloadAllAsZipAprov(entFiles, e.titulo)}
+                    className="dl-btn dl-btn-primary dl-btn-sm"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Baixar todos ({entFiles.length})
+                    <Download size={16} /> Todos ({entFiles.length})
                   </button>
-                </>
-              )}
-            </div>
-          )}
+                </div>
+              )
+            )}
 
-          {e.status === "aguardando_aprovacao" && (
-            approvalAllowed[e.project_id] === false ? (
-              <div className="pt-1 border-t border-primary-700">
-                <p className="text-[12px] text-gray-500 text-center py-2">
+            {e.status === "aguardando_aprovacao" && (
+              approvalAllowed[e.project_id] === false ? (
+                <p className="dl-unavailable">
                   A aprovação de entregáveis não está disponível neste projeto.
                 </p>
-              </div>
-            ) : isReviewing ? (
-              <div className="flex flex-col gap-2.5 pt-1 border-t border-primary-700">
-                <textarea
-                  placeholder="Descreva o que precisa ser alterado..."
-                  value={feedbackText}
-                  onChange={(ev: React.ChangeEvent<HTMLTextAreaElement>) => setFeedbackText(ev.target.value)}
-                  className="w-full bg-primary-900 border border-primary-700 rounded-xl px-3 py-2.5 text-[13px] text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:border-primary-500 transition-colors"
-                  rows={3}
-                />
-                <div className="flex gap-2">
-                  <button disabled={submitting} onClick={() => handleReview(e.id, "aprovado")}
-                    className="flex-1 bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-xl py-2.5 text-[13px] transition-colors disabled:opacity-50"
-                  >Aprovar</button>
-                  <button disabled={submitting || (!feedbackText.trim() && !annotatedBlob)} onClick={() => handleReview(e.id, "para_alteracao")}
-                    className="flex-1 bg-primary-900 hover:bg-primary-800 text-gray-300 border border-primary-700 rounded-xl py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
-                  >Pedir alteração</button>
+              ) : isReviewing ? (
+                <div className="dl-review-form">
+                  <textarea
+                    placeholder="Descreva o que precisa ser alterado..."
+                    value={feedbackText}
+                    onChange={(ev: React.ChangeEvent<HTMLTextAreaElement>) => setFeedbackText(ev.target.value)}
+                    rows={3}
+                  />
+                  <div className="dl-review-form-btns">
+                    <button
+                      disabled={submitting}
+                      onClick={() => handleReview(e.id, "aprovado")}
+                      className="dl-btn dl-btn-primary"
+                    >
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12.5 4.5 4.5L19 7"/></svg>
+                      Aprovar
+                    </button>
+                    <button
+                      disabled={submitting || (!feedbackText.trim() && !annotatedBlob)}
+                      onClick={() => handleReview(e.id, "para_alteracao")}
+                      className="dl-btn dl-btn-outline"
+                    >
+                      Pedir alteração
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setReviewingId(null); setFeedbackText(""); setAnnotatedBlob(null); setAnnotatedPins([]); }}
+                    className="dl-cancel"
+                  >
+                    Cancelar
+                  </button>
                 </div>
-                <button onClick={() => { setReviewingId(null); setFeedbackText(""); setAnnotatedBlob(null); setAnnotatedPins([]); }}
-                  className="text-gray-600 hover:text-gray-400 text-[12px] transition-colors text-center"
-                >Cancelar</button>
-              </div>
-            ) : (
-              <button onClick={() => setReviewingId(e.id)}
-                className="w-full bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-xl py-2.5 text-[13px] transition-colors"
-              >Revisar entregável</button>
-            )
-          )}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setReviewingId(e.id)}
+                  className="dl-btn dl-btn-primary"
+                >
+                  <Eye size={18} /> Revisar entregável
+                </button>
+              )
+            )}
+          </div>
         </div>
-      </div>
+      </article>
 
       {annotatorUrl && (
         <ImageAnnotatorModal
@@ -453,7 +914,7 @@ function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlo
             ? entFiles.filter((f: any) => f.tipo.startsWith("image/")).map((f: any) => f.url)
             : undefined}
           onClose={() => setAnnotatorUrl(null)}
-          onConfirm={(_text, blob, pins, allResults) => {
+          onConfirm={(_text: string, blob: Blob | null, pins: Array<{ xPct: number; yPct: number; text: string }>, allResults: any) => {
             setReviewingId(e.id);
             if (blob) setAnnotatedBlob(blob);
             setAnnotatedPins(pins);
@@ -464,11 +925,4 @@ function EntregavelItem({ entregavel: e, reviewingId, feedbackText, annotatedBlo
       )}
     </>
   );
-}
-
-function EntregavelBadge({ status }: { status: string }) {
-  if (status === "aprovado") return <span className="text-[11px] text-third-400 bg-third-400/10 px-2.5 py-1 rounded-full border border-third-400 flex-shrink-0 font-medium">Aprovado</span>;
-  if (status === "para_alteracao") return <span className="text-[11px] text-primary-200 bg-primary-600/30 px-2.5 py-1 rounded-full border border-primary-500 flex-shrink-0 font-medium">Para alterar</span>;
-  if (status === "aguardando_aprovacao") return <span className="text-[11px] text-yellow-400 bg-yellow-400/10 px-2.5 py-1 rounded-full border border-yellow-400 flex-shrink-0 font-medium">Aguardando</span>;
-  return <span className="text-[11px] text-primary-400 bg-primary-400/10 px-2.5 py-1 rounded-full border border-primary-700 flex-shrink-0 font-medium">Rascunho</span>;
 }

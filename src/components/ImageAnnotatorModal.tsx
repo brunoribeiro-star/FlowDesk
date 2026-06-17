@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Pencil, MessageSquarePlus, RotateCcw, Trash2, Minus, Plus, X, Check } from "lucide-react";
 
 function hsvToHex(h: number, s: number, v: number): string {
@@ -570,29 +571,72 @@ export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onCo
     return () => window.removeEventListener("keydown", onKey);
   }, [handleUndo]);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[9999] bg-black/95 overflow-hidden"
-      style={{ userSelect: "none" }}
+      className="fixed inset-0 z-[9999] overflow-hidden"
+      style={{
+        userSelect: "none",
+        background: "radial-gradient(120% 90% at 50% 0%, var(--primary-800) 0%, var(--primary-900) 60%, var(--gray-900) 100%)",
+        color: "var(--gray-100)",
+      }}
       onMouseUp={stopDrawing}
     >
-      <div className="absolute top-4 right-4 flex items-center gap-2 z-30">
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 30, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "22px 26px" }}>
         <button
+          type="button"
           onClick={onClose}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] text-gray-300 hover:text-gray-100 border border-primary-700 hover:border-primary-500 rounded-lg transition-colors bg-primary-900/80"
+          style={{
+            display: "grid", placeItems: "center",
+            width: 46, height: 46, borderRadius: 13, cursor: "pointer",
+            border: "1px solid var(--gray-700)",
+            background: "color-mix(in srgb, var(--primary-800) 55%, transparent)",
+            color: "var(--gray-200)",
+            backdropFilter: "blur(8px)",
+            transition: ".18s",
+            flexShrink: 0,
+          }}
         >
-          <X size={13} /> Cancelar
+          <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6"/>
+          </svg>
         </button>
-        <button
-          onClick={handleConfirm}
-          disabled={confirming}
-          className="flex items-center gap-1.5 px-4 py-1.5 text-[13px] bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-lg transition-colors disabled:opacity-60"
-        >
-          <Check size={13} /> {confirming ? "Salvando…" : "Salvar"}
-        </button>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button
+            onClick={onClose}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 9,
+              height: 46, padding: "0 20px", fontFamily: "inherit",
+              fontSize: 15, fontWeight: 600, cursor: "pointer", borderRadius: 13,
+              whiteSpace: "nowrap", transition: ".2s",
+              color: "var(--gray-200)", border: "1px solid var(--gray-700)",
+              background: "color-mix(in srgb, var(--primary-800) 55%, transparent)",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <X size={17} /> Cancelar
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={confirming}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 9,
+              height: 46, padding: "0 20px", fontFamily: "inherit",
+              fontSize: 15, fontWeight: 600, cursor: "pointer", borderRadius: 13,
+              whiteSpace: "nowrap", transition: ".2s",
+              color: "var(--primary-900)", border: "none",
+              background: "linear-gradient(180deg, var(--primary-400), var(--primary-500))",
+              boxShadow: "0 14px 30px -14px rgba(30,182,232,0.85)",
+              opacity: confirming ? 0.5 : 1,
+            }}
+          >
+            <Check size={17} /> {confirming ? "Salvando…" : "Salvar"}
+          </button>
+        </div>
       </div>
 
-      <div className="absolute inset-0 flex items-center justify-center gap-3" style={{ paddingBottom: "5.5rem" }}>
+      <div className="absolute inset-0 flex items-center justify-center gap-3" style={{ padding: "92px 40px 120px" }}>
         {allUrls.length > 1 && (
           <button
             type="button"
@@ -603,14 +647,14 @@ export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onCo
           </button>
         )}
         <div className="flex flex-col items-center gap-2" style={{ lineHeight: 0 }}>
-          <div ref={imgContainerRef} className="relative inline-block" style={{ lineHeight: 0 }}>
+          <div ref={imgContainerRef} className="relative inline-block" style={{ lineHeight: 0, borderRadius: 22, overflow: "hidden", border: "1px solid color-mix(in srgb, var(--gray-200) 14%, transparent)", boxShadow: "0 50px 120px -50px rgba(0,0,0,0.9), 0 0 0 1px rgba(6,25,31,0.5)" }}>
           <img
             ref={imgRef}
             src={activeUrl}
             alt="Entregável"
             crossOrigin="anonymous"
             className="block object-contain"
-            style={{ maxWidth: "calc(100vw - 10rem)", maxHeight: "calc(100vh - 9rem)" }}
+            style={{ maxWidth: "calc(100vw - 10rem)", maxHeight: "calc(100vh - 14rem)", display: "block" }}
             onLoad={setupCanvas}
             draggable={false}
           />
@@ -660,7 +704,19 @@ export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onCo
         )}
       </div>
 
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-primary-900 border border-primary-700 rounded-2xl px-3 py-2 shadow-2xl">
+      <div
+        className="absolute left-1/2 -translate-x-1/2 z-30 flex items-center"
+        style={{
+          bottom: 26,
+          gap: 10,
+          padding: "10px 14px",
+          borderRadius: 18,
+          background: "color-mix(in srgb, var(--primary-800) 86%, transparent)",
+          border: "1px solid var(--gray-700)",
+          backdropFilter: "blur(16px)",
+          boxShadow: "0 24px 60px -24px rgba(0,0,0,0.85)",
+        }}
+      >
 
         <TipBtn title="Lápis" shortcut="V" active={tool === "draw"} onClick={() => { setTool("draw"); setColorPickerOpen(false); }}>
           <Pencil size={17} />
@@ -677,15 +733,31 @@ export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onCo
             type="button"
             title={c}
             onClick={() => { setColor(c); setColorPickerOpen(false); }}
-            className="flex-shrink-0 rounded-full transition-transform hover:scale-110"
             style={{
-              width: 14, height: 14,
-              backgroundColor: c,
-              outline: color === c ? "2px solid var(--primary-400)" : "2px solid transparent",
-              outlineOffset: 2,
-              boxShadow: (c === "#ffffff" || c === "#111827") ? "0 0 0 1px var(--primary-600)" : "none",
+              display: "grid", placeItems: "center",
+              width: 28, height: 28,
+              borderRadius: "50%",
+              border: 0,
+              background: "none",
+              cursor: "pointer",
+              flexShrink: 0,
+              padding: 0,
+              transition: ".15s",
+              boxShadow: color === c ? `0 0 0 2.5px ${c}` : "none",
             }}
-          />
+          >
+            <span
+              style={{
+                display: "block",
+                width: 20, height: 20,
+                borderRadius: "50%",
+                backgroundColor: c,
+                boxShadow: `inset 0 0 0 1px rgba(0,0,0,0.25)${(c === "#ffffff" || c === "#111827") ? ", 0 0 0 1px var(--primary-700)" : ""}`,
+                transition: ".15s",
+                transform: color === c ? "scale(0.82)" : "scale(1)",
+              }}
+            />
+          </button>
         ))}
 
         <Sep />
@@ -695,14 +767,30 @@ export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onCo
             type="button"
             title="Seletor de cores"
             onClick={() => setColorPickerOpen(p => !p)}
-            className={`relative w-8 h-8 rounded-full border-2 transition-all hover:scale-110 overflow-hidden ${
-              colorPickerOpen ? "border-primary-400 scale-110" : "border-primary-600 hover:border-primary-400"
-            }`}
             style={{
-              background: "conic-gradient(hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%), hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))",
+              position: "relative",
+              display: "grid",
+              placeItems: "center",
+              width: 36, height: 36,
+              borderRadius: "50%",
+              cursor: "pointer",
+              border: 0,
+              background: "conic-gradient(from 0deg, #ef5350, #ffa726, #ffd54f, #66bb6a, #1eb6e8, #5c8df5, #8c77d3, #ec6fb0, #ef5350)",
+              color: "#fff",
+              transition: ".16s",
+              padding: 0,
+              transform: colorPickerOpen ? "scale(1.06)" : "scale(1)",
             }}
           >
-            <span className="absolute rounded-full pointer-events-none" style={{ inset: 4, backgroundColor: color, boxShadow: "0 0 0 1px rgba(0,0,0,0.3)" }} />
+            <span style={{
+              position: "absolute",
+              inset: 4,
+              borderRadius: "50%",
+              background: "rgba(8,30,37,0.55)",
+            }} />
+            <svg style={{ position: "relative", zIndex: 1 }} width={16} height={16} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/>
+            </svg>
           </button>
           {colorPickerOpen && <ColorPickerPopover color={color} onChange={setColor} />}
         </div>
@@ -710,15 +798,15 @@ export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onCo
         {tool === "draw" && (
           <>
             <Sep />
-            <div className="flex items-center gap-0.5">
+            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
               <button type="button" onClick={() => setStrokeWidth(w => Math.max(1, w - 1))}
-                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-100 hover:bg-primary-700 rounded-lg transition-colors">
-                <Minus size={11} />
+                style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: 0, background: "none", cursor: "pointer", color: "var(--gray-400)", transition: ".16s" }}>
+                <Minus size={12} />
               </button>
-              <span className="text-[13px] text-gray-300 w-5 text-center font-mono tabular-nums">{strokeWidth}</span>
+              <span style={{ fontSize: 13, color: "var(--gray-300)", width: 22, textAlign: "center", fontFamily: "monospace", fontVariantNumeric: "tabular-nums" }}>{strokeWidth}</span>
               <button type="button" onClick={() => setStrokeWidth(w => Math.min(20, w + 1))}
-                className="w-6 h-6 flex items-center justify-center text-gray-400 hover:text-gray-100 hover:bg-primary-700 rounded-lg transition-colors">
-                <Plus size={11} />
+                style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: 0, background: "none", cursor: "pointer", color: "var(--gray-400)", transition: ".16s" }}>
+                <Plus size={12} />
               </button>
             </div>
           </>
@@ -733,12 +821,13 @@ export default function ImageAnnotatorModal({ imageUrl, imageUrls, onClose, onCo
           <Trash2 size={15} />
         </TipBtn>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
 function Sep() {
-  return <div className="w-px h-5 bg-primary-700 mx-1.5 flex-shrink-0" />;
+  return <div style={{ width: 1, height: 30, background: "var(--gray-700)", margin: "0 2px", flexShrink: 0 }} />;
 }
 
 function TipBtn({ title, shortcut, active, disabled, onClick, children }: {
@@ -751,18 +840,29 @@ function TipBtn({ title, shortcut, active, disabled, onClick, children }: {
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className={`w-8 h-8 flex items-center justify-center rounded-xl transition-colors disabled:opacity-30 ${
-          active ? "bg-primary-500 text-primary-900" : "text-gray-400 hover:text-gray-100 hover:bg-primary-700"
-        }`}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 44, height: 44,
+          borderRadius: 12,
+          cursor: disabled ? "not-allowed" : "pointer",
+          border: active ? "1px solid rgba(30,182,232,0.4)" : "1px solid transparent",
+          background: active ? "rgba(30,182,232,0.16)" : "none",
+          color: active ? "var(--primary-300)" : "var(--gray-300)",
+          transition: ".16s",
+          opacity: disabled ? 0.3 : 1,
+          flexShrink: 0,
+        }}
       >
         {children}
       </button>
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
-        <div className="bg-primary-800 border border-primary-600 rounded-lg px-2.5 py-1.5 text-center shadow-xl whitespace-nowrap">
-          <p className="text-[12px] text-gray-200 font-medium leading-none">{title}</p>
-          {shortcut && <p className="text-[10px] text-gray-400 mt-1 leading-none">{shortcut}</p>}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 pointer-events-none z-50" style={{ backdropFilter: "blur(12px)" }}>
+        <div className="text-center whitespace-nowrap" style={{ background: "color-mix(in srgb, var(--primary-800) 92%, transparent)", border: "1px solid var(--primary-700)", borderRadius: 10, padding: "8px 12px", boxShadow: "0 16px 40px -16px rgba(0,0,0,0.9)" }}>
+          <p style={{ fontSize: 12, color: "var(--gray-200)", fontWeight: 500, lineHeight: 1 }}>{title}</p>
+          {shortcut && <p style={{ fontSize: 10, color: "var(--gray-400)", marginTop: 4, lineHeight: 1 }}>{shortcut}</p>}
         </div>
-        <div className="absolute top-full left-1/2 -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "5px solid var(--primary-600)" }} />
+        <div className="absolute top-full left-1/2 -translate-x-1/2" style={{ width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent", borderTop: "5px solid var(--primary-700)" }} />
       </div>
     </div>
   );
@@ -791,25 +891,43 @@ function PinMarker({ pin, index, isDragging, onPinMouseDown, onTextChange, onClo
       <button
         type="button"
         onMouseDown={onPinMouseDown}
-        style={{ cursor: isDragging ? "grabbing" : "grab" }}
-        className={`w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center shadow-lg border-2 transition-transform hover:scale-110 select-none ${
-          isDragging ? "scale-110 shadow-2xl" : ""
-        } ${
-          pin.text.trim()
-            ? "bg-primary-500 border-primary-300 text-primary-900"
-            : "bg-yellow-400 border-yellow-200 text-black"
-        }`}
+        style={{
+          cursor: isDragging ? "grabbing" : "grab",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: 34, height: 34,
+          borderRadius: "50% 50% 50% 2px",
+          fontSize: 13, fontWeight: 700,
+          color: "#04141a",
+          border: "2px solid rgba(255,255,255,0.85)",
+          boxShadow: isDragging ? "0 8px 24px -4px rgba(0,0,0,0.9)" : "0 6px 18px -4px rgba(0,0,0,0.7)",
+          transform: isDragging ? "scale(1.1)" : "scale(1)",
+          transition: "transform .15s, box-shadow .15s",
+          backgroundColor: pin.text.trim() ? "var(--primary-500)" : "var(--alert-medium)",
+          userSelect: "none",
+          padding: 0,
+        }}
       >
         {index + 1}
       </button>
 
       {pin.editing && !isDragging && (
         <div
-          className="absolute bg-primary-800 border border-primary-600 rounded-xl shadow-2xl p-3 flex flex-col gap-2"
           style={{
-            width: 240,
+            position: "absolute",
+            width: 280,
             zIndex: 40,
-            ...(popupLeft ? { right: "calc(100% + 10px)" } : { left: "calc(100% + 10px)" }),
+            padding: 16,
+            borderRadius: 16,
+            background: "color-mix(in srgb, var(--primary-900) 92%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--primary-500) 34%, transparent)",
+            backdropFilter: "blur(14px)",
+            boxShadow: "0 30px 70px -30px rgba(0,0,0,0.85)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            ...(popupLeft ? { right: "calc(100% + 12px)" } : { left: "calc(100% + 12px)" }),
             ...(popupUp
               ? { bottom: "50%", transform: "translateY(50%)" }
               : { top: "50%", transform: "translateY(-50%)" }),
@@ -817,11 +935,15 @@ function PinMarker({ pin, index, isDragging, onPinMouseDown, onTextChange, onClo
           onClick={e => e.stopPropagation()}
           onMouseDown={e => e.stopPropagation()}
         >
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-gray-400 font-medium uppercase tracking-wide">
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--gray-300)" }}>
               Ponto {index + 1}
             </span>
-            <button type="button" onClick={onRemove} className="text-[11px] text-red-400 hover:text-red-300 transition-colors">
+            <button
+              type="button"
+              onClick={onRemove}
+              style={{ display: "inline-flex", alignItems: "center", fontFamily: "inherit", fontSize: 13, fontWeight: 600, color: "var(--error-medium)", background: "none", border: 0, padding: 0, cursor: "pointer", transition: ".16s" }}
+            >
               Remover
             </button>
           </div>
@@ -837,10 +959,27 @@ function PinMarker({ pin, index, isDragging, onPinMouseDown, onTextChange, onClo
                 onCloseEdit();
               }
             }}
-            style={{ userSelect: "text" }}
-            className="w-full bg-primary-700 border border-primary-600 rounded-lg px-2.5 py-2 text-[13px] text-gray-200 placeholder-gray-500 resize-none focus:outline-none focus:border-primary-500 transition-colors leading-relaxed"
+            className="placeholder-gray-500 focus:outline-none"
+            style={{
+              userSelect: "text",
+              width: "100%",
+              minHeight: 88,
+              padding: "11px 13px",
+              borderRadius: 12,
+              border: "1px solid var(--gray-700)",
+              background: "color-mix(in srgb, var(--primary-900) 60%, transparent)",
+              color: "var(--gray-100)",
+              fontSize: 14,
+              lineHeight: 1.5,
+              resize: "none",
+              fontFamily: "inherit",
+            }}
           />
-          <p className="text-[10px] text-gray-600">Enter para salvar · Shift+Enter nova linha · Esc para fechar</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--gray-500)", flexWrap: "wrap" }}>
+            <span><b style={{ color: "var(--gray-300)", fontWeight: 600 }}>Enter</b> salva</span>
+            <span style={{ color: "var(--gray-600)" }}>·</span>
+            <span><b style={{ color: "var(--gray-300)", fontWeight: 600 }}>Shift+Enter</b> nova linha</span>
+          </div>
         </div>
       )}
     </div>

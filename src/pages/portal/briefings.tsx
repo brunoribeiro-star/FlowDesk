@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { getClientProjects, getClientAllBriefings, getPortalBriefingCampos } from "@/lib/supabaseQueries/clientPortal";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
-import { ClipboardList, ChevronDown, ChevronUp, CheckCircle } from "lucide-react";
+import { ClipboardList, CheckCircle } from "lucide-react";
 
 type BriefingEnvio = {
   id: string; status: string | null; enviado_em: string | null; respondido_em: string | null;
@@ -34,13 +33,25 @@ export default function PortalBriefingsPage() {
       const { data: memberRows } = await getClientProjects(session.user.id);
       const projectIds = memberRows.map((r: any) => r.project_id);
       const { data } = await getClientAllBriefings(projectIds);
-      setBriefings(data as unknown as BriefingEnvio[]);
+      const bData = data as unknown as BriefingEnvio[];
+      setBriefings(bData);
+
+      const firstPending = bData.find(b => b.status !== "respondido" && !b.respondido_em);
+      if (firstPending) {
+        setActiveBriefing(firstPending.id);
+        const tid = firstPending.briefings_templates?.id;
+        if (tid) {
+          const { data: camposData } = await getPortalBriefingCampos(tid);
+          setBriefingCampos({ [tid]: camposData });
+        }
+      }
+
       setLoading(false);
     })();
   }, []);
 
-  async function openBriefing(envioId: string, templateId: string) {
-    if (activeBriefing === envioId) { setActiveBriefing(null); return; }
+  async function selectBriefing(envioId: string, templateId: string) {
+    if (activeBriefing === envioId) return;
     setActiveBriefing(envioId);
     if (!briefingCampos[templateId]) {
       const { data } = await getPortalBriefingCampos(templateId);
@@ -83,17 +94,38 @@ export default function PortalBriefingsPage() {
   const pending = briefings.filter((b) => b.status !== "respondido" && !b.respondido_em);
   const responded = briefings.filter((b) => b.status === "respondido" || !!b.respondido_em);
 
+  const activeBriefingData = briefings.find(b => b.id === activeBriefing);
+  const activeTemplateId = activeBriefingData?.briefings_templates?.id;
+  const activeCampos = activeTemplateId ? (briefingCampos[activeTemplateId] ?? null) : null;
+  const isActiveResponded = activeBriefingData
+    ? (activeBriefingData.status === "respondido" || !!activeBriefingData.respondido_em)
+    : false;
+
+  const answeredCount = activeCampos
+    ? activeCampos.filter((c) => {
+        const val = briefingRespostas[c.id];
+        return Array.isArray(val) ? val.length > 0 : !!(val as string)?.trim();
+      }).length
+    : 0;
+
   if (loading) {
     return (
-      <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
+      <div className="h-screen w-screen flex overflow-hidden" style={{ background: "var(--primary-900)" }}>
         <ClientSidebar defaultOpen={false} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="border-b border-primary-700 px-6 py-4 flex-shrink-0">
-            <div className="h-5 w-40 rounded bg-primary-800 animate-pulse" />
-            <div className="h-3 w-56 rounded bg-primary-800 animate-pulse mt-2" />
+        <div className="pb-page">
+          <div style={{ padding: "24px 40px", borderBottom: "1px solid var(--primary-700)", display: "flex", alignItems: "center", gap: 20 }}>
+            <div style={{ width: 100, height: 44, borderRadius: 12, background: "var(--primary-800)" }} className="animate-pulse" />
+            <div style={{ width: 1, height: 38, background: "var(--primary-700)" }} />
+            <div>
+              <div style={{ width: 160, height: 28, borderRadius: 8, background: "var(--primary-800)", marginBottom: 8 }} className="animate-pulse" />
+              <div style={{ width: 240, height: 16, borderRadius: 6, background: "var(--primary-800)" }} className="animate-pulse" />
+            </div>
           </div>
-          <div className="flex-1 p-6 flex flex-col gap-3">
-            {[1, 2, 3].map((i) => <div key={i} className="h-16 rounded-xl bg-primary-800 animate-pulse" />)}
+          <div className="pb-main">
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {[1, 2].map(i => <div key={i} style={{ height: 110, borderRadius: 16, background: "var(--primary-800)" }} className="animate-pulse" />)}
+            </div>
+            <div style={{ height: 420, borderRadius: 20, background: "var(--primary-800)" }} className="animate-pulse" />
           </div>
         </div>
       </div>
@@ -101,312 +133,680 @@ export default function PortalBriefingsPage() {
   }
 
   return (
-    <div className="h-screen w-screen bg-primary-900 text-gray-100 flex overflow-hidden">
+    <div className="h-screen w-screen flex overflow-hidden" style={{ background: "var(--primary-900)" }}>
       <ClientSidebar defaultOpen={false} />
 
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <header className="flex-shrink-0 border-b border-primary-700 px-6 py-4 flex items-center justify-between gap-4 relative z-10">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push("/portal/dashboard")}
-              className="text-[13px] text-gray-400 hover:text-gray-200 transition-colors flex items-center gap-1"
-            >
-              ← Voltar
-            </button>
-            <div className="w-px h-4 bg-primary-700" />
-            <div>
-              <div className="text-[16px] font-semibold text-gray-100 leading-tight">Briefings</div>
-              <div className="text-[12px] text-gray-500">Formulários para você responder</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[13px] text-gray-400 hidden sm:block">{user?.email}</span>
-            <ClientHeaderProfile user={user} />
-          </div>
-        </header>
+      <div className="pb-page">
+        <div className="pb-glow pb-glow-a" />
+        <div className="pb-glow pb-glow-b" />
 
-        <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
-          <div className="max-w-2xl mx-auto px-6 py-6 flex flex-col gap-8">
-            {briefings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-                <div className="w-12 h-12 rounded-xl bg-primary-800 border border-primary-700 flex items-center justify-center">
-                  <ClipboardList size={22} className="text-primary-400" />
-                </div>
-                <div>
-                  <div className="text-[14px] font-medium text-gray-300">Nenhum briefing recebido</div>
-                  <div className="text-[12px] text-gray-500 mt-1">Briefings enviados para você aparecerão aqui.</div>
-                </div>
+        <div style={{ position: "relative", zIndex: 1 }}>
+          <header className="pb-head">
+            <div className="pb-head-l">
+              <button
+                type="button"
+                onClick={() => router.push("/portal/dashboard")}
+                className="pb-back"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+                </svg>
+                Voltar
+              </button>
+              <div className="pb-head-div" />
+              <div>
+                <h1 className="pb-h1">Briefings</h1>
+                <p className="pb-sub">Formulários para você responder</p>
               </div>
-            ) : (
-              <>
+            </div>
+            <div className="pb-user">
+              <span className="pb-email">{user?.email}</span>
+              <ClientHeaderProfile user={user} />
+            </div>
+          </header>
+
+          {briefings.length === 0 ? (
+            <div className="pb-empty-full">
+              <div className="pb-empty-ico">
+                <ClipboardList size={26} strokeWidth={1.5} />
+              </div>
+              <p className="pb-empty-txt">Nenhum briefing recebido ainda.</p>
+            </div>
+          ) : (
+            <div className="pb-main">
+              <aside className="pb-list">
                 {pending.length > 0 && (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Para responder</span>
-                      <span className="min-w-[20px] h-5 rounded-full bg-amber-500/15 text-amber-400 text-[10px] font-bold flex items-center justify-center px-1.5">
-                        {pending.length}
-                      </span>
+                  <>
+                    <div className="pb-section-label">
+                      Para responder <span className="pb-count">{pending.length}</span>
                     </div>
-                    <div className="flex flex-col gap-3">
-                      {pending.map((b) => (
-                        <BriefingItem
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {pending.map(b => (
+                        <BriefingListItem
                           key={b.id}
                           briefing={b}
-                          activeBriefing={activeBriefing}
-                          briefingCampos={briefingCampos}
-                          briefingRespostas={briefingRespostas}
-                          submitting={submitting}
-                          openBriefing={openBriefing}
-                          setBriefingRespostas={setBriefingRespostas}
-                          handleSubmit={handleSubmit}
+                          isActive={activeBriefing === b.id}
+                          isResponded={false}
+                          onSelect={() => selectBriefing(b.id, b.briefings_templates?.id ?? "")}
                         />
                       ))}
                     </div>
-                  </div>
+                  </>
                 )}
 
                 {responded.length > 0 && (
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Respondidos</span>
-                      <span className="min-w-[20px] h-5 rounded-full bg-third-500/15 text-third-400 text-[10px] font-bold flex items-center justify-center px-1.5">
-                        {responded.length}
-                      </span>
+                  <>
+                    <div className="pb-section-label" style={{ marginTop: pending.length > 0 ? 24 : 0 }}>
+                      Respondidos <span className="pb-count-success">{responded.length}</span>
                     </div>
-                    <div className="flex flex-col gap-3">
-                      {responded.map((b) => (
-                        <BriefingItem
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {responded.map(b => (
+                        <BriefingListItem
                           key={b.id}
                           briefing={b}
-                          activeBriefing={activeBriefing}
-                          briefingCampos={briefingCampos}
-                          briefingRespostas={briefingRespostas}
-                          submitting={submitting}
-                          openBriefing={openBriefing}
-                          setBriefingRespostas={setBriefingRespostas}
-                          handleSubmit={handleSubmit}
+                          isActive={activeBriefing === b.id}
+                          isResponded={true}
+                          onSelect={() => selectBriefing(b.id, b.briefings_templates?.id ?? "")}
                         />
                       ))}
                     </div>
-                  </div>
+                  </>
                 )}
-              </>
-            )}
-          </div>
+              </aside>
+
+              <section className="pb-detail">
+                {!activeBriefingData ? (
+                  <div className="pb-empty-panel">
+                    <div className="pb-empty-ico">
+                      <ClipboardList size={24} strokeWidth={1.5} />
+                    </div>
+                    <p className="pb-empty-txt">Selecione um briefing para responder</p>
+                  </div>
+                ) : isActiveResponded ? (
+                  <>
+                    <div className="pb-detail-head">
+                      <div>
+                        <h2 className="pb-detail-title">{activeBriefingData.briefings_templates?.titulo ?? "Briefing"}</h2>
+                        <p className="pb-detail-sub">{(activeBriefingData.projetos as any)?.titulo ?? "Projeto"}</p>
+                      </div>
+                      <span className="pb-st pb-st-success">Respondido</span>
+                    </div>
+                    <div className="pb-responded-state">
+                      <CheckCircle size={32} strokeWidth={1.5} style={{ color: "var(--success-medium)", flexShrink: 0 }} />
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 600, color: "var(--gray-200)", marginBottom: 4 }}>Briefing respondido</div>
+                        <div style={{ fontSize: 14, color: "var(--gray-400)" }}>
+                          Respondido em{" "}
+                          {activeBriefingData.respondido_em
+                            ? new Date(activeBriefingData.respondido_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
+                            : "—"}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="pb-detail-head">
+                      <div>
+                        <h2 className="pb-detail-title">{activeBriefingData.briefings_templates?.titulo ?? "Briefing"}</h2>
+                        <p className="pb-detail-sub">{(activeBriefingData.projetos as any)?.titulo ?? "Projeto"}</p>
+                      </div>
+                      <span className="pb-st pb-st-alert">Pendente</span>
+                    </div>
+
+                    {activeCampos === null ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "20px 0" }}>
+                        <div className="animate-spin" style={{ width: 18, height: 18, border: "2px solid var(--primary-500)", borderTopColor: "transparent", borderRadius: "50%", flexShrink: 0 }} />
+                        <span style={{ fontSize: 14, color: "var(--gray-500)" }}>Carregando perguntas...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="pb-progress">
+                          <span className="pb-progress-l">{activeCampos.length} pergunta{activeCampos.length !== 1 ? "s" : ""}</span>
+                          <span className="pb-progress-r">{answeredCount}/{activeCampos.length} respondidas</span>
+                        </div>
+                        <div className="pb-progress-bar">
+                          <i style={{ width: activeCampos.length > 0 ? `${(answeredCount / activeCampos.length) * 100}%` : "0%" }} />
+                        </div>
+
+                        <div className="pb-questions">
+                          {activeCampos.map((c, idx) => {
+                            const val = briefingRespostas[c.id];
+                            return (
+                              <div key={c.id} className="pb-q">
+                                <div className="pb-q-label">
+                                  <span className="pb-q-num">{idx + 1}</span>
+                                  <span className="pb-q-text">
+                                    {c.titulo_pergunta}
+                                    {c.obrigatorio && <i className="pb-req"> *</i>}
+                                  </span>
+                                </div>
+                                {c.descricao_pergunta && (
+                                  <p style={{ margin: "0 0 0 39px", fontSize: 13.5, color: "var(--gray-400)", lineHeight: 1.5 }}>{c.descricao_pergunta}</p>
+                                )}
+
+                                {c.tipo === "short_text" && (
+                                  <input
+                                    type="text"
+                                    className="pb-input-field"
+                                    placeholder={c.placeholder ?? "Sua resposta..."}
+                                    value={(val as string) ?? ""}
+                                    onChange={ev => setBriefingRespostas(p => ({ ...p, [c.id]: ev.target.value }))}
+                                  />
+                                )}
+
+                                {c.tipo === "long_text" && (
+                                  <textarea
+                                    className="pb-input-field pb-textarea-field"
+                                    placeholder={c.placeholder ?? "Sua resposta..."}
+                                    value={(val as string) ?? ""}
+                                    onChange={ev => setBriefingRespostas(p => ({ ...p, [c.id]: ev.target.value }))}
+                                    rows={4}
+                                  />
+                                )}
+
+                                {c.tipo === "multiple_choice" && Array.isArray(c.opcoes) && (
+                                  <div className="pb-opts">
+                                    {c.opcoes.map((opcao: string) => (
+                                      <label key={opcao} className="pb-opt">
+                                        <div className={`pb-radio${val === opcao ? " pb-radio-checked" : ""}`}>
+                                          {val === opcao && <div className="pb-radio-dot" />}
+                                        </div>
+                                        <input
+                                          type="radio"
+                                          name={`campo-${c.id}`}
+                                          value={opcao}
+                                          checked={val === opcao}
+                                          onChange={() => setBriefingRespostas(p => ({ ...p, [c.id]: opcao }))}
+                                          className="sr-only"
+                                        />
+                                        <span className="pb-opt-label">{opcao}</span>
+                                      </label>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {c.tipo === "checkboxes" && Array.isArray(c.opcoes) && (
+                                  <div className="pb-opts">
+                                    {c.opcoes.map((opcao: string) => {
+                                      const checked = Array.isArray(val) && val.includes(opcao);
+                                      return (
+                                        <label key={opcao} className="pb-opt">
+                                          <div className={`pb-checkbox${checked ? " pb-checkbox-checked" : ""}`}>
+                                            {checked && (
+                                              <svg width="9" height="7" viewBox="0 0 11 9" fill="none">
+                                                <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                              </svg>
+                                            )}
+                                          </div>
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={ev => {
+                                              const prev = Array.isArray(val) ? val : [];
+                                              const next = ev.target.checked ? [...prev, opcao] : prev.filter(o => o !== opcao);
+                                              setBriefingRespostas(p => ({ ...p, [c.id]: next }));
+                                            }}
+                                            className="sr-only"
+                                          />
+                                          <span className="pb-opt-label">{opcao}</span>
+                                        </label>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {!["short_text", "long_text", "multiple_choice", "checkboxes"].includes(c.tipo) && (
+                                  <input
+                                    type="text"
+                                    className="pb-input-field"
+                                    placeholder={c.placeholder ?? "Sua resposta..."}
+                                    value={(val as string) ?? ""}
+                                    onChange={ev => setBriefingRespostas(p => ({ ...p, [c.id]: ev.target.value }))}
+                                  />
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => activeBriefingData && handleSubmit(activeBriefingData)}
+                          className="pb-submit"
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7Z"/>
+                          </svg>
+                          {submitting ? "Enviando..." : "Enviar respostas"}
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </section>
+            </div>
+          )}
         </div>
       </div>
 
       <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: var(--primary-800); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: var(--primary-500); border-radius: 9999px; border: 2px solid var(--primary-800); }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: var(--primary-400); }
-        html, body { background-color: #06191F; overflow: hidden; }
+        .pb-page {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          position: relative;
+          min-width: 0;
+          background: var(--primary-900);
+          -webkit-font-smoothing: antialiased;
+        }
+
+        /* Glow */
+        .pb-glow {
+          position: absolute;
+          border-radius: 50%;
+          filter: blur(90px);
+          pointer-events: none;
+          z-index: 0;
+        }
+        .pb-glow-a {
+          width: 520px; height: 520px;
+          left: -160px; bottom: -200px;
+          background: radial-gradient(circle, color-mix(in srgb, var(--primary-500) 16%, transparent), transparent 70%);
+        }
+        .pb-glow-b {
+          width: 460px; height: 460px;
+          right: -150px; top: -120px;
+          background: radial-gradient(circle, color-mix(in srgb, var(--primary-600) 60%, transparent), transparent 70%);
+        }
+
+        /* Header */
+        .pb-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          padding: 24px 40px;
+          border-bottom: 1px solid var(--primary-700);
+        }
+        .pb-head-l { display: flex; align-items: center; gap: 20px; }
+        .pb-back {
+          display: inline-flex;
+          align-items: center;
+          gap: 9px;
+          height: 44px;
+          padding: 0 18px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--gray-200);
+          cursor: pointer;
+          border-radius: 12px;
+          border: 1px solid var(--gray-700);
+          background: color-mix(in srgb, var(--primary-800) 40%, transparent);
+          white-space: nowrap;
+          transition: .18s;
+        }
+        .pb-back:hover {
+          border-color: var(--primary-600);
+          color: var(--gray-100);
+          background: color-mix(in srgb, var(--primary-500) 8%, transparent);
+        }
+        .pb-head-div { width: 1px; height: 38px; background: var(--gray-700); flex-shrink: 0; }
+        .pb-h1 { margin: 0; font-size: 26px; font-weight: 700; color: var(--gray-100); letter-spacing: -0.02em; }
+        .pb-sub { margin: 4px 0 0; font-size: 14.5px; color: var(--gray-400); }
+        .pb-user { display: flex; align-items: center; gap: 13px; }
+        .pb-email { font-size: 15px; color: var(--gray-400); }
+
+        /* Main grid */
+        .pb-main {
+          display: grid;
+          grid-template-columns: 348px minmax(0, 1fr);
+          gap: 28px;
+          align-items: start;
+          max-width: 1240px;
+          margin: 0 auto;
+          padding: 34px 40px 52px;
+        }
+
+        /* Section labels */
+        .pb-section-label {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 16px;
+          font-size: 13px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--gray-400);
+        }
+        .pb-count {
+          display: inline-grid;
+          place-items: center;
+          min-width: 24px;
+          height: 24px;
+          padding: 0 7px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--alert-medium);
+          background: color-mix(in srgb, var(--alert-medium) 14%, transparent);
+          border: 1px solid color-mix(in srgb, var(--alert-medium) 30%, transparent);
+        }
+        .pb-count-success {
+          display: inline-grid;
+          place-items: center;
+          min-width: 24px;
+          height: 24px;
+          padding: 0 7px;
+          border-radius: 999px;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--success-medium);
+          background: color-mix(in srgb, var(--success-medium) 14%, transparent);
+          border: 1px solid color-mix(in srgb, var(--success-medium) 30%, transparent);
+        }
+
+        /* Left rail */
+        .pb-list { position: sticky; top: 34px; }
+
+        /* List item */
+        .pb-item {
+          display: flex;
+          align-items: flex-start;
+          gap: 14px;
+          width: 100%;
+          padding: 18px;
+          font-family: inherit;
+          text-align: left;
+          border-radius: 16px;
+          border: 1px solid var(--gray-700);
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-800) 40%, transparent),
+            color-mix(in srgb, var(--primary-800) 26%, transparent)
+          );
+          cursor: pointer;
+          transition: .18s;
+        }
+        .pb-item:hover {
+          border-color: var(--gray-600);
+          background: color-mix(in srgb, var(--primary-500) 5%, transparent);
+        }
+        .pb-item.is-active {
+          border-color: var(--primary-500);
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-500) 10%, transparent),
+            color-mix(in srgb, var(--primary-800) 30%, transparent)
+          );
+          box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-500) 30%, transparent),
+                      0 16px 40px -26px color-mix(in srgb, var(--primary-500) 50%, transparent);
+        }
+        .pb-item-icon {
+          display: grid;
+          place-items: center;
+          width: 46px;
+          height: 46px;
+          flex: none;
+          border-radius: 13px;
+          color: var(--alert-medium);
+          background: color-mix(in srgb, var(--alert-medium) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--alert-medium) 26%, transparent);
+        }
+        .pb-item-icon-success {
+          color: var(--success-medium);
+          background: color-mix(in srgb, var(--success-medium) 10%, transparent);
+          border-color: color-mix(in srgb, var(--success-medium) 26%, transparent);
+        }
+        .pb-item-meta { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+        .pb-item-title { font-size: 16px; font-weight: 700; color: var(--gray-100); }
+        .pb-item-desc { font-size: 14px; color: var(--gray-400); }
+        .pb-item-foot { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        .pb-item-arrow { display: grid; place-items: center; width: 28px; height: 28px; flex: none; color: var(--primary-400); }
+        .pb-item:not(.is-active) .pb-item-arrow { color: var(--gray-500); }
+
+        /* Status pills */
+        .pb-st {
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 5px 12px;
+          border-radius: 999px;
+          border: 1px solid currentColor;
+          white-space: nowrap;
+        }
+        .pb-st::before {
+          content: "";
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+          box-shadow: 0 0 6px currentColor;
+          flex-shrink: 0;
+        }
+        .pb-st-alert {
+          color: var(--alert-medium);
+          background: color-mix(in srgb, var(--alert-medium) 10%, transparent);
+          border-color: color-mix(in srgb, var(--alert-medium) 35%, transparent);
+        }
+        .pb-st-success {
+          color: var(--success-medium);
+          background: color-mix(in srgb, var(--success-medium) 10%, transparent);
+          border-color: color-mix(in srgb, var(--success-medium) 35%, transparent);
+        }
+
+        /* Right detail panel */
+        .pb-detail {
+          border-radius: 20px;
+          border: 1px solid var(--gray-700);
+          padding: 28px 30px 30px;
+          background: linear-gradient(180deg,
+            color-mix(in srgb, var(--primary-800) 40%, transparent),
+            color-mix(in srgb, var(--primary-800) 26%, transparent)
+          );
+        }
+        .pb-detail-head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+          margin-bottom: 22px;
+          padding-bottom: 22px;
+          border-bottom: 1px solid color-mix(in srgb, var(--primary-700) 70%, transparent);
+        }
+        .pb-detail-title { margin: 0; font-size: 22px; font-weight: 700; color: var(--gray-100); letter-spacing: -0.01em; }
+        .pb-detail-sub { margin: 5px 0 0; font-size: 14.5px; color: var(--gray-400); }
+
+        /* Progress */
+        .pb-progress { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .pb-progress-l { font-size: 14.5px; color: var(--gray-400); }
+        .pb-progress-r { font-size: 14.5px; font-weight: 600; color: var(--primary-400); }
+        .pb-progress-bar {
+          height: 7px;
+          border-radius: 999px;
+          background: var(--primary-900);
+          border: 1px solid var(--gray-700);
+          overflow: hidden;
+        }
+        .pb-progress-bar i {
+          display: block;
+          height: 100%;
+          border-radius: 999px;
+          background: linear-gradient(90deg, var(--primary-400), var(--primary-500));
+          transition: width 0.3s ease;
+        }
+
+        /* Questions */
+        .pb-questions { display: flex; flex-direction: column; gap: 26px; margin: 26px 0 28px; }
+        .pb-q { display: flex; flex-direction: column; gap: 14px; }
+        .pb-q-label { display: flex; align-items: center; gap: 13px; }
+        .pb-q-num {
+          display: grid;
+          place-items: center;
+          width: 26px;
+          height: 26px;
+          flex: none;
+          border-radius: 50%;
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--primary-300);
+          background: color-mix(in srgb, var(--primary-500) 10%, transparent);
+          border: 1px solid color-mix(in srgb, var(--primary-500) 30%, transparent);
+        }
+        .pb-q-text { font-size: 16px; font-weight: 600; color: var(--gray-100); line-height: 1.4; }
+        .pb-req { color: var(--error-medium); font-style: normal; }
+
+        /* Inputs */
+        .pb-input-field {
+          display: block;
+          width: 100%;
+          min-height: 54px;
+          padding: 15px 18px;
+          border-radius: 13px;
+          border: 1px solid var(--gray-700);
+          background: color-mix(in srgb, var(--primary-900) 50%, transparent);
+          color: var(--gray-200);
+          font-family: inherit;
+          font-size: 15px;
+          outline: none;
+          resize: none;
+          transition: border-color .16s;
+        }
+        .pb-input-field::placeholder { color: var(--gray-500); }
+        .pb-input-field:hover { border-color: var(--gray-600); }
+        .pb-input-field:focus { border-color: var(--primary-500); }
+        .pb-textarea-field { min-height: 120px; }
+
+        /* Options */
+        .pb-opts { display: flex; flex-direction: column; gap: 12px; padding-left: 39px; }
+        .pb-opt { display: flex; align-items: center; gap: 13px; cursor: pointer; }
+        .pb-opt-label { font-size: 15px; color: var(--gray-200); transition: color .16s; }
+        .pb-opt:hover .pb-opt-label { color: var(--gray-100); }
+        .pb-radio {
+          width: 22px; height: 22px; flex: none; border-radius: 50%;
+          border: 2px solid var(--gray-500);
+          display: flex; align-items: center; justify-content: center;
+          transition: .16s;
+        }
+        .pb-opt:hover .pb-radio { border-color: var(--primary-400); }
+        .pb-radio.pb-radio-checked { border-color: var(--primary-500); background: var(--primary-500); }
+        .pb-radio-dot { width: 8px; height: 8px; border-radius: 50%; background: white; }
+        .pb-checkbox {
+          width: 22px; height: 22px; flex: none; border-radius: 7px;
+          border: 2px solid var(--gray-500);
+          display: flex; align-items: center; justify-content: center;
+          transition: .16s;
+        }
+        .pb-opt:hover .pb-checkbox { border-color: var(--primary-400); }
+        .pb-checkbox.pb-checkbox-checked { border-color: var(--primary-500); background: var(--primary-500); }
+
+        /* Submit button */
+        .pb-submit {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          width: 100%;
+          height: 56px;
+          margin-top: 4px;
+          font-family: inherit;
+          font-size: 16px;
+          font-weight: 700;
+          color: var(--primary-900);
+          cursor: pointer;
+          border: 0;
+          border-top: 1px solid color-mix(in srgb, white 12%, transparent);
+          border-radius: 14px;
+          background: linear-gradient(180deg, var(--primary-400), var(--primary-500));
+          box-shadow: 0 16px 34px -14px color-mix(in srgb, var(--primary-500) 85%, transparent);
+          white-space: nowrap;
+          transition: .2s;
+        }
+        .pb-submit:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 20px 40px -14px color-mix(in srgb, var(--primary-500) 95%, transparent);
+        }
+        .pb-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Responded state */
+        .pb-responded-state {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          padding: 22px;
+          border-radius: 14px;
+          border: 1px solid color-mix(in srgb, var(--success-medium) 28%, transparent);
+          background: color-mix(in srgb, var(--success-medium) 6%, transparent);
+        }
+
+        /* Empty states */
+        .pb-empty-full, .pb-empty-panel {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          text-align: center;
+        }
+        .pb-empty-full { padding: 80px 20px; }
+        .pb-empty-panel { padding: 60px 20px; }
+        .pb-empty-ico {
+          display: grid;
+          place-items: center;
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          color: var(--gray-500);
+          background: color-mix(in srgb, var(--gray-400) 8%, transparent);
+          border: 1px solid var(--gray-700);
+        }
+        .pb-empty-txt { margin: 0; font-size: 15px; color: var(--gray-500); }
+
+        /* Scrollbar */
+        .pb-page::-webkit-scrollbar { width: 6px; }
+        .pb-page::-webkit-scrollbar-track { background: transparent; }
+        .pb-page::-webkit-scrollbar-thumb { background-color: var(--gray-700); border-radius: 9999px; }
+        .pb-page::-webkit-scrollbar-thumb:hover { background-color: var(--gray-600); }
+
+        html, body { overflow: hidden; }
       `}</style>
     </div>
   );
 }
 
-function BriefingItem({ briefing: b, activeBriefing, briefingCampos, briefingRespostas, submitting, openBriefing, setBriefingRespostas, handleSubmit }: any) {
-  const template = b.briefings_templates;
-  const campos = briefingCampos[template?.id] ?? [];
-  const isOpen = activeBriefing === b.id;
-  const isResponded = b.status === "respondido" || !!b.respondido_em;
-
-  const answeredCount = campos.filter((c: any) => {
-    const val = briefingRespostas[c.id];
-    return Array.isArray(val) ? val.length > 0 : !!(val as string)?.trim();
-  }).length;
-
+function BriefingListItem({ briefing: b, isActive, isResponded, onSelect }: {
+  briefing: BriefingEnvio;
+  isActive: boolean;
+  isResponded: boolean;
+  onSelect: () => void;
+}) {
   return (
-    <div className={`bg-primary-800 border rounded-xl overflow-hidden transition-colors ${
-      isOpen ? "border-primary-600" : "border-primary-700 hover:border-primary-600"
-    }`}>
-      <button
-        onClick={() => openBriefing(b.id, template?.id)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-primary-700/20 transition-colors"
-      >
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          isResponded ? "bg-third-500/10 text-third-400" : "bg-amber-500/10 text-amber-400"
-        }`}>
-          <ClipboardList size={16} />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="text-[14px] font-medium text-gray-200 truncate">
-            {template?.titulo ?? "Briefing"}
-          </div>
-          <div className="text-[12px] text-gray-500 truncate mt-0.5">
-            {(b.projetos as any)?.titulo ?? "Projeto"}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-shrink-0">
+    <button type="button" className={`pb-item${isActive ? " is-active" : ""}`} onClick={onSelect}>
+      <span className={`pb-item-icon${isResponded ? " pb-item-icon-success" : ""}`}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="6" y="4" width="12" height="17" rx="2.5"/>
+          <path d="M9 4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6H9V4.5Z"/>
+          <path d="M9.5 11h5"/><path d="M9.5 15h3"/>
+        </svg>
+      </span>
+      <span className="pb-item-meta">
+        <span className="pb-item-title">{b.briefings_templates?.titulo ?? "Briefing"}</span>
+        <span className="pb-item-desc">{(b.projetos as any)?.titulo ?? "Projeto"}</span>
+        <span className="pb-item-foot">
           {isResponded
-            ? <span className="text-[11px] text-third-400 bg-third-400/10 px-2 py-0.5 rounded-full border border-third-400/20">Respondido</span>
-            : <span className="text-[11px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">Pendente</span>
+            ? <span className="pb-st pb-st-success">Respondido</span>
+            : <span className="pb-st pb-st-alert">Pendente</span>
           }
-          {isOpen
-            ? <ChevronUp size={14} className="text-gray-500" />
-            : <ChevronDown size={14} className="text-gray-500" />
-          }
-        </div>
-      </button>
-
-      {isOpen && isResponded && (
-        <div className="border-t border-primary-700 px-5 py-4 bg-primary-900/40 flex items-center gap-2.5">
-          <CheckCircle size={14} className="text-third-400 flex-shrink-0" />
-          <span className="text-[13px] text-gray-400">
-            Respondido em{" "}
-            {b.respondido_em
-              ? new Date(b.respondido_em).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })
-              : "—"}
-          </span>
-        </div>
-      )}
-
-      {isOpen && !isResponded && (
-        <div className="border-t border-primary-700">
-\          <div className="flex items-center justify-between px-5 py-2.5 bg-primary-900/50 border-b border-primary-700/50">
-            <span className="text-[12px] text-gray-500">
-              {campos.length === 0 ? "Carregando..." : `${campos.length} pergunta${campos.length !== 1 ? "s" : ""}`}
-            </span>
-            {campos.length > 0 && (
-              <span className={`text-[12px] font-medium ${answeredCount === campos.length ? "text-third-400" : "text-primary-400"}`}>
-                {answeredCount}/{campos.length} respondidas
-              </span>
-            )}
-          </div>
-
-          {campos.length === 0 ? (
-            <div className="flex items-center gap-2.5 px-5 py-5">
-              <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
-              <span className="text-[13px] text-gray-500">Carregando perguntas...</span>
-            </div>
-          ) : (
-            <div className="px-5 py-5 flex flex-col gap-5">
-              {campos.map((c: any, idx: number) => {
-                const val = briefingRespostas[c.id];
-                return (
-                  <div key={c.id} className="flex flex-col gap-2">
-                    <div className="flex items-start gap-2.5">
-                      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary-700 text-[10px] font-bold text-primary-300 flex items-center justify-center mt-0.5">
-                        {idx + 1}
-                      </span>
-                      <div className="flex flex-col gap-0.5">
-                        <label className="text-[13px] font-medium text-gray-200 leading-snug">
-                          {c.titulo_pergunta}
-                          {c.obrigatorio && <span className="text-red-400 ml-1">*</span>}
-                        </label>
-                        {c.descricao_pergunta && (
-                          <p className="text-[12px] text-gray-500">{c.descricao_pergunta}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="ml-7">
-                      {c.tipo === "long_text" && (
-                        <textarea
-                          rows={3}
-                          placeholder={c.placeholder ?? "Sua resposta..."}
-                          value={(val as string) ?? ""}
-                          onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
-                          className="w-full bg-primary-900 border border-primary-700 rounded-lg px-3 py-2.5 text-[13px] text-gray-200 placeholder-gray-600 resize-none focus:outline-none focus:border-primary-500 transition-colors"
-                        />
-                      )}
-
-                      {c.tipo === "short_text" && (
-                        <input
-                          type="text"
-                          placeholder={c.placeholder ?? "Sua resposta..."}
-                          value={(val as string) ?? ""}
-                          onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
-                          className="w-full bg-primary-900 border border-primary-700 rounded-lg px-3 py-2.5 text-[13px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
-                        />
-                      )}
-
-                      {c.tipo === "multiple_choice" && Array.isArray(c.opcoes) && (
-                        <div className="flex flex-col gap-2">
-                          {c.opcoes.map((opcao: string) => (
-                            <label key={opcao} className="flex items-center gap-3 cursor-pointer group">
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                                val === opcao ? "border-primary-500 bg-primary-500" : "border-primary-600 group-hover:border-primary-400"
-                              }`}>
-                                {val === opcao && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                              </div>
-                              <input
-                                type="radio"
-                                name={`campo-${c.id}`}
-                                value={opcao}
-                                checked={val === opcao}
-                                onChange={() => setBriefingRespostas((p: any) => ({ ...p, [c.id]: opcao }))}
-                                className="sr-only"
-                              />
-                              <span className="text-[13px] text-gray-300 group-hover:text-gray-100 transition-colors">{opcao}</span>
-                            </label>
-                          ))}
-                        </div>
-                      )}
-
-                      {c.tipo === "checkboxes" && Array.isArray(c.opcoes) && (
-                        <div className="flex flex-col gap-2">
-                          {c.opcoes.map((opcao: string) => {
-                            const checked = Array.isArray(val) && val.includes(opcao);
-                            return (
-                              <label key={opcao} className="flex items-center gap-3 cursor-pointer group">
-                                <div className={`w-4 h-4 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                                  checked ? "border-primary-500 bg-primary-500" : "border-primary-600 group-hover:border-primary-400"
-                                }`}>
-                                  {checked && (
-                                    <svg width="9" height="7" viewBox="0 0 11 9" fill="none">
-                                      <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                  )}
-                                </div>
-                                <input
-                                  type="checkbox"
-                                  checked={checked}
-                                  onChange={(ev) => {
-                                    const prev = Array.isArray(val) ? val : [];
-                                    const next = ev.target.checked ? [...prev, opcao] : prev.filter((o) => o !== opcao);
-                                    setBriefingRespostas((p: any) => ({ ...p, [c.id]: next }));
-                                  }}
-                                  className="sr-only"
-                                />
-                                <span className="text-[13px] text-gray-300 group-hover:text-gray-100 transition-colors">{opcao}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      )}
-
-                      {!["short_text", "long_text", "multiple_choice", "checkboxes"].includes(c.tipo) && (
-                        <input
-                          type="text"
-                          placeholder={c.placeholder ?? "Sua resposta..."}
-                          value={(val as string) ?? ""}
-                          onChange={(ev) => setBriefingRespostas((p: any) => ({ ...p, [c.id]: ev.target.value }))}
-                          className="w-full bg-primary-900 border border-primary-700 rounded-lg px-3 py-2.5 text-[13px] text-gray-200 placeholder-gray-600 focus:outline-none focus:border-primary-500 transition-colors"
-                        />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-
-              <div className="pt-2 border-t border-primary-700/50 mt-1">
-                <button
-                  disabled={submitting}
-                  onClick={() => handleSubmit(b)}
-                  className="w-full bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold rounded-lg py-3 text-[14px] transition-colors disabled:opacity-50"
-                >
-                  {submitting ? "Enviando..." : "Enviar respostas"}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+        </span>
+      </span>
+      <span className="pb-item-arrow">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m9 18 6-6-6-6"/>
+        </svg>
+      </span>
+    </button>
   );
 }
