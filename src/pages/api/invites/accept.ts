@@ -75,6 +75,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     avatar_url = (user.user_metadata as any)?.avatar_url ?? null;
   }
 
+  // Garante que o perfil existe na tabela users antes de inserir em project_members (FK)
+  await supabaseAdmin.from("users").upsert(
+    { id: user.id, nome: nome ?? user.email ?? "", avatar_url: avatar_url ?? null },
+    { onConflict: "id", ignoreDuplicates: true }
+  );
+
   const { data: existing } = await supabase
     .from("project_members")
     .select("id")
