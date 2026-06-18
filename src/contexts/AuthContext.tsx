@@ -1,4 +1,4 @@
-import { createContext, use, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/router';
@@ -57,20 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }){
             }
         });
 
-        async function handleVisibilityChange() {
-            if (document.visibilityState !== 'visible') return;
-            const { data } = await supabase.auth.getSession();
-            if (!mounted) return;
-            setSession(data.session ?? null);
-            setUser(data.session?.user ?? null);
-        }
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
         return () => {
             mounted = false;
             sub?.subscription.unsubscribe();
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, []);
 

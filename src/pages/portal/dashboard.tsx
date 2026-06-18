@@ -6,7 +6,7 @@ import { getClientProjects, getClientDashboardStats, getClientActivities, getCli
 import { getAdiantamentosPendentesCliente } from "@/lib/supabaseQueries/adiantamentos";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
-import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock, BellRing, Copy, Check, X, AlertCircle, ArrowRight } from "lucide-react";
+import { Package, ClipboardList, Wallet, CheckCircle2, Upload, CreditCard, FileText, Send, Clock, BellRing, Copy, Check, X, ArrowRight } from "lucide-react";
 
 type DashboardProject = {
   id: string;

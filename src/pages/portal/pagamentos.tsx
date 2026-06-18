@@ -5,6 +5,7 @@ import { getClientProjects, getClientAllPagamentos } from "@/lib/supabaseQueries
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
 import { Copy, CheckCircle2, Clock, Wallet } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 type Pagamento = {
   id: string; valor: number; status: string;
@@ -542,6 +543,3 @@ function PagamentoItem({ pagamento: p, onMarcarPago, marking }: {
   );
 }
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value ?? 0);
-}

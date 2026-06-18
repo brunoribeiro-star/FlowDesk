@@ -6,22 +6,71 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { Zap } from "lucide-react";
-import UpgradeModal from "@/components/UpgradeModal";
+import dynamic from "next/dynamic";
 import { SubscriptionProvider, useSubscriptionContext } from "@/contexts/SubscriptionContext";
 import DashboardLayout from "@/components/DashboardLayout";
 
+const UpgradeModal = dynamic(() => import("@/components/UpgradeModal"), { ssr: false });
+
 const PROTECTED_ROUTES = ["/dashboard", "/onboarding", "/portal"];
 
-function PageContent({ Component, pageProps, pathname }: { Component: any; pageProps: any; pathname: string }) {
-  const { loading, user } = useAuth();
+function Spinner() {
+  return (
+    <div className="h-screen flex items-center justify-center bg-primary-900">
+      <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+function TrialExpiredScreen() {
   const router = useRouter();
+  return (
+    <div className="min-h-screen bg-primary-900 flex items-center justify-center p-6">
+      <div className="w-full max-w-md flex flex-col items-center text-center gap-7">
+        <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={130} height={34} priority />
+
+        <div className="bg-primary-800 border border-primary-700 rounded-2xl p-8 shadow-[0_24px_60px_rgba(0,0,0,0.4)] flex flex-col items-center gap-5">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+            <Zap size={26} className="text-amber-400" />
+          </div>
+
+          <div>
+            <h1 className="text-[20px] font-bold text-gray-100 mb-2">Período de teste encerrado</h1>
+            <p className="text-[14px] text-gray-400 leading-relaxed">
+              Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar usando o FlowDesk e não perder seus projetos e dados.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2.5 w-full">
+            <button
+              type="button"
+              onClick={() => router.push("/subscribe")}
+              className="w-full py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[15px] transition-colors flex items-center justify-center gap-2"
+            >
+              <Zap size={16} />
+              Ver planos e assinar
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                const { supabase } = await import("@/lib/supabaseClient");
+                await supabase.auth.signOut();
+                router.replace("/login");
+              }}
+              className="w-full py-2.5 rounded-xl text-gray-500 hover:text-gray-300 text-[13px] transition-colors"
+            >
+              Sair da conta
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardPageContent({ Component, pageProps, pathname }: { Component: any; pageProps: any; pathname: string }) {
+  const { user, loading } = useAuth();
   const subscription = useSubscriptionContext();
-
-  const isProtected = PROTECTED_ROUTES.some((path) => pathname.startsWith(path))
-    && pathname !== "/portal/login"
-    && pathname !== "/portal/[token]";
-
-  const isDashboard = pathname.startsWith("/dashboard");
   const isConfiguracoes = pathname.startsWith("/dashboard/configuracoes");
 
   const hasValidSubscription =
@@ -29,12 +78,31 @@ function PageContent({ Component, pageProps, pathname }: { Component: any; pageP
     (!!subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd) > new Date());
 
   const isTrialExpired =
-    isDashboard &&
     !isConfiguracoes &&
     !!user &&
     !subscription.loading &&
     !subscription.isTrialActive &&
     !hasValidSubscription;
+
+  if (loading || subscription.loading) return <Spinner />;
+  if (isTrialExpired) return <TrialExpiredScreen />;
+
+  return (
+    <DashboardLayout>
+      <Component {...pageProps} />
+    </DashboardLayout>
+  );
+}
+
+function PageContent({ Component, pageProps, pathname }: { Component: any; pageProps: any; pathname: string }) {
+  const { loading, user } = useAuth();
+  const router = useRouter();
+
+  const isProtected = PROTECTED_ROUTES.some((path) => pathname.startsWith(path))
+    && pathname !== "/portal/login"
+    && pathname !== "/portal/[token]";
+
+  const isDashboard = pathname.startsWith("/dashboard");
 
   useEffect(() => {
     if (!loading && isProtected && !user) {
@@ -46,66 +114,14 @@ function PageContent({ Component, pageProps, pathname }: { Component: any; pageP
     }
   }, [loading, user, isProtected, router, pathname]);
 
-  if (isProtected && (loading || (isDashboard && !!user && subscription.loading))) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-primary-900">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </div>
-    );
-  }
-
-  if (isTrialExpired) {
-    return (
-      <div className="min-h-screen bg-primary-900 flex items-center justify-center p-6">
-        <div className="w-full max-w-md flex flex-col items-center text-center gap-7">
-          <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={130} height={34} priority />
-
-          <div className="bg-primary-800 border border-primary-700 rounded-2xl p-8 shadow-[0_24px_60px_rgba(0,0,0,0.4)] flex flex-col items-center gap-5">
-            <div className="w-14 h-14 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
-              <Zap size={26} className="text-amber-400" />
-            </div>
-
-            <div>
-              <h1 className="text-[20px] font-bold text-gray-100 mb-2">Período de teste encerrado</h1>
-              <p className="text-[14px] text-gray-400 leading-relaxed">
-                Seus 7 dias gratuitos chegaram ao fim. Escolha um plano para continuar usando o FlowDesk e não perder seus projetos e dados.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-2.5 w-full">
-              <button
-                type="button"
-                onClick={() => router.push("/subscribe")}
-                className="w-full py-3 rounded-xl bg-primary-500 hover:bg-primary-400 text-primary-900 font-semibold text-[15px] transition-colors flex items-center justify-center gap-2"
-              >
-                <Zap size={16} />
-                Ver planos e assinar
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const { supabase } = await import("@/lib/supabaseClient");
-                  await supabase.auth.signOut();
-                  router.replace("/login");
-                }}
-                className="w-full py-2.5 rounded-xl text-gray-500 hover:text-gray-300 text-[13px] transition-colors"
-              >
-                Sair da conta
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (isProtected && loading) return <Spinner />;
 
   if (isDashboard) {
     return (
-      <DashboardLayout>
-        <Component {...pageProps} />
-      </DashboardLayout>
+      <SubscriptionProvider>
+        <DashboardPageContent Component={Component} pageProps={pageProps} pathname={pathname} />
+        <UpgradeModal />
+      </SubscriptionProvider>
     );
   }
 
@@ -184,13 +200,10 @@ export default function App({ Component, pageProps, router }: AppProps) {
       </Head>
 
       <AuthProvider>
-        <SubscriptionProvider>
-          {progress && (
-            <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] bg-primary-500 page-progress-bar" />
-          )}
-          <PageContent Component={Component} pageProps={pageProps} pathname={router.pathname} />
-          <UpgradeModal />
-        </SubscriptionProvider>
+        {progress && (
+          <div className="fixed top-0 left-0 right-0 z-[9999] h-[2px] bg-primary-500 page-progress-bar" />
+        )}
+        <PageContent Component={Component} pageProps={pageProps} pathname={router.pathname} />
       </AuthProvider>
     </>
   );

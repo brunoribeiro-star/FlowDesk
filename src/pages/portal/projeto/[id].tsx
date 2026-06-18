@@ -8,6 +8,7 @@ import {
 } from "@/lib/supabaseQueries/clientPortal";
 import ClientSidebar from "@/components/ClientSidebar";
 import ClientHeaderProfile from "@/components/ClientHeaderProfile";
+import { formatCurrency, formatarData as formatDate } from "@/lib/utils";
 import ImageAnnotatorModal from "@/components/ImageAnnotatorModal";
 import {
   CheckCircle2, FileText, Link2, Package, ClipboardList,
@@ -614,7 +615,6 @@ export default function PortalProjetoPage() {
           const isMarking = markingPaidId === p.id;
           return (
             <div key={p.id} className={"pcd-pay-item" + (isPending && p.notificado_em ? " notified" : "")}>
-              {/* Header row */}
               <div className="pcd-pay-header">
                 <span className="pcd-pay-icon"><CreditCard size={22} /></span>
                 <div className="pcd-pay-txt">
@@ -1511,10 +1511,3 @@ function extractText(value: any): string | null {
   return null;
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}

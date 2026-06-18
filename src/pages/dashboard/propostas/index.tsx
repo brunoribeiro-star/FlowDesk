@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
 import Image from "next/image";
+import { formatarData as formatDate } from "@/lib/utils";
 import PageTour from "@/components/PageTour";
 import type { Step } from "react-joyride";
 
@@ -176,11 +177,6 @@ export default function ProposalsList() {
         p.description?.clientName?.toLowerCase().includes(q)
     );
   }, [proposals, search]);
-
-  function formatDate(dateStr: string | null) {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("pt-BR");
-  }
 
   const renderListView = () => (
     <div className="pr-table flex-1 flex flex-col min-h-0">
