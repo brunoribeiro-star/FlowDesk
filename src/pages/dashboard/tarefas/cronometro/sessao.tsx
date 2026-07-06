@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
+import { addTimeEntry } from "@/lib/supabaseQueries/timeEntries";
 import {
   Minus, Plus, Play, Pause, RotateCcw, CheckCircle2,
   Pencil, Focus, X, ArrowLeft, Coffee,
@@ -12,6 +13,7 @@ interface Task {
   id: string;
   titulo: string;
   status: string;
+  projeto_id: string | null;
 }
 
 interface Subtask {
@@ -138,8 +140,29 @@ export default function TarefaCronometroSessaoPage() {
   const particlesRef = useRef<Particle[]>([]);
   const animFrameRef = useRef<number | null>(null);
 
+  const elapsedFocusSecondsRef = useRef(0);
+  const lastResumeAtRef = useRef<number | null>(null);
+
   const sessionKey = typeof window !== "undefined" && taskId
     ? `tt_session_task_${taskId}` : null;
+
+  function computeLiveElapsed() {
+    const extra = lastResumeAtRef.current !== null
+      ? (Date.now() - lastResumeAtRef.current) / 1000
+      : 0;
+    return elapsedFocusSecondsRef.current + extra;
+  }
+
+  function startCounting() {
+    if (!isBreak) lastResumeAtRef.current = Date.now();
+  }
+
+  function stopCounting() {
+    if (lastResumeAtRef.current !== null) {
+      elapsedFocusSecondsRef.current += (Date.now() - lastResumeAtRef.current) / 1000;
+      lastResumeAtRef.current = null;
+    }
+  }
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -156,10 +179,13 @@ export default function TarefaCronometroSessaoPage() {
           const saved = JSON.parse(raw) as {
             endAt: number | null; secondsLeft: number; running: boolean;
             isBreak: boolean; currentCycle: number; totalSecs: number;
+            elapsedFocusSeconds?: number; startTime?: string | null;
           };
           if (saved.totalSecs) totalSeconds.current = saved.totalSecs;
           setCurrentCycle(saved.currentCycle ?? 1);
           setIsBreak(saved.isBreak ?? false);
+          elapsedFocusSecondsRef.current = saved.elapsedFocusSeconds ?? 0;
+          if (saved.startTime) setStartTime(new Date(saved.startTime));
 
           if (saved.running && saved.endAt) {
             const remaining = Math.max(0, Math.round((saved.endAt - Date.now()) / 1000));
@@ -167,6 +193,7 @@ export default function TarefaCronometroSessaoPage() {
               endAtRef.current = saved.endAt;
               setSecondsLeft(remaining);
               setRunning(true);
+              if (!saved.isBreak) lastResumeAtRef.current = Date.now();
               restored = true;
               setSessionRestored(true);
             } else {
@@ -197,15 +224,17 @@ export default function TarefaCronometroSessaoPage() {
       endAt: endAtRef.current,
       secondsLeft, running, isBreak, currentCycle,
       totalSecs: totalSeconds.current,
+      elapsedFocusSeconds: computeLiveElapsed(),
+      startTime: startTime ? startTime.toISOString() : null,
     }));
-  }, [secondsLeft, running, isBreak, currentCycle, concluded, allDone, finished]);
+  }, [secondsLeft, running, isBreak, currentCycle, concluded, allDone, finished, startTime]);
 
   async function loadData() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth?.user) { router.push("/login"); return; }
 
     const [{ data: taskData }, { data: subsData }] = await Promise.all([
-      supabase.from("tasks").select("id, titulo, status")
+      supabase.from("tasks").select("id, titulo, status, projeto_id")
         .eq("id", taskId as string).eq("user_id", auth.user.id).single(),
       supabase.from("subtasks").select("*")
         .eq("task_id", taskId as string).eq("user_id", auth.user.id)
@@ -244,6 +273,7 @@ export default function TarefaCronometroSessaoPage() {
   }, [running, finished, phaseKey]);
 
   function handlePomodoroPhaseEnd() {
+    stopCounting();
     if (isBreak) {
       const nextCycle = currentCycle + 1;
       if (nextCycle > totalCycles) {
@@ -255,6 +285,7 @@ export default function TarefaCronometroSessaoPage() {
         setSecondsLeft(workSecs);
         endAtRef.current = null;
         setPhaseKey(k => k + 1);
+        lastResumeAtRef.current = Date.now();
       }
     } else {
       playBreakSound(); setIsBreak(true);
@@ -300,7 +331,11 @@ export default function TarefaCronometroSessaoPage() {
   function togglePlay() {
     if (finished || concluded) return;
     if (!running && startTime === null) setStartTime(new Date());
-    setRunning(v => !v);
+    setRunning(v => {
+      const next = !v;
+      if (next) startCounting(); else stopCounting();
+      return next;
+    });
   }
 
   function handleAdjust(delta: number) {
@@ -322,6 +357,8 @@ export default function TarefaCronometroSessaoPage() {
     totalSeconds.current = secs;
     setSecondsLeft(secs);
     setStartTime(null);
+    elapsedFocusSecondsRef.current = 0;
+    lastResumeAtRef.current = null;
   }
 
   function handleEdit() {
@@ -338,6 +375,7 @@ export default function TarefaCronometroSessaoPage() {
     if (concluded) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
     endAtRef.current = null;
+    stopCounting();
     setRunning(false); setFinished(true); setConcluded(true);
     if (task) {
       await supabase.from("tasks").update({ status: "concluida" }).eq("id", task.id);
@@ -345,6 +383,21 @@ export default function TarefaCronometroSessaoPage() {
     }
     playCelebrationSound();
     startConfetti();
+
+    const durationSeconds = Math.round(elapsedFocusSecondsRef.current);
+    if (startTime && durationSeconds > 0) {
+      try {
+        await addTimeEntry({
+          project_id: task?.projeto_id ?? null,
+          task_id: taskId as string,
+          started_at: startTime.toISOString(),
+          ended_at: new Date().toISOString(),
+          duration_seconds: durationSeconds,
+        });
+      } catch (err) {
+        console.error("Erro ao salvar sessão de tempo:", err);
+      }
+    }
   }
 
   async function toggleSubtask(st: Subtask) {
@@ -552,7 +605,6 @@ export default function TarefaCronometroSessaoPage() {
             )}
           </div>
 
-          {/* ===== TASK PANEL ===== */}
           {hasPanel && (
             <aside className="tt-task-panel">
               <div className="tt-task-head">

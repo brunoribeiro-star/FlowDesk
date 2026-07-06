@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { getPeriodWindowStart } from "@/lib/reportUtils";
+import { getPeriodWindowStart, secondsToHoras } from "@/lib/reportUtils";
 
 function r1(v: number): number {
   return Math.round(v * 10) / 10;
@@ -120,7 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const execSec = execMap[p.id] ?? 0;
-    const tempo_execucao_horas = execSec > 0 ? r1(execSec / 3600) : 0;
+    const tempo_execucao_horas = execSec > 0 ? secondsToHoras(execSec) : 0;
 
     const tarefas_total = taskTotalMap[p.id] ?? 0;
     const tarefas_concluidas = taskConcluidaMap[p.id] ?? 0;

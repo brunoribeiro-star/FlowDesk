@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { getPeriodWindowStart } from "@/lib/reportUtils";
+import { getPeriodWindowStart, roundHorasToMinuto } from "@/lib/reportUtils";
 
 const CONCLUDED_STATUSES = new Set(["concluído", "concluido", "finalizado"]);
 const INACTIVE_STATUSES = new Set(["concluído", "concluido", "finalizado", "arquivado"]);
@@ -168,8 +168,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     tempo_ciclo_medio_projeto_dias: round1(tempoCicloMedioProjetoDias),
 
-    tempo_execucao_medio_projeto_horas: round1(tempoExecucaoMedioProjetoHoras),
-    tempo_execucao_medio_tarefa_horas: round1(tempoExecucaoMedioTarefaHoras),
+    tempo_execucao_medio_projeto_horas: tempoExecucaoMedioProjetoHoras !== null ? roundHorasToMinuto(tempoExecucaoMedioProjetoHoras) : null,
+    tempo_execucao_medio_tarefa_horas: tempoExecucaoMedioTarefaHoras !== null ? roundHorasToMinuto(tempoExecucaoMedioTarefaHoras) : null,
 
     _meta: {
       projetos_com_ciclo_completo: ciclosProjeto.length,

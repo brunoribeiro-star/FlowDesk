@@ -1,10 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { getPeriodWindowStart, getMonthCountForPeriod } from "@/lib/reportUtils";
+import { getPeriodWindowStart, getMonthCountForPeriod, secondsToHoras } from "@/lib/reportUtils";
 
-function r1(v: number): number {
-  return Math.round(v * 10) / 10;
-}
 function r2(v: number): number {
   return Math.round(v * 100) / 100;
 }
@@ -70,7 +67,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     (acc, e) => acc + Number(e.duration_seconds ?? 0),
     0
   );
-  const totalHoras = r1(totalSec / 3600);
+  const totalHoras = secondsToHoras(totalSec);
 
   const projetoExecMap: Record<string, number> = {};
   timeEntries.forEach((e) => {
@@ -89,7 +86,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .map(([id, sec]) => ({
       projeto_id: id,
       titulo: projetoTituloMap[id] ?? "—",
-      horas_rastreadas: r1(sec / 3600),
+      horas_rastreadas: secondsToHoras(sec),
       percentual: totalSec > 0 ? r2((sec / totalSec) * 100) : 0,
     }))
     .sort((a, b) => b.horas_rastreadas - a.horas_rastreadas);
@@ -110,7 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .map(([mes, { label, seg }]) => ({
       mes,
       label,
-      horas_rastreadas: r1(seg / 3600),
+      horas_rastreadas: secondsToHoras(seg),
     }))
     .sort((a, b) => b.horas_rastreadas - a.horas_rastreadas)
     .slice(0, 6);
@@ -123,7 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ultimos12Meses.push({
       mes: key,
       label: monthLabel(d),
-      horas_rastreadas: mesHorasMap[key] ? r1(mesHorasMap[key].seg / 3600) : 0,
+      horas_rastreadas: mesHorasMap[key] ? secondsToHoras(mesHorasMap[key].seg) : 0,
     });
   }
 

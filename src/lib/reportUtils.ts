@@ -29,6 +29,14 @@ export function getPeriodWindowStart(period: string): Date | null {
   }
 }
 
+export function roundHorasToMinuto(horas: number): number {
+  return Math.round(horas * 60) / 60;
+}
+
+export function secondsToHoras(seconds: number): number {
+  return roundHorasToMinuto(seconds / 3600);
+}
+
 export function getMonthCountForPeriod(period: string): number {
   switch (period as ReportPeriod) {
     case "30d":  return 2;

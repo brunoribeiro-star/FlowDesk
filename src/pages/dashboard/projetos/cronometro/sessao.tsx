@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import { supabase } from "@/lib/supabaseClient";
+import { addTimeEntry } from "@/lib/supabaseQueries/timeEntries";
 import {
   Minus,
   Plus,
@@ -152,8 +153,29 @@ export default function ProjetoCronometroSessaoPage() {
   const particlesRef = useRef<Particle[]>([]);
   const animFrameRef = useRef<number | null>(null);
 
+  const elapsedFocusSecondsRef = useRef(0);
+  const lastResumeAtRef = useRef<number | null>(null);
+
   const sessionKey = typeof window !== "undefined" && projeto_id
     ? `tt_session_${projeto_id}` : null;
+
+  function computeLiveElapsed() {
+    const extra = lastResumeAtRef.current !== null
+      ? (Date.now() - lastResumeAtRef.current) / 1000
+      : 0;
+    return elapsedFocusSecondsRef.current + extra;
+  }
+
+  function startCounting() {
+    if (!isBreak) lastResumeAtRef.current = Date.now();
+  }
+
+  function stopCounting() {
+    if (lastResumeAtRef.current !== null) {
+      elapsedFocusSecondsRef.current += (Date.now() - lastResumeAtRef.current) / 1000;
+      lastResumeAtRef.current = null;
+    }
+  }
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -174,10 +196,14 @@ export default function ProjetoCronometroSessaoPage() {
             isBreak: boolean;
             currentCycle: number;
             totalSecs: number;
+            elapsedFocusSeconds?: number;
+            startTime?: string | null;
           };
           if (saved.totalSecs) totalSeconds.current = saved.totalSecs;
           setCurrentCycle(saved.currentCycle ?? 1);
           setIsBreak(saved.isBreak ?? false);
+          elapsedFocusSecondsRef.current = saved.elapsedFocusSeconds ?? 0;
+          if (saved.startTime) setStartTime(new Date(saved.startTime));
 
           if (saved.running && saved.endAt) {
             const remaining = Math.max(0, Math.round((saved.endAt - Date.now()) / 1000));
@@ -185,6 +211,7 @@ export default function ProjetoCronometroSessaoPage() {
               endAtRef.current = saved.endAt;
               setSecondsLeft(remaining);
               setRunning(true);
+              if (!saved.isBreak) lastResumeAtRef.current = Date.now();
               restored = true;
               setSessionRestored(true);
             } else {
@@ -218,8 +245,10 @@ export default function ProjetoCronometroSessaoPage() {
       isBreak,
       currentCycle,
       totalSecs: totalSeconds.current,
+      elapsedFocusSeconds: computeLiveElapsed(),
+      startTime: startTime ? startTime.toISOString() : null,
     }));
-  }, [secondsLeft, running, isBreak, currentCycle, concluded, allDone, finished]);
+  }, [secondsLeft, running, isBreak, currentCycle, concluded, allDone, finished, startTime]);
 
   async function loadData() {
     const { data: auth } = await supabase.auth.getUser();
@@ -282,6 +311,7 @@ export default function ProjetoCronometroSessaoPage() {
   }, [running, finished, phaseKey]);
 
   function handlePomodoroPhaseEnd() {
+    stopCounting();
     if (isBreak) {
       const nextCycle = currentCycle + 1;
       if (nextCycle > totalCycles) {
@@ -293,6 +323,7 @@ export default function ProjetoCronometroSessaoPage() {
         setSecondsLeft(workSecs);
         endAtRef.current = null;
         setPhaseKey(k => k + 1);
+        lastResumeAtRef.current = Date.now();
       }
     } else {
       playBreakSound(); setIsBreak(true);
@@ -339,7 +370,11 @@ export default function ProjetoCronometroSessaoPage() {
   function togglePlay() {
     if (finished || concluded) return;
     if (!running && startTime === null) setStartTime(new Date());
-    setRunning(v => !v);
+    setRunning(v => {
+      const next = !v;
+      if (next) startCounting(); else stopCounting();
+      return next;
+    });
   }
 
   function handleAdjust(delta: number) {
@@ -363,6 +398,8 @@ export default function ProjetoCronometroSessaoPage() {
     totalSeconds.current = secs;
     setSecondsLeft(secs);
     setStartTime(null);
+    elapsedFocusSecondsRef.current = 0;
+    lastResumeAtRef.current = null;
   }
 
   function handleEdit() {
@@ -379,9 +416,25 @@ export default function ProjetoCronometroSessaoPage() {
     if (concluded) return;
     if (intervalRef.current) clearInterval(intervalRef.current);
     endAtRef.current = null;
+    stopCounting();
     setRunning(false); setFinished(true); setConcluded(true);
     playCelebrationSound();
     startConfetti();
+
+    const durationSeconds = Math.round(elapsedFocusSecondsRef.current);
+    if (startTime && durationSeconds > 0) {
+      try {
+        await addTimeEntry({
+          project_id: projeto_id as string,
+          task_id: null,
+          started_at: startTime.toISOString(),
+          ended_at: new Date().toISOString(),
+          duration_seconds: durationSeconds,
+        });
+      } catch (err) {
+        console.error("Erro ao salvar sessão de tempo:", err);
+      }
+    }
   }
 
   async function toggleSubtask(st: Subtask) {

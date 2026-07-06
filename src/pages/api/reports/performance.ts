@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { getPeriodWindowStart } from "@/lib/reportUtils";
+import { getPeriodWindowStart, secondsToHoras, roundHorasToMinuto } from "@/lib/reportUtils";
 
 const TOP_N = 5;
 
@@ -9,7 +9,7 @@ function r1(v: number): number {
 }
 
 function secToHours(s: number): number {
-  return r1(s / 3600);
+  return secondsToHoras(s);
 }
 
 function msToDays(ms: number): number {
@@ -129,7 +129,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const mediaExecucaoProjeto =
     projetosComExecucao.length > 0
-      ? r1(
+      ? roundHorasToMinuto(
           projetosComExecucao.reduce((acc, p) => acc + p.execucao_horas, 0) /
             projetosComExecucao.length
         )
@@ -171,7 +171,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const mediaExecucaoTarefa =
     tarefasComExecucao.length > 0
-      ? r1(
+      ? roundHorasToMinuto(
           tarefasComExecucao.reduce((acc, t) => acc + t.execucao_horas, 0) /
             tarefasComExecucao.length
         )

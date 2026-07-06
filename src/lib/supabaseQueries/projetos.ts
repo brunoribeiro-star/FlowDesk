@@ -7,7 +7,7 @@ export interface Projeto {
     titulo: string;
     descricao?: string;
     status: string;
-    valor?: number;
+    orcamento?: number;
     prazo_entrega?: string;
     created_at: string;
     completed_at?: string | null;
@@ -23,7 +23,7 @@ export async function getProjetos(): Promise<Projeto[]> {
 
     const { data, error } = await supabase
         .from("projetos")
-        .select("id, user_id, cliente_id, titulo, descricao, status, valor, prazo_entrega, created_at, completed_at, data_inicio, cover_url, progresso")
+        .select("id, user_id, cliente_id, titulo, descricao, status, orcamento, prazo_entrega, created_at, completed_at, data_inicio, cover_url, progresso")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -46,7 +46,7 @@ export async function addProjeto(projeto: Omit<Projeto, "id" | "user_id" | "crea
             titulo: projeto.titulo,
             descricao: projeto.descricao,
             status: projeto.status || "Em andamento",
-            valor: projeto.valor,
+            orcamento: projeto.orcamento,
             prazo_entrega: projeto.prazo_entrega,
         },
     ]);
@@ -113,7 +113,7 @@ export async function duplicateProjeto(id: string): Promise<string> {
             titulo: `${original.titulo} (Cópia)`,
             descricao: original.descricao,
             status: "em_andamento",
-            valor: original.valor,
+            orcamento: original.orcamento,
             prazo_entrega: original.prazo_entrega,
             forma_pagamento: original.forma_pagamento,
             data_inicio: original.data_inicio,

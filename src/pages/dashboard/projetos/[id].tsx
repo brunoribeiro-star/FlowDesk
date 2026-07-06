@@ -4,6 +4,7 @@ import { useCallback, useEffect, memo, useMemo, useRef, useState, type ReactNode
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
+import { syncPagamentosComValorProjeto } from "@/lib/supabaseQueries/pagamentos";
 import { calcularUrgencia, tempoRelativo } from "@/lib/utils";
 import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
@@ -1123,6 +1124,12 @@ export default function ProjetoDetalhesPage() {
       };
       const { error: updErr } = await supabase.from("projetos").update(updates).eq("id", projeto.id);
       if (updErr) throw updErr;
+
+      try {
+        await syncPagamentosComValorProjeto(projeto.id, updates.orcamento);
+      } catch (syncErr) {
+        console.error("Erro ao sincronizar pagamentos com o novo valor do projeto:", syncErr);
+      }
 
       const { data: updatedProjeto } = await supabase
         .from("projetos")
@@ -4303,7 +4310,6 @@ const TaskList = memo(function TaskList({
               return (
                 <li key={t.id} className="dt-step-item flex flex-col">
                   <div className={`dt-step-row${done ? " is-done" : ""}`}>
-                    {/* Checkbox */}
                     <button
                       type="button"
                       onClick={() => canToggle && toggleTaskCompletion(t)}
@@ -4317,12 +4323,10 @@ const TaskList = memo(function TaskList({
                       )}
                     </button>
 
-                    {/* Título */}
                     <span className={`flex-1 text-[17px] font-semibold${done ? " line-through text-gray-500" : " text-gray-100"}`}>
                       {t.titulo}
                     </span>
 
-                    {/* Assignee + data + edit */}
                     <div className="flex items-center gap-3 shrink-0">
                       {assigneeName && (
                         <span className="dt-assignee-chip">
@@ -4352,7 +4356,6 @@ const TaskList = memo(function TaskList({
                     </div>
                   </div>
 
-                  {/* Subtarefas */}
                   {subs.length > 0 && (
                     <ul className="ml-[46px] flex flex-col mt-1">
                       {subs.map((s) => (

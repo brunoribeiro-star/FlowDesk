@@ -13,6 +13,7 @@ import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import { useSubscription } from "@/hooks/useSubscription";
 import { triggerUpgradeBanner } from "@/lib/limitGuard";
 import { duplicateProjeto } from "@/lib/supabaseQueries/projetos";
+import { syncPagamentosComValorProjeto } from "@/lib/supabaseQueries/pagamentos";
 import DatePicker from "@/components/DatePicker";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
@@ -602,17 +603,24 @@ export default function ProjetosPage() {
     setEditModal((prev) => ({ ...prev, saving: true }));
     try {
       const { titulo, cliente_id, orcamento, data_inicio, prazo_entrega, forma_pagamento, status, notas_internas } = editModal.form;
+      const novoValor = parseOrcamento(orcamento);
 
       await supabase.from("projetos").update({
         titulo: titulo.trim() || undefined,
         cliente_id: cliente_id || null,
-        orcamento: parseOrcamento(orcamento),
+        orcamento: novoValor,
         data_inicio: data_inicio || null,
         prazo_entrega: prazo_entrega || null,
         forma_pagamento: forma_pagamento || null,
         status: status || undefined,
         notas_internas: notas_internas || null,
       }).eq("id", editModal.projetoId);
+
+      try {
+        await syncPagamentosComValorProjeto(editModal.projetoId, novoValor);
+      } catch (syncErr) {
+        console.error("Erro ao sincronizar pagamentos com o novo valor do projeto:", syncErr);
+      }
 
       if (editCoverFileRef.current && authUser) {
         setEditModal((prev) => ({ ...prev, coverUploading: true }));
@@ -1589,7 +1597,6 @@ export default function ProjetosPage() {
 
       <div className="flex flex-col flex-1 gap-4 pr-6 py-4 w-full overflow-hidden relative">
         <div className="flex items-center gap-4 w-full pb-3">
-          {/* Contador */}
           <span className="text-[19px] text-gray-300 flex-none">
             <strong className="text-white font-bold">{totalProjetos}</strong>{" "}
             {totalProjetos === 1 ? "projeto" : "projetos"}

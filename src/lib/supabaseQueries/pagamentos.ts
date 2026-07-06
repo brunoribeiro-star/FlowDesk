@@ -91,3 +91,74 @@ export async function deletePagamento(id: string) {
     if (error) throw error;
     return true;
 }
+
+export async function syncPagamentosComValorProjeto(projetoId: string, novoValor: number | null | undefined) {
+    if (novoValor == null || novoValor < 0) return;
+
+    const user = await getUser();
+
+    const { data: pagamentos, error } = await supabase
+        .from("pagamentos")
+        .select("id, valor, status, parcela")
+        .eq("projeto_id", projetoId);
+
+    if (error) throw error;
+    if (!pagamentos || pagamentos.length === 0) return;
+
+    const pago = pagamentos
+        .filter((p) => p.status === "pago")
+        .reduce((acc, p) => acc + Number(p.valor || 0), 0);
+
+    const pendentes = pagamentos.filter((p) => p.status !== "pago");
+    const pendenteAtual = pendentes.reduce((acc, p) => acc + Number(p.valor || 0), 0);
+    const targetPendente = Math.max(0, novoValor - pago);
+
+    if (Math.abs(pendenteAtual - targetPendente) < 0.01) return;
+
+    if (pendentes.length === 0) {
+        if (targetPendente <= 0) return;
+        const maiorParcela = pagamentos.reduce((acc, p) => Math.max(acc, p.parcela || 0), 0);
+        const { error: insertError } = await supabase.from("pagamentos").insert([
+            {
+                projeto_id: projetoId,
+                user_id: user.id,
+                valor: targetPendente,
+                forma_pagamento: "pix",
+                parcela: maiorParcela + 1,
+                total_parcelas: maiorParcela + 1,
+                tipo: "ajuste",
+                status: "pendente",
+                data_prevista: new Date().toISOString().slice(0, 10),
+            },
+        ]);
+        if (insertError) throw insertError;
+        return;
+    }
+
+    if (pendentes.length === 1) {
+        const { error: updateError } = await supabase
+            .from("pagamentos")
+            .update({ valor: targetPendente })
+            .eq("id", pendentes[0].id);
+        if (updateError) throw updateError;
+        return;
+    }
+
+    let acumulado = 0;
+    for (let i = 0; i < pendentes.length; i++) {
+        const isLast = i === pendentes.length - 1;
+        let novoValorParcela: number;
+        if (isLast) {
+            novoValorParcela = Math.round((targetPendente - acumulado) * 100) / 100;
+        } else {
+            const proporcao = pendenteAtual > 0 ? Number(pendentes[i].valor || 0) / pendenteAtual : 1 / pendentes.length;
+            novoValorParcela = Math.round(targetPendente * proporcao * 100) / 100;
+            acumulado += novoValorParcela;
+        }
+        const { error: updateError } = await supabase
+            .from("pagamentos")
+            .update({ valor: novoValorParcela })
+            .eq("id", pendentes[i].id);
+        if (updateError) throw updateError;
+    }
+}
