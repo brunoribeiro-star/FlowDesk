@@ -23,6 +23,7 @@ import {
   CheckSquare,
   DollarSign,
   ScrollText,
+  Wallet,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -76,6 +77,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
     { name: "Time Tracker", href: "/dashboard/cronometro", icon: Clock },
     { name: "Tarefas", href: "/dashboard/tarefas", icon: CheckSquare },
     { name: "Pagamentos", href: "/dashboard/pagamentos", icon: DollarSign },
+    { name: "Financeiro", href: "/dashboard/financeiro", icon: Wallet },
   ];
 
   const utilLinks = [
