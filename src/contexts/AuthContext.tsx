@@ -33,7 +33,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }){
 
         const { data: sub } = supabase.auth.onAuthStateChange(async (_event, sess) => {
             setSession(sess ?? null);
-            setUser(sess?.user ?? null);
+            setUser((prev) => {
+                const next = sess?.user ?? null;
+                if (prev && next && prev.id === next.id && prev.updated_at === next.updated_at) {
+                    return prev;
+                }
+                return next;
+            });
 
             if (_event === 'SIGNED_IN' && router.pathname === '/login') {
                 const hasRedirectParam = typeof router.query.redirect === 'string';

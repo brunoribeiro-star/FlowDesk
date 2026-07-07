@@ -170,6 +170,8 @@ export default function App({ Component, pageProps, router }: AppProps) {
       <Head>
         <title>FlowDesk - Gestão de Projetos para Freelancers</title>
 
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+
         <meta
           name="description"
           content="Gerencie projetos, tarefas, clientes e colaboradores em um único lugar. FlowDesk é a plataforma completa para freelancers."

@@ -21,6 +21,17 @@ html, body {
   }
 }
 
+/* iOS Safari auto-zooms the page on input focus when the field's
+   font-size is below 16px. Forcing 16px on mobile/tablet prevents the
+   zoom from triggering in the first place (desktop is untouched). */
+@media (max-width: 1023px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 
 .dragging {
   opacity: 0.6;
