@@ -173,43 +173,50 @@ export default function RelatoriosPage() {
     <>
       <PageTour name="relatorios" steps={RELATORIOS_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 gap-[38px] pr-6 py-6 overflow-y-auto min-w-0">
+      <div className="flex flex-col flex-1 gap-6 sm:gap-[38px] px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6 overflow-y-auto min-w-0">
 
-        <header className="w-full flex items-center justify-between gap-6 flex-wrap">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => router.push("/dashboard")}
-              className="grid place-items-center flex-none cursor-pointer transition-colors duration-200"
-              style={{ width: 46, height: 46, borderRadius: 13, border: "1px solid var(--gray-700)", background: "var(--primary-800)", color: "var(--gray-200)" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-500)"; (e.currentTarget as HTMLElement).style.color = "var(--primary-300)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--gray-700)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-200)"; }}
-            >
-              <ArrowLeft size={18} />
-            </button>
-            <span
-              className="w-[52px] h-[52px] rounded-[15px] flex-none flex items-center justify-center border border-primary-600 text-primary-400"
-              style={{ background: "color-mix(in srgb, var(--primary-500) 10%, transparent)" }}
-            >
-              <BarChart3 size={26} />
-            </span>
-            <div>
-              <h1 className="text-[30px] font-bold text-gray-100 leading-tight tracking-tight m-0">
-                Relatórios
-              </h1>
-              <p className="text-[15.5px] text-gray-400 mt-1 m-0">
-                Métricas e desempenho do seu trabalho
-              </p>
+        <header className="w-full flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="grid place-items-center flex-none cursor-pointer transition-colors duration-200"
+                style={{ width: 46, height: 46, borderRadius: 13, border: "1px solid var(--gray-700)", background: "var(--primary-800)", color: "var(--gray-200)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-500)"; (e.currentTarget as HTMLElement).style.color = "var(--primary-300)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--gray-700)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-200)"; }}
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <span
+                className="w-[42px] h-[42px] sm:w-[52px] sm:h-[52px] rounded-[15px] flex-none flex items-center justify-center border border-primary-600 text-primary-400"
+                style={{ background: "color-mix(in srgb, var(--primary-500) 10%, transparent)" }}
+              >
+                <BarChart3 size={22} className="sm:hidden" />
+                <BarChart3 size={26} className="hidden sm:block" />
+              </span>
+              <div className="min-w-0">
+                <h1 className="text-[22px] sm:text-[26px] lg:text-[30px] font-bold text-gray-100 leading-tight tracking-tight m-0 truncate">
+                  Relatórios
+                </h1>
+                <p className="text-[13px] sm:text-[15.5px] text-gray-400 mt-1 m-0 truncate">
+                  Métricas e desempenho do seu trabalho
+                </p>
+              </div>
+            </div>
+
+            <div className="lg:hidden shrink-0">
+              <HeaderProfile />
             </div>
           </div>
 
-          <div className="flex items-center gap-[14px] flex-wrap">
-            <div className="flex items-center gap-[2px] rounded-[14px] bg-primary-800 border border-primary-700 p-[5px]">
+          <div className="flex items-center gap-3 lg:gap-[14px]">
+            <div className="flex items-center gap-[2px] rounded-[14px] bg-primary-800 border border-primary-700 p-[5px] overflow-x-auto flex-1 lg:flex-none">
               {PERIODS.map((p) => (
                 <button
                   key={p.value}
                   onClick={() => setPeriod(p.value)}
-                  className="px-[18px] py-[10px] rounded-[10px] text-[14.5px] font-semibold transition-colors whitespace-nowrap"
+                  className="px-[14px] sm:px-[18px] py-[10px] rounded-[10px] text-[13.5px] sm:text-[14.5px] font-semibold transition-colors whitespace-nowrap shrink-0"
                   style={
                     period === p.value
                       ? {
@@ -238,12 +245,15 @@ export default function RelatoriosPage() {
             <button
               onClick={fetchReports}
               disabled={isLoading}
-              className="flex items-center gap-[9px] h-[52px] px-5 rounded-[14px] bg-primary-800 border border-primary-700 text-gray-100 text-[15px] font-semibold transition-colors hover:border-primary-600 hover:text-primary-200 disabled:opacity-50 whitespace-nowrap"
+              className="flex items-center gap-[9px] h-[46px] sm:h-[52px] px-4 sm:px-5 rounded-[14px] bg-primary-800 border border-primary-700 text-gray-100 text-[14px] sm:text-[15px] font-semibold transition-colors hover:border-primary-600 hover:text-primary-200 disabled:opacity-50 whitespace-nowrap shrink-0"
             >
               <RefreshCw size={18} className={["text-primary-400", isLoading ? "animate-spin" : ""].join(" ")} />
-              Atualizar
+              <span className="hidden sm:inline">Atualizar</span>
             </button>
-            <HeaderProfile />
+
+            <div className="hidden lg:block">
+              <HeaderProfile />
+            </div>
           </div>
         </header>
 
@@ -275,7 +285,7 @@ export default function RelatoriosPage() {
           <h2 className="text-[17px] font-semibold text-gray-200 tracking-tight m-0">Visão geral</h2>
 
           {loadingOverview ? (
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-[18px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-[18px]">
               {Array.from({ length: 6 }).map((_, i) => (
                 <SkeletonStatCard key={i} />
               ))}
@@ -294,7 +304,7 @@ export default function RelatoriosPage() {
             </h2>
 
             {revenueTotais && !loadingRevenue && (
-              <div className="flex items-center gap-[26px] text-[14.5px] text-gray-400 flex-wrap">
+              <div className="flex items-center gap-x-[26px] gap-y-2 text-[14.5px] text-gray-400 flex-wrap">
                 <span>
                   Recebido:{" "}
                   <b className="text-gray-100 font-bold">
@@ -323,7 +333,7 @@ export default function RelatoriosPage() {
             )}
           </div>
 
-          <div className="rounded-[18px] bg-primary-800 border border-primary-700 px-[30px] pt-[30px] pb-[22px]">
+          <div className="rounded-[18px] bg-primary-800 border border-primary-700 px-4 sm:px-[30px] pt-5 sm:pt-[30px] pb-4 sm:pb-[22px]">
             {errorRevenue ? (
               <ErrorCard message={errorRevenue} onRetry={fetchReports} />
             ) : revenueData.length > 0 ? (
@@ -436,7 +446,7 @@ const emptyOverview: OverviewData = {
 
 function DonutCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col px-7 pt-[26px] pb-[30px] rounded-[18px] bg-primary-800 border border-primary-700">
+    <div className="flex flex-col px-4 sm:px-7 pt-5 sm:pt-[26px] pb-6 sm:pb-[30px] rounded-[18px] bg-primary-800 border border-primary-700">
       <div className="mb-2">
         <div className="text-[18px] font-semibold text-gray-100">{title}</div>
         <div className="text-[14px] text-gray-400 mt-[6px]">{subtitle}</div>

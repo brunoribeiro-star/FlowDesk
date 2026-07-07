@@ -199,11 +199,11 @@ export default function CreateClienteModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center px-4"
       onClick={onClose}
     >
       <div
-        className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-xl p-8 relative"
+        className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-xl p-5 sm:p-8 relative max-h-[85vh] sm:max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -263,8 +263,8 @@ export default function CreateClienteModal({
             }`}
           />
 
-          <div className="flex items-center gap-3">
-            <div className="relative">
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <div className="relative flex-shrink-0">
               <select
                 value={country.code}
                 onChange={handleCountryChange}
@@ -287,7 +287,7 @@ export default function CreateClienteModal({
               value={form.telefone}
               onChange={handleChange}
               placeholder="Telefone"
-              className={`flex-1 bg-primary-800 border rounded-lg px-4 py-3 text-sm ${
+              className={`flex-1 min-w-0 bg-primary-800 border rounded-lg px-4 py-3 text-sm ${
                 errors.telefone ? "border-red-500" : "border-primary-700"
               }`}
             />

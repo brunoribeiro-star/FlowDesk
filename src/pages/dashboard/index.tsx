@@ -316,7 +316,7 @@ export default function DashboardHome() {
 
   if (loading)
     return (
-      <div className="flex flex-col flex-1 gap-6 pr-6 py-6 overflow-hidden">
+      <div className="flex flex-col flex-1 gap-6 px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6 overflow-hidden">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-full skeleton-shimmer bg-primary-800" />
           <div className="flex flex-col gap-2">
@@ -324,7 +324,7 @@ export default function DashboardHome() {
             <div className="h-3 w-56 rounded-lg skeleton-shimmer bg-primary-800" />
           </div>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <SkeletonStatCard />
           <SkeletonStatCard />
           <SkeletonStatCard />
@@ -372,7 +372,7 @@ export default function DashboardHome() {
 
   return (
     <>
-      <div className="relative flex flex-col flex-1 gap-5 pr-6 py-6 w-full overflow-hidden">
+      <div className="relative flex flex-col flex-1 gap-5 px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6 w-full overflow-y-auto lg:overflow-hidden overflow-x-hidden custom-scrollbar">
         <div
           className="pointer-events-none absolute rounded-full z-0"
           style={{
@@ -382,21 +382,26 @@ export default function DashboardHome() {
           }}
         />
 
-        <header className="relative z-20 flex items-center gap-6">
-          <div className="flex items-center gap-4 flex-none">
-            <UserAvatar
-              src={avatarSrc}
-              name={displayName}
-              size={54}
-              className="border-2 border-primary-600"
-            />
-            <div>
-              <h1 className="m-0 text-[24px] font-semibold tracking-tight text-gray-100 leading-tight">
-                Olá, {displayName}
-              </h1>
-              <p className="m-0 mt-0.5 text-[15px] text-gray-400">
-                Aqui está o resumo do seu trabalho.
-              </p>
+        <header className="relative z-20 flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
+          <div className="flex items-center justify-between gap-4 lg:contents">
+            <div className="flex items-center gap-3 sm:gap-4 flex-none min-w-0">
+              <UserAvatar
+                src={avatarSrc}
+                name={displayName}
+                size={54}
+                className="border-2 border-primary-600 shrink-0"
+              />
+              <div className="min-w-0">
+                <h1 className="m-0 text-[19px] sm:text-[24px] font-semibold tracking-tight text-gray-100 leading-tight truncate">
+                  Olá, {displayName}
+                </h1>
+                <p className="m-0 mt-0.5 text-[13px] sm:text-[15px] text-gray-400 truncate">
+                  Aqui está o resumo do seu trabalho.
+                </p>
+              </div>
+            </div>
+            <div className="lg:hidden shrink-0">
+              <HeaderProfile />
             </div>
           </div>
 
@@ -473,7 +478,9 @@ export default function DashboardHome() {
             )}
           </div>
 
-          <HeaderProfile />
+          <div className="hidden lg:block">
+            <HeaderProfile />
+          </div>
         </header>
 
         {pendingInvites.length > 0 && (
@@ -516,33 +523,34 @@ export default function DashboardHome() {
           </div>
         )}
 
-        <section className="relative z-10 grid grid-cols-4 gap-5">
+        <section className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-5">
           {METRICS.map((m) => (
             <button
               key={m.id}
               type="button"
               onClick={m.onClick}
-              className="relative overflow-hidden flex flex-col p-[22px_24px_24px] rounded-[20px] border border-gray-700 transition-all duration-200 hover:-translate-y-[3px] hover:border-primary-400 cursor-pointer text-left"
+              className="relative overflow-hidden flex flex-col p-4 sm:p-[22px_24px_24px] rounded-[16px] sm:rounded-[20px] border border-gray-700 transition-all duration-200 hover:-translate-y-[3px] hover:border-primary-400 cursor-pointer text-left"
               style={{ background: "var(--primary-800)" }}
             >
               <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-[20px] opacity-80"
                    style={{ background: m.accent.top }} />
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-2.5 sm:mb-3">
                 <div
-                  className="w-11 h-11 rounded-[12px] flex items-center justify-center border"
+                  className="w-9 h-9 sm:w-11 sm:h-11 rounded-[10px] sm:rounded-[12px] flex items-center justify-center border shrink-0"
                   style={{ color: m.accent.color, background: m.accent.soft, borderColor: m.accent.line }}
                 >
-                  <m.icon size={22} />
+                  <m.icon size={20} className="sm:hidden" />
+                  <m.icon size={22} className="hidden sm:block" />
                 </div>
                 <span
-                  className="text-[12.5px] font-medium text-gray-400 px-[10px] py-1 rounded-full"
+                  className="text-[11px] sm:text-[12.5px] font-medium text-gray-400 px-2 sm:px-[10px] py-0.5 sm:py-1 rounded-full truncate max-w-[110px] sm:max-w-none"
                   style={{ background: "var(--primary-700)" }}
                 >
                   {m.trend}
                 </span>
               </div>
-              <p className="m-0 text-[14px] text-gray-400">{m.label}</p>
-              <p className={`m-0 mt-0.5 text-[28px] font-bold tracking-tight tabular-nums leading-tight ${m.calm ? "text-success-medium" : "text-gray-100"}`}>
+              <p className="m-0 text-[12.5px] sm:text-[14px] text-gray-400">{m.label}</p>
+              <p className={`m-0 mt-0.5 text-[20px] sm:text-[28px] font-bold tracking-tight tabular-nums leading-tight ${m.calm ? "text-success-medium" : "text-gray-100"}`}>
                 {m.value}
               </p>
             </button>
@@ -551,27 +559,28 @@ export default function DashboardHome() {
           <button
             type="button"
             onClick={() => router.push("/dashboard/configuracoes?tab=armazenamento")}
-            className="relative overflow-hidden flex flex-col p-[22px_24px_24px] rounded-[20px] border border-gray-700 transition-all duration-200 hover:-translate-y-[3px] hover:border-primary-400 cursor-pointer text-left"
+            className="relative overflow-hidden flex flex-col p-4 sm:p-[22px_24px_24px] rounded-[16px] sm:rounded-[20px] border border-gray-700 transition-all duration-200 hover:-translate-y-[3px] hover:border-primary-400 cursor-pointer text-left"
             style={{ background: "var(--primary-800)" }}
           >
             <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-[20px] opacity-80"
                  style={{ background: "linear-gradient(90deg, var(--primary-400), transparent 60%)" }} />
-            <div className="flex items-center mb-3">
+            <div className="flex items-center mb-2.5 sm:mb-3">
               <div
-                className="w-11 h-11 rounded-[12px] flex items-center justify-center border"
+                className="w-9 h-9 sm:w-11 sm:h-11 rounded-[10px] sm:rounded-[12px] flex items-center justify-center border"
                 style={{ color: "var(--primary-400)", background: "rgba(79,197,235,0.12)", borderColor: "rgba(79,197,235,0.40)" }}
               >
-                <HardDrive size={22} />
+                <HardDrive size={20} className="sm:hidden" />
+                <HardDrive size={22} className="hidden sm:block" />
               </div>
             </div>
-            <p className="m-0 text-[14px] text-gray-400">Armazenamento</p>
+            <p className="m-0 text-[12.5px] sm:text-[14px] text-gray-400">Armazenamento</p>
             {storageUsedGB !== null ? (
               <>
-                <p className="m-0 mt-0.5 text-[28px] font-bold tracking-tight text-gray-100 leading-tight">
+                <p className="m-0 mt-0.5 text-[20px] sm:text-[28px] font-bold tracking-tight text-gray-100 leading-tight">
                   {storageUsedGB < 1 ? `${(storageUsedGB * 1024).toFixed(0)} MB` : `${storageUsedGB.toFixed(2)} GB`}
                 </p>
                 <div
-                  className="mt-3.5 h-[7px] rounded-full overflow-hidden"
+                  className="mt-2.5 sm:mt-3.5 h-[7px] rounded-full overflow-hidden"
                   style={{ background: "var(--primary-700)" }}
                 >
                   <div
@@ -587,31 +596,30 @@ export default function DashboardHome() {
                     }}
                   />
                 </div>
-                <p className="m-0 mt-2 text-[12.5px] text-gray-500">de {storageLimitGB} GB usados</p>
+                <p className="m-0 mt-2 text-[11.5px] sm:text-[12.5px] text-gray-500">de {storageLimitGB} GB usados</p>
               </>
             ) : (
-              <p className="m-0 mt-0.5 text-[28px] font-bold tracking-tight text-gray-100 leading-tight">–</p>
+              <p className="m-0 mt-0.5 text-[20px] sm:text-[28px] font-bold tracking-tight text-gray-100 leading-tight">–</p>
             )}
           </button>
         </section>
 
         <section
-          className="relative z-10 flex-1 min-h-0"
-          style={{ display: "grid", gridTemplateColumns: "1.55fr 1fr", gap: "20px" }}
+          className="relative z-10 grid grid-cols-1 lg:grid-cols-[1.55fr_1fr] gap-4 lg:gap-5 lg:flex-1 lg:min-h-0"
         >
           <div
-            className="flex flex-col rounded-[22px] border border-gray-700 p-[26px_28px]"
+            className="flex flex-col min-h-[420px] lg:min-h-0 lg:flex-1 rounded-[18px] sm:rounded-[22px] border border-gray-700 p-4 sm:p-[26px_28px]"
             style={{ background: "var(--primary-800)" }}
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="m-0 mb-2.5 text-[13.5px] font-medium text-gray-400">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="m-0 mb-2.5 text-[12.5px] sm:text-[13.5px] font-medium text-gray-400">
                   Faturamento · mês atual vs. anterior
                 </p>
                 <div className="flex items-baseline gap-3 flex-wrap">
-                  <span className="text-[38px] font-bold text-gray-100 tracking-tight tabular-nums leading-none">
+                  <span className="text-[28px] sm:text-[38px] font-bold text-gray-100 tracking-tight tabular-nums leading-none">
                     {faturamentoPrincipal}
-                    <span className="text-[22px] font-semibold text-gray-300">,{faturamentoCentavos}</span>
+                    <span className="text-[16px] sm:text-[22px] font-semibold text-gray-300">,{faturamentoCentavos}</span>
                   </span>
                   {growthPct !== null && growthPct !== 0 && (
                     <span
@@ -747,11 +755,11 @@ export default function DashboardHome() {
               </div>
             </div>
 
-            <div className="flex gap-3.5 mt-4">
+            <div className="flex gap-2.5 sm:gap-3.5 mt-4">
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/projetos/novo")}
-                className="flex flex-1 items-center justify-center gap-2 h-[54px] text-[16px] font-semibold rounded-[14px] border-0 cursor-pointer transition-transform duration-200 hover:-translate-y-0.5"
+                className="flex flex-1 items-center justify-center gap-1.5 sm:gap-2 h-12 sm:h-[54px] text-[13.5px] sm:text-[16px] font-semibold rounded-[14px] border-0 cursor-pointer transition-transform duration-200 hover:-translate-y-0.5 px-2"
                 style={{
                   color: "var(--primary-900)",
                   background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
@@ -759,26 +767,26 @@ export default function DashboardHome() {
                   fontFamily: "inherit",
                 }}
               >
-                <Plus size={18} /> Novo projeto
+                <Plus size={17} className="shrink-0" /> <span className="truncate">Novo projeto</span>
               </button>
               <button
                 type="button"
                 onClick={() => router.push("/dashboard/briefings/novo")}
-                className="flex flex-1 items-center justify-center gap-2 h-[54px] text-[16px] font-semibold text-gray-100 rounded-[14px] border border-gray-600 cursor-pointer transition-colors duration-200 hover:border-primary-600 hover:text-gray-100"
+                className="flex flex-1 items-center justify-center gap-1.5 sm:gap-2 h-12 sm:h-[54px] text-[13.5px] sm:text-[16px] font-semibold text-gray-100 rounded-[14px] border border-gray-600 cursor-pointer transition-colors duration-200 hover:border-primary-600 hover:text-gray-100 px-2"
                 style={{ background: "var(--primary-800)", fontFamily: "inherit" }}
               >
-                <FileText size={18} /> Novo briefing
+                <FileText size={17} className="shrink-0" /> <span className="truncate">Novo briefing</span>
               </button>
             </div>
           </div>
 
           <div
-            className="flex flex-col rounded-[22px] border border-gray-700 p-[26px_28px] overflow-hidden"
+            className="flex flex-col min-h-[320px] lg:min-h-0 lg:flex-1 rounded-[18px] sm:rounded-[22px] border border-gray-700 p-4 sm:p-[26px_28px] overflow-hidden"
             style={{ background: "var(--primary-800)" }}
           >
-            <p className="m-0 text-[19px] font-semibold text-gray-100">Atividades recentes</p>
+            <p className="m-0 text-[17px] sm:text-[19px] font-semibold text-gray-100">Atividades recentes</p>
 
-            <ul className="list-none m-0 p-0 mt-5 flex flex-col gap-1.5 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0">
+            <ul className="list-none m-0 p-0 mt-3 sm:mt-5 flex flex-col gap-1.5 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0">
               {atividades.length > 0 ? (
                 atividades.map((a, i) => {
                   const isTask = isTaskActivity(a.tipo);

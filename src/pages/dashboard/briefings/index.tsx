@@ -976,7 +976,7 @@ export default function BriefingsPage() {
     );
 
     return (
-      <div className="grid grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
         <BoardCol id="pendente" title="Enviado" isPrimary={true} />
         <BoardCol id="respondido" title="Respondido" isPrimary={false} />
       </div>
@@ -1189,27 +1189,54 @@ export default function BriefingsPage() {
     <>
       <PageTour name="briefings" steps={BRIEFINGS_TOUR_STEPS} />
 
-      <div className="relative flex flex-col flex-1 gap-6 pr-6 py-8 overflow-hidden">
+      <div className="relative flex flex-col flex-1 gap-6 px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-8 overflow-hidden">
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 520, height: 520, right: -180, top: -180, background: 'radial-gradient(circle, rgba(30,182,232,0.10), transparent 70%)', filter: 'blur(100px)' }} />
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 460, height: 460, right: -160, bottom: -200, background: 'radial-gradient(circle, rgba(16,66,83,0.45), transparent 70%)', filter: 'blur(100px)' }} />
 
-        <header className="relative z-20 flex items-center gap-5">
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard")}
-            className="grid place-items-center flex-none w-[46px] h-[46px] rounded-[13px] border border-gray-700 text-gray-200 transition-all duration-200 hover:border-primary-500 hover:text-primary-300"
-            style={{ background: 'var(--primary-800)' }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
-            </svg>
-          </button>
+        <header className="relative z-20 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="grid place-items-center flex-none w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-[13px] border border-gray-700 text-gray-200 transition-all duration-200 hover:border-primary-500 hover:text-primary-300"
+                style={{ background: 'var(--primary-800)' }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+                </svg>
+              </button>
 
-          <div className="flex gap-1.5 p-1.5 rounded-[15px] border border-gray-700" style={{ background: 'var(--primary-800)' }}>
+              <div className="hidden lg:flex gap-1.5 p-1.5 rounded-[15px] border border-gray-700 min-w-0" style={{ background: 'var(--primary-800)' }}>
+                <button
+                  type="button"
+                  onClick={() => changeActiveTab("modelos")}
+                  className={`whitespace-nowrap px-5 py-[11px] rounded-[11px] text-[15.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "modelos" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
+                  style={activeTab === "modelos" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)', boxShadow: '0 6px 16px -6px rgba(30,182,232,0.7)' } : {}}
+                >
+                  Modelos de briefing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => changeActiveTab("envios")}
+                  className={`whitespace-nowrap px-5 py-[11px] rounded-[11px] text-[15.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "envios" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
+                  style={activeTab === "envios" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)', boxShadow: '0 6px 16px -6px rgba(30,182,232,0.7)' } : {}}
+                >
+                  Briefings enviados
+                </button>
+              </div>
+            </div>
+
+            <div className="lg:hidden flex-none">
+              <HeaderProfile />
+            </div>
+          </div>
+
+          <div className="flex lg:hidden gap-1.5 p-1.5 rounded-[15px] border border-gray-700 w-full" style={{ background: 'var(--primary-800)' }}>
             <button
               type="button"
               onClick={() => changeActiveTab("modelos")}
-              className={`px-5 py-[11px] rounded-[11px] text-[15.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "modelos" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
+              className={`flex-1 whitespace-nowrap px-3 py-2 rounded-[11px] text-[13px] sm:text-[14.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "modelos" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
               style={activeTab === "modelos" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)', boxShadow: '0 6px 16px -6px rgba(30,182,232,0.7)' } : {}}
             >
               Modelos de briefing
@@ -1217,33 +1244,35 @@ export default function BriefingsPage() {
             <button
               type="button"
               onClick={() => changeActiveTab("envios")}
-              className={`px-5 py-[11px] rounded-[11px] text-[15.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "envios" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
+              className={`flex-1 whitespace-nowrap px-3 py-2 rounded-[11px] text-[13px] sm:text-[14.5px] font-medium border-0 cursor-pointer transition-all duration-200 ${activeTab === "envios" ? "" : "bg-transparent text-gray-400 hover:text-gray-100"}`}
               style={activeTab === "envios" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)', boxShadow: '0 6px 16px -6px rgba(30,182,232,0.7)' } : {}}
             >
               Briefings enviados
             </button>
           </div>
 
-          <div className="ml-auto flex items-center gap-3.5">
+          <div className="flex items-center gap-3 lg:ml-auto lg:gap-3.5">
             <button
               id="tour-add-btn"
               type="button"
               onClick={() => router.push("/dashboard/briefings/novo")}
-              className="flex items-center gap-[9px] flex-none h-[50px] px-6 rounded-[14px] text-[16px] font-semibold border-0 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
+              className="flex-1 lg:flex-none flex items-center justify-center gap-[9px] h-[50px] px-6 rounded-[14px] text-[15px] sm:text-[16px] font-semibold border-0 cursor-pointer transition-all duration-200 hover:-translate-y-0.5"
               style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', boxShadow: '0 12px 28px -12px rgba(30,182,232,0.8)' }}
             >
               <Plus size={19} />
               Criar briefing
             </button>
-            <HeaderProfile />
+            <div className="hidden lg:block flex-none">
+              <HeaderProfile />
+            </div>
           </div>
         </header>
 
         <section className="relative z-10 flex-1 min-h-0 flex flex-col gap-4">
           {activeTab === "modelos" && (
             <div
-              className="flex-1 flex flex-col gap-[22px] rounded-3xl border border-gray-700 min-h-0"
-              style={{ padding: '26px 30px 30px', background: 'var(--primary-900)' }}
+              className="flex-1 flex flex-col gap-[22px] rounded-3xl border border-gray-700 min-h-0 p-4 sm:p-6 lg:p-[26px_30px_30px]"
+              style={{ background: 'var(--primary-900)' }}
             >
               <div className="flex items-center justify-between gap-4 flex-none">
                 <span className="text-[16px] text-gray-400">
@@ -1432,12 +1461,12 @@ export default function BriefingsPage() {
 
           {activeTab === "envios" && (
             <div
-              className="flex-1 flex flex-col gap-[22px] rounded-3xl border border-gray-700 min-h-0"
-              style={{ padding: '26px 30px 30px', background: 'var(--primary-900)' }}
+              className="flex-1 flex flex-col gap-[22px] rounded-3xl border border-gray-700 min-h-0 p-4 sm:p-6 lg:p-[26px_30px_30px]"
+              style={{ background: 'var(--primary-900)' }}
             >
-              <div className="flex items-center justify-between gap-4 flex-none pb-5 border-b border-gray-700">
-                <div className="flex items-center gap-4">
-                  <h2 className="m-0 text-[20px] font-bold text-gray-100">Briefings enviados</h2>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 flex-none pb-5 border-b border-gray-700">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <h2 className="m-0 text-[18px] sm:text-[20px] font-bold text-gray-100">Briefings enviados</h2>
                   <div className="flex gap-1 p-1 rounded-[12px] border border-gray-700" style={{ background: 'var(--primary-800)' }}>
                     <button
                       type="button"
@@ -1464,15 +1493,15 @@ export default function BriefingsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3.5">
-                  <span className="text-[15px] text-gray-400">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-3.5">
+                  <span className="text-[14px] sm:text-[15px] text-gray-400">
                     {totalEnvios === 0 ? "Nenhum envio" : totalEnvios === 1 ? "1 envio" : `${totalEnvios} envios`}
                   </span>
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-none min-w-[140px]">
                     <select
                       value={filtroEnvioStatus}
                       onChange={(e) => setFiltroEnvioStatus(e.target.value as FiltroEnvioStatus)}
-                      className="h-[46px] pl-4 pr-9 rounded-[12px] border border-gray-700 text-[14.5px] text-gray-200 appearance-none cursor-pointer transition-colors hover:border-gray-500"
+                      className="w-full h-[46px] pl-4 pr-9 rounded-[12px] border border-gray-700 text-[14.5px] text-gray-200 appearance-none cursor-pointer transition-colors hover:border-gray-500"
                       style={{ background: 'var(--primary-800)' }}
                     >
                       <option value="">Todos</option>
@@ -1481,11 +1510,11 @@ export default function BriefingsPage() {
                     </select>
                     <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" />
                   </div>
-                  <div className="relative">
+                  <div className="relative flex-1 sm:flex-none min-w-[140px]">
                     <select
                       value={filtroEmail}
                       onChange={(e) => setFiltroEmail(e.target.value as FiltroEmail)}
-                      className="h-[46px] pl-4 pr-9 rounded-[12px] border border-gray-700 text-[14.5px] text-gray-200 appearance-none cursor-pointer transition-colors hover:border-gray-500"
+                      className="w-full h-[46px] pl-4 pr-9 rounded-[12px] border border-gray-700 text-[14.5px] text-gray-200 appearance-none cursor-pointer transition-colors hover:border-gray-500"
                       style={{ background: 'var(--primary-800)' }}
                     >
                       <option value="">E-mail: Todos</option>
@@ -1498,7 +1527,7 @@ export default function BriefingsPage() {
               </div>
 
               {viewMode === "list" && (
-                <div className="grid gap-5 px-2 pb-4 flex-none" style={{ gridTemplateColumns: '1.5fr 1.3fr 1.4fr 1fr 1.5fr' }}>
+                <div className="hidden md:grid gap-5 px-2 pb-4 flex-none" style={{ gridTemplateColumns: '1.5fr 1.3fr 1.4fr 1fr 1.5fr' }}>
                   <span className="text-[13px] font-medium text-gray-400">Cliente</span>
                   <span className="text-[13px] font-medium text-gray-400">Projeto</span>
                   <span className="text-[13px] font-medium text-gray-400">Briefing</span>
@@ -1527,133 +1556,197 @@ export default function BriefingsPage() {
                       const prazoResStr = envio.prazo_resposta ? formatarDataCurta(envio.prazo_resposta) : null;
                       const isRespondido = tipoEnvio === "respondido";
 
-                      return (
-                        <div
-                          key={envio.id}
-                          className="grid gap-5 px-2 py-[18px] items-center transition-colors duration-200 hover:bg-gray-700/30 border-t border-gray-700"
-                          style={{ gridTemplateColumns: '1.5fr 1.3fr 1.4fr 1fr 1.5fr' }}
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
+                      const menuNode = (
+                        <div className="relative" data-envio-menu-trigger>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setOpenMenuEnvioId((cur) => cur === envio.id ? null : envio.id); }}
+                            className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-white/10 hover:text-gray-100"
+                          >
+                            <MoreVertical size={18} />
+                          </button>
+
+                          {openMenuEnvioId === envio.id && (
                             <div
-                              className="flex-none grid place-items-center w-11 h-11 rounded-full overflow-hidden border"
-                              style={{ color: 'var(--primary-300)', background: 'rgba(30,182,232,0.08)', borderColor: 'rgba(30,182,232,0.22)' }}
+                              className="absolute right-0 top-[calc(100%+6px)] z-50 w-[220px] p-2 rounded-2xl border border-gray-600 animate-fade-in"
+                              style={{ background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
+                              data-envio-menu
                             >
-                              {foto ? (
-                                <Image src={foto} alt="Cliente" width={44} height={44} className="object-cover w-full h-full" />
-                              ) : (
-                                <User size={20} />
+                              {isRespondido && envio.projeto_id && envio.template_id && (
+                                <button
+                                  type="button"
+                                  onClick={() => { setOpenMenuEnvioId(null); router.push(`/dashboard/briefings/${envio.id}/respostas`); }}
+                                  className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                                >
+                                  <Eye size={18} className="text-gray-400" />
+                                  Ver respostas
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => { setOpenMenuEnvioId(null); enviarEmailBriefing(envio); }}
+                                className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                              >
+                                <Send size={17} className="text-gray-400" />
+                                {envio.email_enviado ? "Reenviar e-mail" : "Enviar por e-mail"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setOpenMenuEnvioId(null); copiarLinkBriefing(envio); }}
+                                className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                              >
+                                <Copy size={17} className="text-gray-400" />
+                                Copiar link
+                              </button>
+                              <div className="h-px my-1.5 mx-2 bg-gray-700" />
+                              <button
+                                type="button"
+                                onClick={() => { setOpenMenuEnvioId(null); excluirEnvio(envio.id); }}
+                                className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-error-medium border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
+                              >
+                                <Trash2 size={17} />
+                                Excluir envio
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+
+                      const acaoPrincipalNode = isRespondido ? (
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/dashboard/briefings/${envio.id}/respostas`)}
+                          className="flex-none text-[14px] font-semibold border-0 cursor-pointer px-[18px] py-[10px] rounded-[11px] transition-all duration-200 hover:-translate-y-px"
+                          style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', boxShadow: '0 10px 22px -12px rgba(30,182,232,0.8)' }}
+                        >
+                          Ver respostas
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => reenviarEnvio(envio)}
+                          className="flex-none text-[14px] font-semibold cursor-pointer px-[18px] py-[10px] rounded-[11px] transition-colors duration-200"
+                          style={{ color: 'var(--primary-300)', border: '1px solid rgba(30,182,232,0.4)', background: 'rgba(30,182,232,0.06)' }}
+                        >
+                          Reenviar
+                        </button>
+                      );
+
+                      return (
+                        <div key={envio.id} className="contents">
+                          <div
+                            className="hidden md:grid gap-5 px-2 py-[18px] items-center transition-colors duration-200 hover:bg-gray-700/30 border-t border-gray-700"
+                            style={{ gridTemplateColumns: '1.5fr 1.3fr 1.4fr 1fr 1.5fr' }}
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <div
+                                className="flex-none grid place-items-center w-11 h-11 rounded-full overflow-hidden border"
+                                style={{ color: 'var(--primary-300)', background: 'rgba(30,182,232,0.08)', borderColor: 'rgba(30,182,232,0.22)' }}
+                              >
+                                {foto ? (
+                                  <Image src={foto} alt="Cliente" width={44} height={44} className="object-cover w-full h-full" />
+                                ) : (
+                                  <User size={20} />
+                                )}
+                              </div>
+                              <span className="text-[15.5px] font-semibold text-gray-100 truncate">
+                                {cliente?.nome || "Cliente não informado"}
+                              </span>
+                            </div>
+
+                            <span className="text-[15px] text-gray-500 truncate">
+                              {projeto?.titulo || "Projeto não definido"}
+                            </span>
+
+                            <span className="text-[15.5px] font-medium text-gray-100 truncate">
+                              {envio.template?.titulo || "Briefing"}
+                            </span>
+
+                            <div className="flex flex-col gap-2 items-start">
+                              <span
+                                className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold"
+                                style={isRespondido
+                                  ? { background: 'rgba(102,187,106,0.15)', color: 'var(--success-medium)', border: '1px solid rgba(102,187,106,0.3)' }
+                                  : { background: 'rgba(255,167,38,0.15)', color: 'var(--alert-medium)', border: '1px solid rgba(255,167,38,0.3)' }
+                                }
+                              >
+                                {isRespondido ? "Respondido" : "Pendente"}
+                              </span>
+                              {envio.email_enviado && (
+                                <span className="inline-flex items-center gap-1.5 text-[13px] text-primary-400">
+                                  <Send size={13} />
+                                  E-mail enviado
+                                </span>
                               )}
                             </div>
-                            <span className="text-[15.5px] font-semibold text-gray-100 truncate">
-                              {cliente?.nome || "Cliente não informado"}
-                            </span>
+
+                            <div className="flex items-center justify-end gap-3.5">
+                              <div className="flex flex-col gap-[3px] text-right text-[13px] text-gray-400">
+                                <span>Enviado: <strong className="text-gray-200 font-semibold">{enviadoEm}</strong></span>
+                                {prazoResStr && <span>Prazo: <strong className="text-gray-200 font-semibold">{prazoResStr}</strong></span>}
+                              </div>
+
+                              {acaoPrincipalNode}
+                              {menuNode}
+                            </div>
                           </div>
 
-                          <span className="text-[15px] text-gray-500 truncate">
-                            {projeto?.titulo || "Projeto não definido"}
-                          </span>
+                          <div
+                            className="md:hidden flex flex-col gap-3 rounded-2xl border border-gray-700 p-4 mb-3"
+                            style={{ background: 'var(--primary-800)' }}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div
+                                  className="flex-none grid place-items-center w-10 h-10 rounded-full overflow-hidden border"
+                                  style={{ color: 'var(--primary-300)', background: 'rgba(30,182,232,0.08)', borderColor: 'rgba(30,182,232,0.22)' }}
+                                >
+                                  {foto ? (
+                                    <Image src={foto} alt="Cliente" width={40} height={40} className="object-cover w-full h-full" />
+                                  ) : (
+                                    <User size={18} />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex flex-col">
+                                  <span className="text-[15px] font-semibold text-gray-100 truncate">
+                                    {cliente?.nome || "Cliente não informado"}
+                                  </span>
+                                  <span className="text-[13px] text-gray-500 truncate">
+                                    {projeto?.titulo || "Projeto não definido"}
+                                  </span>
+                                </div>
+                              </div>
+                              {menuNode}
+                            </div>
 
-                          <span className="text-[15.5px] font-medium text-gray-100 truncate">
-                            {envio.template?.titulo || "Briefing"}
-                          </span>
-
-                          <div className="flex flex-col gap-2 items-start">
-                            <span
-                              className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold"
-                              style={isRespondido
-                                ? { background: 'rgba(102,187,106,0.15)', color: 'var(--success-medium)', border: '1px solid rgba(102,187,106,0.3)' }
-                                : { background: 'rgba(255,167,38,0.15)', color: 'var(--alert-medium)', border: '1px solid rgba(255,167,38,0.3)' }
-                              }
-                            >
-                              {isRespondido ? "Respondido" : "Pendente"}
+                            <span className="text-[14.5px] font-medium text-gray-100 truncate">
+                              {envio.template?.titulo || "Briefing"}
                             </span>
-                            {envio.email_enviado && (
-                              <span className="inline-flex items-center gap-1.5 text-[13px] text-primary-400">
-                                <Send size={13} />
-                                E-mail enviado
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className="inline-flex items-center px-3 py-1 rounded-full text-[12px] font-semibold"
+                                style={isRespondido
+                                  ? { background: 'rgba(102,187,106,0.15)', color: 'var(--success-medium)', border: '1px solid rgba(102,187,106,0.3)' }
+                                  : { background: 'rgba(255,167,38,0.15)', color: 'var(--alert-medium)', border: '1px solid rgba(255,167,38,0.3)' }
+                                }
+                              >
+                                {isRespondido ? "Respondido" : "Pendente"}
                               </span>
-                            )}
-                          </div>
+                              {envio.email_enviado && (
+                                <span className="inline-flex items-center gap-1.5 text-[12.5px] text-primary-400">
+                                  <Send size={12} />
+                                  E-mail enviado
+                                </span>
+                              )}
+                            </div>
 
-                          <div className="flex items-center justify-end gap-3.5">
-                            <div className="flex flex-col gap-[3px] text-right text-[13px] text-gray-400">
+                            <div className="flex items-center justify-between gap-2 text-[13px] text-gray-400">
                               <span>Enviado: <strong className="text-gray-200 font-semibold">{enviadoEm}</strong></span>
                               {prazoResStr && <span>Prazo: <strong className="text-gray-200 font-semibold">{prazoResStr}</strong></span>}
                             </div>
 
-                            {isRespondido ? (
-                              <button
-                                type="button"
-                                onClick={() => router.push(`/dashboard/briefings/${envio.id}/respostas`)}
-                                className="flex-none text-[14px] font-semibold border-0 cursor-pointer px-[18px] py-[10px] rounded-[11px] transition-all duration-200 hover:-translate-y-px"
-                                style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', boxShadow: '0 10px 22px -12px rgba(30,182,232,0.8)' }}
-                              >
-                                Ver respostas
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => reenviarEnvio(envio)}
-                                className="flex-none text-[14px] font-semibold cursor-pointer px-[18px] py-[10px] rounded-[11px] transition-colors duration-200"
-                                style={{ color: 'var(--primary-300)', border: '1px solid rgba(30,182,232,0.4)', background: 'rgba(30,182,232,0.06)' }}
-                              >
-                                Reenviar
-                              </button>
-                            )}
-
-                            <div className="relative" data-envio-menu-trigger>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setOpenMenuEnvioId((cur) => cur === envio.id ? null : envio.id); }}
-                                className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-white/10 hover:text-gray-100"
-                              >
-                                <MoreVertical size={18} />
-                              </button>
-
-                              {openMenuEnvioId === envio.id && (
-                                <div
-                                  className="absolute right-0 top-[calc(100%+6px)] z-50 w-[220px] p-2 rounded-2xl border border-gray-600 animate-fade-in"
-                                  style={{ background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
-                                  data-envio-menu
-                                >
-                                  {isRespondido && envio.projeto_id && envio.template_id && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setOpenMenuEnvioId(null); router.push(`/dashboard/briefings/${envio.id}/respostas`); }}
-                                      className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
-                                    >
-                                      <Eye size={18} className="text-gray-400" />
-                                      Ver respostas
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => { setOpenMenuEnvioId(null); enviarEmailBriefing(envio); }}
-                                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
-                                  >
-                                    <Send size={17} className="text-gray-400" />
-                                    {envio.email_enviado ? "Reenviar e-mail" : "Enviar por e-mail"}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => { setOpenMenuEnvioId(null); copiarLinkBriefing(envio); }}
-                                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
-                                  >
-                                    <Copy size={17} className="text-gray-400" />
-                                    Copiar link
-                                  </button>
-                                  <div className="h-px my-1.5 mx-2 bg-gray-700" />
-                                  <button
-                                    type="button"
-                                    onClick={() => { setOpenMenuEnvioId(null); excluirEnvio(envio.id); }}
-                                    className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-error-medium border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
-                                  >
-                                    <Trash2 size={17} />
-                                    Excluir envio
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                            <div className="pt-1">{acaoPrincipalNode}</div>
                           </div>
                         </div>
                       );
@@ -1957,7 +2050,7 @@ export default function BriefingsPage() {
                 )}
               </div>
 
-              <div className="px-6 py-4 border-t border-primary-800 flex items-center justify-between flex-shrink-0">
+              <div className="px-4 sm:px-6 py-4 border-t border-primary-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
                 {modalStep === "form" ? (
                   <>
                     <div className="text-[12px] text-gray-500">
@@ -2005,14 +2098,14 @@ export default function BriefingsPage() {
 
         {viewModalOpen && (
           <div
-            className="fixed inset-0 z-40 grid place-items-center"
-            style={{ padding: 40, background: 'rgba(4,12,16,0.72)', backdropFilter: 'blur(4px)' }}
+            className="fixed inset-0 z-40 grid place-items-center p-4 sm:p-6 lg:p-10"
+            style={{ background: 'rgba(4,12,16,0.72)', backdropFilter: 'blur(4px)' }}
           >
             <div
               className="w-full flex flex-col overflow-hidden"
               style={{
                 maxWidth: 920,
-                maxHeight: 'calc(100vh - 80px)',
+                maxHeight: 'calc(100vh - 32px)',
                 borderRadius: 26,
                 border: '1px solid var(--gray-600)',
                 background: 'linear-gradient(180deg, rgba(16,40,50,0.98), rgba(7,28,36,0.98))',
@@ -2020,13 +2113,13 @@ export default function BriefingsPage() {
               }}
             >
               <header
-                className="flex items-start gap-[18px] flex-none"
-                style={{ padding: '30px 34px 26px', borderBottom: '1px solid var(--gray-700)' }}
+                className="flex items-start gap-3 sm:gap-[18px] flex-none px-4 sm:px-6 lg:px-[34px] pt-5 sm:pt-7 lg:pt-[30px] pb-4 sm:pb-5 lg:pb-[26px]"
+                style={{ borderBottom: '1px solid var(--gray-700)' }}
               >
                 <span
-                  className="flex-none grid place-items-center"
+                  className="flex-none grid place-items-center w-[42px] h-[42px] sm:w-[54px] sm:h-[54px]"
                   style={{
-                    width: 54, height: 54, borderRadius: 16,
+                    borderRadius: 16,
                     color: 'var(--primary-300)',
                     background: 'rgba(30,182,232,0.12)',
                     border: '1px solid rgba(30,182,232,0.30)',
@@ -2037,13 +2130,13 @@ export default function BriefingsPage() {
 
                 <div className="flex-1 min-w-0">
                   <h2
-                    className="m-0 font-bold text-white"
-                    style={{ fontSize: 27, letterSpacing: '-0.02em' }}
+                    className="m-0 font-bold text-white text-[19px] sm:text-[23px] lg:text-[27px] truncate"
+                    style={{ letterSpacing: '-0.02em' }}
                   >
                     {viewTemplate?.titulo || "Modelo de briefing"}
                   </h2>
                   {viewTemplate?.descricao && (
-                    <p className="m-0 mt-[6px]" style={{ fontSize: 15, color: 'var(--gray-400)' }}>
+                    <p className="m-0 mt-[6px] line-clamp-2" style={{ fontSize: 15, color: 'var(--gray-400)' }}>
                       {viewTemplate.descricao}
                     </p>
                   )}
@@ -2089,7 +2182,7 @@ export default function BriefingsPage() {
 
               {viewError && (
                 <div
-                  className="mx-[34px] mt-5 flex-none flex items-center gap-2 rounded-[13px] text-[13px]"
+                  className="mx-4 sm:mx-6 lg:mx-[34px] mt-5 flex-none flex items-center gap-2 rounded-[13px] text-[13px]"
                   style={{ padding: '14px 18px', background: 'rgba(239,83,80,0.08)', border: '1px solid rgba(239,83,80,0.3)', color: 'var(--error-light)' }}
                 >
                   <div className="w-[6px] h-[6px] rounded-full shrink-0" style={{ background: 'var(--error-medium)' }} />
@@ -2098,8 +2191,8 @@ export default function BriefingsPage() {
               )}
 
               <div
-                className="flex-1 overflow-y-auto briefings-view-scroll flex flex-col min-h-0"
-                style={{ padding: '26px 34px 32px', gap: 20 }}
+                className="flex-1 overflow-y-auto briefings-view-scroll flex flex-col min-h-0 px-4 sm:px-6 lg:px-[34px] pt-5 sm:pt-6 lg:pt-[26px] pb-5 sm:pb-7 lg:pb-8"
+                style={{ gap: 20 }}
               >
                 {viewLoading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -2115,15 +2208,15 @@ export default function BriefingsPage() {
                   viewCampos.map((campo) => (
                     <div
                       key={campo.id}
+                      className="p-5 sm:p-[26px_28px]"
                       style={{
-                        padding: '26px 28px',
                         borderRadius: 18,
                         border: '1px solid var(--gray-700)',
                         background: 'rgba(8,34,42,0.4)',
                       }}
                     >
-                      <div className="flex items-center justify-between gap-4" style={{ marginBottom: 18 }}>
-                        <span className="font-bold text-white" style={{ fontSize: 20, letterSpacing: '-0.01em' }}>
+                      <div className="flex flex-wrap items-center justify-between gap-3 sm:gap-4" style={{ marginBottom: 18 }}>
+                        <span className="font-bold text-white text-[17px] sm:text-[20px]" style={{ letterSpacing: '-0.01em' }}>
                           {campo.titulo_pergunta}
                           {campo.obrigatorio && (
                             <span style={{ color: 'var(--error-medium)', marginLeft: 4 }}>*</span>
@@ -2207,7 +2300,7 @@ export default function BriefingsPage() {
         )}
 
         {deleteModalOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-4">
             <div className="w-full max-w-md bg-primary-900 border border-primary-700 rounded-2xl shadow-2xl p-6 flex flex-col gap-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex flex-col gap-1">

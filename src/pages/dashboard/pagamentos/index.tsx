@@ -230,35 +230,41 @@ export default function PagamentosPage() {
       <PageTour name="pagamentos" steps={PAGAMENTOS_TOUR_STEPS} />
 
       <div
-        className="relative flex flex-col flex-1 gap-[22px] overflow-hidden"
-        style={{ padding: '28px 40px 36px' }}
+        className="relative flex flex-col flex-1 gap-[22px] overflow-hidden px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6"
       >
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 520, height: 520, right: -180, top: -180, background: 'radial-gradient(circle, rgba(30,182,232,0.12), transparent 70%)', filter: 'blur(100px)' }} />
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 460, height: 460, right: -160, bottom: -200, background: 'radial-gradient(circle, rgba(16,66,83,0.5), transparent 70%)', filter: 'blur(100px)' }} />
 
         <header
-          className="relative z-10 flex items-center gap-5 pb-[22px] border-b"
+          className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5 pb-[22px] border-b"
           style={{ borderColor: 'var(--gray-700)' }}
         >
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard")}
-            className="grid place-items-center cursor-pointer transition-colors duration-200 flex-none"
-            style={{ width: 46, height: 46, borderRadius: 13, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', color: 'var(--gray-200)' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary-500)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-300)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-200)'; }}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
-            </svg>
-          </button>
-          <span className="font-bold tracking-tight" style={{ fontSize: 26, color: 'var(--gray-100)' }}>Pagamentos</span>
-          <div className="ml-auto">
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <div className="flex items-center gap-5 min-w-0">
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard")}
+                className="grid place-items-center cursor-pointer transition-colors duration-200 flex-none"
+                style={{ width: 46, height: 46, borderRadius: 13, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', color: 'var(--gray-200)' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--primary-500)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-300)'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--gray-700)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-200)'; }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
+                </svg>
+              </button>
+              <span className="font-bold tracking-tight truncate" style={{ fontSize: 26, color: 'var(--gray-100)' }}>Pagamentos</span>
+            </div>
+            <div className="lg:hidden">
+              <HeaderProfile />
+            </div>
+          </div>
+          <div className="hidden lg:block lg:ml-auto">
             <HeaderProfile />
           </div>
         </header>
 
-        <div className="relative z-10 flex items-center justify-between">
+        <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-[11px]" style={{ fontSize: 16, color: 'var(--gray-400)' }}>
             <span
               className="rounded-full flex-none"
@@ -267,11 +273,11 @@ export default function PagamentosPage() {
             <strong className="text-white font-bold">{total}</strong>&nbsp;pagamento{total !== 1 ? 's' : ''} cadastrado{total !== 1 ? 's' : ''}
           </span>
 
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <select
               value={filtroStatus}
               onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
-              className="appearance-none cursor-pointer outline-none transition-colors duration-200"
+              className="appearance-none cursor-pointer outline-none transition-colors duration-200 w-full sm:w-auto"
               style={{ height: 48, padding: '0 44px 0 18px', borderRadius: 13, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', color: 'var(--gray-200)', fontSize: 15, fontFamily: 'inherit' }}
             >
               <option value="">Todos os status</option>
@@ -289,7 +295,7 @@ export default function PagamentosPage() {
           style={{ borderRadius: 22, border: '1px solid var(--gray-700)', background: 'linear-gradient(180deg, rgba(20,40,48,0.36), rgba(8,34,42,0.2))' }}
         >
           <div
-            className="grid items-center flex-none"
+            className="hidden md:grid items-center flex-none"
             style={{ padding: '20px 30px', borderBottom: '1px solid var(--gray-700)', gap: 20, gridTemplateColumns: '1.7fr 1.7fr 1fr 1fr 1.3fr 0.9fr 1.4fr' }}
           >
             {['Cliente', 'Projeto', 'Status', 'Valor', 'Vencimento / Pagamento', 'Criação', 'Ações'].map((h, i) => (
@@ -321,113 +327,176 @@ export default function PagamentosPage() {
                   ? { label: 'Atrasado', color: 'var(--error-medium)',   bg: 'rgba(239,83,80,0.10)',   border: 'rgba(239,83,80,0.35)' }
                   : { label: 'Pendente', color: 'var(--alert-medium)',   bg: 'rgba(255,167,38,0.10)',  border: 'rgba(255,167,38,0.35)' };
 
-                return (
-                  <div
-                    key={p.id}
-                    className="grid items-center transition-colors duration-200"
-                    style={{ padding: '16px 30px', borderBottom: '1px solid rgba(29,38,40,0.7)', gap: 20, gridTemplateColumns: '1.7fr 1.7fr 1fr 1fr 1.3fr 0.9fr 1.4fr' }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(148,169,173,0.04)'; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
-                  >
-                    <div className="flex items-center min-w-0" style={{ gap: 14 }}>
-                      <span
-                        className="flex-none grid place-items-center rounded-full overflow-hidden"
-                        style={{ width: 46, height: 46, border: '1px solid rgba(255,255,255,0.08)', fontSize: 15, fontWeight: 700, color: 'var(--primary-100)', background: foto ? undefined : AVATAR_TINTS[tintIdx], flexShrink: 0 }}
+                const acoesNode = (
+                  <div className="flex items-center justify-end gap-2">
+                    {tipo !== 'pago' && (
+                      <button
+                        type="button"
+                        onClick={() => abrirCobrancaModal(p)}
+                        className="inline-flex items-center gap-2 cursor-pointer transition-all duration-200"
+                        style={{ height: 38, padding: '0 16px', borderRadius: 11, border: '1px solid rgba(30,182,232,0.4)', background: 'rgba(30,182,232,0.07)', color: 'var(--primary-300)', fontSize: 14.5, fontWeight: 600 }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.16)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-200)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.07)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-300)'; }}
                       >
-                        {foto
-                          ? <Image src={foto} alt="Cliente" width={46} height={46} className="object-cover w-full h-full" />
-                          : iniciais}
+                        <Send size={16} />
+                        {p.notificado_em ? 'Reenviar' : 'Cobrar'}
+                      </button>
+                    )}
+
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setOpenMenuId((cur) => (cur === p.id ? null : p.id))}
+                        className="grid place-items-center cursor-pointer transition-colors duration-200"
+                        style={{ width: 38, height: 38, borderRadius: 10, border: 0, background: 'none', color: 'var(--gray-400)' }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(148,169,173,0.10)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-100)'; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-400)'; }}
+                      >
+                        <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                          <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
+                        </svg>
+                      </button>
+
+                      {openMenuId === p.id && (
+                        <div
+                          className="absolute right-0 mt-2 z-20 p-2 flex flex-col"
+                          style={{ width: 180, borderRadius: 16, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => { setOpenMenuId(null); if (p.projeto_id) router.push(`/dashboard/projetos/${p.projeto_id}`); }}
+                            className="w-full text-left px-4 py-3 rounded-[10px] text-[14px] text-gray-100 bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)]"
+                          >
+                            Ver projeto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setOpenMenuId(null); excluirPagamento(p.id); }}
+                            className="w-full text-left px-4 py-3 rounded-[10px] text-[14px] bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
+                            style={{ color: 'var(--error-medium)' }}
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+
+                const vencimentoTxt = tipo === 'pago'
+                  ? `Pago em ${formatarDataCurta(dataRef)}`
+                  : dataRef
+                  ? `Vence em ${formatarDataCurta(dataRef)}`
+                  : 'Vencimento não definido';
+
+                return (
+                  <div key={p.id} className="contents">
+                    <div
+                      className="hidden md:grid items-center transition-colors duration-200"
+                      style={{ padding: '16px 30px', borderBottom: '1px solid rgba(29,38,40,0.7)', gap: 20, gridTemplateColumns: '1.7fr 1.7fr 1fr 1fr 1.3fr 0.9fr 1.4fr' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(148,169,173,0.04)'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                    >
+                      <div className="flex items-center min-w-0" style={{ gap: 14 }}>
+                        <span
+                          className="flex-none grid place-items-center rounded-full overflow-hidden"
+                          style={{ width: 46, height: 46, border: '1px solid rgba(255,255,255,0.08)', fontSize: 15, fontWeight: 700, color: 'var(--primary-100)', background: foto ? undefined : AVATAR_TINTS[tintIdx], flexShrink: 0 }}
+                        >
+                          {foto
+                            ? <Image src={foto} alt="Cliente" width={46} height={46} className="object-cover w-full h-full" />
+                            : iniciais}
+                        </span>
+                        <div className="flex flex-col min-w-0" style={{ gap: 3 }}>
+                          <span className="truncate font-semibold text-white" style={{ fontSize: 16 }}>{nomeCliente}</span>
+                          <span className="flex items-center gap-[6px] truncate" style={{ fontSize: 13, color: 'var(--gray-500)' }}>
+                            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h.01"/><path d="M15 7h.01"/><path d="M9 11h.01"/><path d="M15 11h.01"/><path d="M9 15h6"/>
+                            </svg>
+                            {cliente?.empresa || '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <span className="truncate" style={{ fontSize: 15.5, fontWeight: 500, color: 'var(--gray-100)', lineHeight: 1.35 }}>
+                        {projetoNome(p.projeto_id)}
                       </span>
-                      <div className="flex flex-col min-w-0" style={{ gap: 3 }}>
-                        <span className="truncate font-semibold text-white" style={{ fontSize: 16 }}>{nomeCliente}</span>
-                        <span className="flex items-center gap-[6px] truncate" style={{ fontSize: 13, color: 'var(--gray-500)' }}>
-                          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                            <rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h.01"/><path d="M15 7h.01"/><path d="M9 11h.01"/><path d="M15 11h.01"/><path d="M9 15h6"/>
-                          </svg>
-                          {cliente?.empresa || '—'}
+
+                      <div>
+                        <span
+                          className="inline-flex items-center gap-2 font-semibold"
+                          style={{ fontSize: 14, padding: '6px 12px', borderRadius: 10, border: `1px solid ${statusBadge.border}`, background: statusBadge.bg, color: statusBadge.color }}
+                        >
+                          <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: 'currentColor', display: 'inline-block' }} />
+                          {statusBadge.label}
                         </span>
                       </div>
-                    </div>
 
-                    <span className="truncate" style={{ fontSize: 15.5, fontWeight: 500, color: 'var(--gray-100)', lineHeight: 1.35 }}>
-                      {projetoNome(p.projeto_id)}
-                    </span>
-
-                    <div>
-                      <span
-                        className="inline-flex items-center gap-2 font-semibold"
-                        style={{ fontSize: 14, padding: '6px 12px', borderRadius: 10, border: `1px solid ${statusBadge.border}`, background: statusBadge.bg, color: statusBadge.color }}
-                      >
-                        <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: 'currentColor', display: 'inline-block' }} />
-                        {statusBadge.label}
+                      <span className="font-bold text-white" style={{ fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>
+                        {p.valor ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
                       </span>
+
+                      <span style={{ fontSize: 14.5, fontVariantNumeric: 'tabular-nums', color: tipo === 'atrasado' ? 'var(--error-medium)' : 'var(--gray-300)' }}>
+                        {vencimentoTxt}
+                      </span>
+
+                      <span style={{ fontSize: 14, color: 'var(--gray-500)' }}>{tempoRelativo(p.created_at)}</span>
+
+                      {acoesNode}
                     </div>
 
-                    <span className="font-bold text-white" style={{ fontSize: 16, fontVariantNumeric: 'tabular-nums' }}>
-                      {p.valor ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
-                    </span>
-
-                    <span style={{ fontSize: 14.5, fontVariantNumeric: 'tabular-nums', color: tipo === 'atrasado' ? 'var(--error-medium)' : 'var(--gray-300)' }}>
-                      {tipo === 'pago'
-                        ? `Pago em ${formatarDataCurta(dataRef)}`
-                        : dataRef
-                        ? `Vence em ${formatarDataCurta(dataRef)}`
-                        : 'Vencimento não definido'}
-                    </span>
-
-                    <span style={{ fontSize: 14, color: 'var(--gray-500)' }}>{tempoRelativo(p.created_at)}</span>
-
-                    <div className="flex items-center justify-end gap-2">
-                      {tipo !== 'pago' && (
-                        <button
-                          type="button"
-                          onClick={() => abrirCobrancaModal(p)}
-                          className="inline-flex items-center gap-2 cursor-pointer transition-all duration-200"
-                          style={{ height: 38, padding: '0 16px', borderRadius: 11, border: '1px solid rgba(30,182,232,0.4)', background: 'rgba(30,182,232,0.07)', color: 'var(--primary-300)', fontSize: 14.5, fontWeight: 600 }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.16)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-200)'; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(30,182,232,0.07)'; (e.currentTarget as HTMLElement).style.color = 'var(--primary-300)'; }}
-                        >
-                          <Send size={16} />
-                          {p.notificado_em ? 'Reenviar' : 'Cobrar'}
-                        </button>
-                      )}
-
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setOpenMenuId((cur) => (cur === p.id ? null : p.id))}
-                          className="grid place-items-center cursor-pointer transition-colors duration-200"
-                          style={{ width: 38, height: 38, borderRadius: 10, border: 0, background: 'none', color: 'var(--gray-400)' }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'rgba(148,169,173,0.10)'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-100)'; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = 'none'; (e.currentTarget as HTMLElement).style.color = 'var(--gray-400)'; }}
-                        >
-                          <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                            <circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/>
-                          </svg>
-                        </button>
-
-                        {openMenuId === p.id && (
-                          <div
-                            className="absolute right-0 mt-2 z-20 p-2 flex flex-col"
-                            style={{ width: 180, borderRadius: 16, border: '1px solid var(--gray-700)', background: 'var(--primary-800)', boxShadow: '0 30px 70px -24px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.06)' }}
+                    <div
+                      className="md:hidden flex flex-col gap-2.5 rounded-2xl border p-4 mx-4 my-1.5"
+                      style={{ borderColor: 'var(--gray-700)', background: 'var(--primary-800)' }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center min-w-0" style={{ gap: 12 }}>
+                          <span
+                            className="flex-none grid place-items-center rounded-full overflow-hidden"
+                            style={{ width: 42, height: 42, border: '1px solid rgba(255,255,255,0.08)', fontSize: 14, fontWeight: 700, color: 'var(--primary-100)', background: foto ? undefined : AVATAR_TINTS[tintIdx], flexShrink: 0 }}
                           >
-                            <button
-                              type="button"
-                              onClick={() => { setOpenMenuId(null); if (p.projeto_id) router.push(`/dashboard/projetos/${p.projeto_id}`); }}
-                              className="w-full text-left px-4 py-3 rounded-[10px] text-[14px] text-gray-100 bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)]"
-                            >
-                              Ver projeto
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setOpenMenuId(null); excluirPagamento(p.id); }}
-                              className="w-full text-left px-4 py-3 rounded-[10px] text-[14px] bg-transparent border-0 cursor-pointer transition-colors hover:bg-[rgba(239,83,80,0.10)]"
-                              style={{ color: 'var(--error-medium)' }}
-                            >
-                              Excluir
-                            </button>
+                            {foto
+                              ? <Image src={foto} alt="Cliente" width={42} height={42} className="object-cover w-full h-full" />
+                              : iniciais}
+                          </span>
+                          <div className="flex flex-col min-w-0" style={{ gap: 2 }}>
+                            <span className="truncate font-semibold text-white" style={{ fontSize: 15 }}>{nomeCliente}</span>
+                            <span className="truncate" style={{ fontSize: 13, color: 'var(--gray-500)' }}>{cliente?.empresa || '—'}</span>
                           </div>
-                        )}
+                        </div>
+                        <span
+                          className="inline-flex items-center gap-2 font-semibold flex-none"
+                          style={{ fontSize: 12.5, padding: '5px 10px', borderRadius: 9, border: `1px solid ${statusBadge.border}`, background: statusBadge.bg, color: statusBadge.color }}
+                        >
+                          <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: 'currentColor', display: 'inline-block' }} />
+                          {statusBadge.label}
+                        </span>
+                      </div>
+
+                      <span className="truncate" style={{ fontSize: 14.5, fontWeight: 500, color: 'var(--gray-100)' }}>
+                        {projetoNome(p.projeto_id)}
+                      </span>
+
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: 'var(--gray-500)' }}>Valor</span>
+                        <span className="font-bold text-white" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                          {p.valor ? p.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: 'var(--gray-500)' }}>{tipo === 'pago' ? 'Pagamento' : 'Vencimento'}</span>
+                        <span style={{ fontVariantNumeric: 'tabular-nums', color: tipo === 'atrasado' ? 'var(--error-medium)' : 'var(--gray-300)' }}>
+                          {vencimentoTxt}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: 'var(--gray-500)' }}>Criação</span>
+                        <span style={{ color: 'var(--gray-500)' }}>{tempoRelativo(p.created_at)}</span>
+                      </div>
+
+                      <div className="pt-2.5 mt-1 border-t" style={{ borderColor: 'var(--gray-700)' }}>
+                        {acoesNode}
                       </div>
                     </div>
                   </div>
@@ -438,7 +507,7 @@ export default function PagamentosPage() {
         </div>
 
         {cobrancaModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: 'rgba(4,12,16,0.72)', backdropFilter: 'blur(4px)' }}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(4,12,16,0.72)', backdropFilter: 'blur(4px)' }}>
             <div
               className="w-full max-w-md flex flex-col overflow-hidden"
               style={{ borderRadius: 24, border: '1px solid var(--gray-600)', background: 'linear-gradient(180deg, rgba(16,40,50,0.98), rgba(7,28,36,0.98))', boxShadow: '0 50px 110px -34px rgba(0,0,0,0.85), 0 0 0 1px rgba(30,182,232,0.10)' }}

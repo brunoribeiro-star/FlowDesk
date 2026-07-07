@@ -322,11 +322,16 @@ export default function DetalhesTarefaPage() {
         /* ===== HEADER ===== */
         .det-top {
           display: flex;
+          flex-wrap: wrap;
           align-items: center;
           justify-content: space-between;
-          padding: 22px 40px;
+          gap: 12px;
+          padding: 16px;
           border-bottom: 1px solid var(--gray-800);
           flex-shrink: 0;
+        }
+        @media (min-width: 640px) {
+          .det-top { flex-wrap: nowrap; padding: 22px 40px; }
         }
         .det-back-btn {
           display: inline-flex;
@@ -409,19 +414,25 @@ export default function DetalhesTarefaPage() {
           width: 100%;
           max-width: 1040px;
           margin: 0 auto;
-          padding: 40px 40px 64px;
+          padding: 24px 16px 48px;
           display: flex;
           flex-direction: column;
-          gap: 32px;
+          gap: 24px;
+        }
+        @media (min-width: 640px) {
+          .det-body { padding: 40px 40px 64px; gap: 32px; }
         }
 
         /* ===== TITLE AREA ===== */
         .det-title-area {
           display: flex;
           align-items: flex-start;
-          gap: 18px;
-          padding-bottom: 24px;
+          gap: 14px;
+          padding-bottom: 18px;
           border-bottom: 1px solid var(--gray-800);
+        }
+        @media (min-width: 640px) {
+          .det-title-area { gap: 18px; padding-bottom: 24px; }
         }
         .det-chk-lg {
           display: grid;
@@ -455,11 +466,14 @@ export default function DetalhesTarefaPage() {
           flex: 1;
           min-width: 0;
           margin: 0;
-          font-size: 32px;
+          font-size: 22px;
           font-weight: 700;
           color: var(--gray-100);
           letter-spacing: -0.02em;
           line-height: 1.2;
+        }
+        @media (min-width: 640px) {
+          .det-title { font-size: 32px; }
         }
         .det-title.is-done {
           color: var(--gray-500);

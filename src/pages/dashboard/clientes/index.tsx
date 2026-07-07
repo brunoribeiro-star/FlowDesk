@@ -584,33 +584,59 @@ export default function ClientesPage() {
         <div className="cl-glow cl-glow-a" />
         <div className="cl-glow cl-glow-b" />
 
-        <header className="relative z-30 cl-top px-8 xl:px-11 py-[26px]">
-          <div className="cl-count">
-            <strong>{filteredClientes.length}</strong>{" "}
-            {filteredClientes.length === 1 ? "cliente" : "clientes"}
-          </div>
-
-          <div className="cl-top-center">
-            <div className="cl-seg">
-              <button
-                type="button"
-                className={`cl-seg-btn${viewMode === "list" ? " is-on" : ""}`}
-                onClick={() => setViewMode("list")}
-                title="Lista"
-              >
-                <LayoutList size={20} />
-              </button>
-              <button
-                type="button"
-                className={`cl-seg-btn${viewMode === "board" ? " is-on" : ""}`}
-                onClick={() => setViewMode("board")}
-                title="Quadros"
-              >
-                <Kanban size={20} />
-              </button>
+        <header className="relative z-30 cl-top px-4 sm:px-6 lg:px-8 xl:px-11 py-4 lg:py-[26px]">
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <div className="cl-count lg:flex-1">
+              <strong>{filteredClientes.length}</strong>{" "}
+              {filteredClientes.length === 1 ? "cliente" : "clientes"}
             </div>
 
-            <label className="cl-search">
+            <div className="flex items-center gap-2 lg:hidden">
+              <div className="cl-seg">
+                <button
+                  type="button"
+                  className={`cl-seg-btn${viewMode === "list" ? " is-on" : ""}`}
+                  onClick={() => setViewMode("list")}
+                  title="Lista"
+                >
+                  <LayoutList size={20} />
+                </button>
+                <button
+                  type="button"
+                  className={`cl-seg-btn${viewMode === "board" ? " is-on" : ""}`}
+                  onClick={() => setViewMode("board")}
+                  title="Quadros"
+                >
+                  <Kanban size={20} />
+                </button>
+              </div>
+              <HeaderProfile />
+            </div>
+          </div>
+
+          <div className="cl-top-center w-full lg:w-auto">
+            <div className="hidden lg:flex">
+              <div className="cl-seg">
+                <button
+                  type="button"
+                  className={`cl-seg-btn${viewMode === "list" ? " is-on" : ""}`}
+                  onClick={() => setViewMode("list")}
+                  title="Lista"
+                >
+                  <LayoutList size={20} />
+                </button>
+                <button
+                  type="button"
+                  className={`cl-seg-btn${viewMode === "board" ? " is-on" : ""}`}
+                  onClick={() => setViewMode("board")}
+                  title="Quadros"
+                >
+                  <Kanban size={20} />
+                </button>
+              </div>
+            </div>
+
+            <label className="cl-search w-full lg:w-[320px]">
               <Search size={19} />
               <input
                 type="text"
@@ -621,11 +647,11 @@ export default function ClientesPage() {
             </label>
           </div>
 
-          <div className="cl-top-right">
+          <div className="flex items-center gap-3 lg:flex-1 lg:justify-end">
             <button
               type="button"
               id="tour-add-btn"
-              className="cl-primary-btn"
+              className="cl-primary-btn flex-1 lg:flex-none"
               onClick={() => {
                 const limit = subscription.limits.clientes;
                 if (limit !== null && clientes.length >= limit) {
@@ -637,13 +663,13 @@ export default function ClientesPage() {
             >
               <Plus size={19} /> Cliente
             </button>
-            <HeaderProfile />
+            <div className="hidden lg:block"><HeaderProfile /></div>
           </div>
         </header>
 
         <div className="cl-hdr-divider" />
 
-        <main className={`relative z-10 flex-1 flex flex-col px-8 xl:px-11 py-6 min-h-0 ${viewMode === "list" ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`}>
+        <main className={`relative z-10 flex-1 flex flex-col px-4 sm:px-6 lg:px-8 xl:px-11 py-4 sm:py-6 min-h-0 ${viewMode === "list" ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`}>
           {viewMode === "list" && renderListView()}
           {viewMode === "board" && renderBoardView()}
         </main>
@@ -841,11 +867,16 @@ export default function ClientesPage() {
 
         /* Header grid */
         .cl-top {
-          display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 20px;
+          display: flex; flex-direction: column; gap: 14px;
         }
-        .cl-count { font-size: 19px; color: var(--gray-300); }
+        @media (min-width: 1024px) {
+          .cl-top { display: flex; flex-direction: row; align-items: center; gap: 20px; }
+        }
+        .cl-count { font-size: 16px; color: var(--gray-300); }
+        @media (min-width: 1024px) { .cl-count { font-size: 19px; } }
         .cl-count strong { color: var(--gray-100); font-weight: 700; }
-        .cl-top-center { display: flex; align-items: center; gap: 14px; justify-self: center; }
+        .cl-top-center { display: flex; align-items: center; gap: 14px; }
+        @media (min-width: 1024px) { .cl-top-center { justify-self: center; } }
         .cl-top-right { display: flex; align-items: center; gap: 14px; justify-self: end; }
         .cl-hdr-divider {
           position: relative; z-index: 2; height: 1px;
@@ -870,13 +901,14 @@ export default function ClientesPage() {
 
         /* Search */
         .cl-search {
-          display: flex; align-items: center; gap: 11px; width: 320px; height: 50px; padding: 0 16px;
+          display: flex; align-items: center; gap: 11px; width: 100%; height: 50px; padding: 0 16px;
           border-radius: 13px; color: var(--gray-400);
           background: var(--primary-800); border: 1px solid var(--primary-700); transition: .2s; cursor: text;
         }
+        @media (min-width: 1024px) { .cl-search { width: 320px; } }
         .cl-search:focus-within { border-color: var(--primary-500); }
         .cl-search input {
-          flex: 1; background: none; border: 0; outline: none;
+          flex: 1; min-width: 0; background: none; border: 0; outline: none;
           color: var(--gray-100); font-family: inherit; font-size: 15px;
         }
         .cl-search input::placeholder { color: var(--gray-500); }
@@ -917,9 +949,12 @@ export default function ClientesPage() {
           border: 1px solid var(--primary-700); border-radius: 20px; overflow: hidden;
           background: var(--primary-800);
         }
-        .cll-head, .cll-row {
-          display: grid; grid-template-columns: 2.4fr 2fr 1.1fr 0.9fr;
-          align-items: center; gap: 24px;
+        .cll-head { display: none; }
+        @media (min-width: 768px) {
+          .cll-head {
+            display: grid; grid-template-columns: 2.4fr 2fr 1.1fr 0.9fr;
+            align-items: center; gap: 24px;
+          }
         }
         .cll-head {
           padding: 20px 30px; border-bottom: 1px solid var(--primary-700); flex-shrink: 0;
@@ -931,9 +966,17 @@ export default function ClientesPage() {
         .cll-h-act { text-align: right; }
         .cll-rows { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
         .cll-row {
-          padding: 18px 30px;
+          display: flex; flex-direction: column; align-items: stretch; gap: 12px;
+          padding: 16px;
           border-bottom: 1px solid var(--primary-700);
           transition: background .2s;
+        }
+        @media (min-width: 768px) {
+          .cll-row {
+            display: grid; grid-template-columns: 2.4fr 2fr 1.1fr 0.9fr;
+            align-items: center; gap: 24px;
+            padding: 18px 30px;
+          }
         }
         .cll-row:last-child { border-bottom: 0; }
         .cll-row:hover { background: rgba(148,169,173,0.04); }
@@ -964,14 +1007,21 @@ export default function ClientesPage() {
         /* Edit modal */
         .cl-overlay {
           position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+          padding: 16px;
           background: rgba(4,12,16,0.66); backdrop-filter: blur(3px);
         }
         .cl-modal {
-          width: 640px; max-width: calc(100% - 80px); padding: 34px 38px 30px;
-          border-radius: 24px; border: 1px solid var(--primary-600);
+          width: 640px; max-width: calc(100vw - 32px); padding: 24px 20px 22px;
+          border-radius: 20px; border: 1px solid var(--primary-600);
           background: linear-gradient(180deg, var(--primary-800), var(--primary-900));
           box-shadow: 0 40px 90px -30px rgba(0,0,0,0.8), 0 0 0 1px rgba(30,182,232,0.10), 0 0 80px -30px rgba(30,182,232,0.4);
-          max-height: calc(100vh - 80px); overflow-y: auto;
+          max-height: calc(100vh - 32px); overflow-y: auto;
+        }
+        @media (min-width: 640px) {
+          .cl-modal {
+            max-width: calc(100% - 80px); padding: 34px 38px 30px;
+            border-radius: 24px; max-height: calc(100vh - 80px);
+          }
         }
         .cl-modal-head { display: flex; align-items: center; gap: 14px; }
         .cl-modal-icon {
@@ -979,7 +1029,10 @@ export default function ClientesPage() {
           color: var(--primary-300); background: rgba(30,182,232,0.12); border: 1px solid rgba(30,182,232,0.30);
         }
         .cl-modal-title { margin: 0; font-size: 24px; font-weight: 700; color: var(--gray-100); letter-spacing: -0.01em; }
-        .cl-modal-photo { display: flex; align-items: center; gap: 20px; margin-top: 26px; }
+        .cl-modal-photo { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; margin-top: 20px; }
+        @media (min-width: 480px) {
+          .cl-modal-photo { flex-direction: row; align-items: center; gap: 20px; margin-top: 26px; }
+        }
         .cl-photo-wrap { position: relative; flex: none; }
         .cl-photo-edit {
           position: absolute; right: -2px; bottom: -2px; display: grid; place-items: center;
@@ -990,8 +1043,10 @@ export default function ClientesPage() {
         }
         .cl-photo-title { margin: 0; font-size: 17px; font-weight: 600; color: var(--gray-100); }
         .cl-photo-sub { margin: 5px 0 0; font-size: 14px; color: var(--gray-400); }
-        .cl-modal-divider { height: 1px; margin: 26px 0; background: var(--primary-700); }
-        .cl-form { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 22px; }
+        .cl-modal-divider { height: 1px; margin: 20px 0; background: var(--primary-700); }
+        @media (min-width: 640px) { .cl-modal-divider { margin: 26px 0; } }
+        .cl-form { display: grid; grid-template-columns: 1fr; gap: 16px; }
+        @media (min-width: 640px) { .cl-form { grid-template-columns: 1fr 1fr; gap: 20px 22px; } }
         .cl-field { display: flex; flex-direction: column; gap: 9px; }
         .cl-field-label {
           font-size: 12.5px; font-weight: 600; letter-spacing: 0.08em;
@@ -1003,7 +1058,8 @@ export default function ClientesPage() {
           color: var(--gray-100); font-family: inherit; font-size: 15.5px; transition: .2s;
         }
         .cl-field-input:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(30,182,232,0.12); }
-        .cl-modal-foot { display: flex; justify-content: flex-end; gap: 14px; margin-top: 30px; }
+        .cl-modal-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+        @media (min-width: 640px) { .cl-modal-foot { margin-top: 30px; } }
         .cl-ghost {
           font-family: inherit; font-size: 15.5px; font-weight: 500; color: var(--gray-200);
           cursor: pointer; padding: 13px 26px; border-radius: 13px;
@@ -1021,11 +1077,19 @@ export default function ClientesPage() {
 
         /* ── New client modal ── */
         .cn-card {
-          width: 660px; max-width: calc(100vw - 80px);
-          padding: 28px 40px 24px; border-radius: 26px;
+          width: 660px; max-width: calc(100vw - 32px);
+          padding: 20px 20px 20px; border-radius: 20px;
           border: 1px solid var(--primary-700);
           background: linear-gradient(180deg, var(--primary-800), var(--primary-900));
           box-shadow: 0 40px 90px -40px rgba(0,0,0,0.7), 0 0 80px -40px rgba(30,182,232,0.25);
+          max-height: calc(100vh - 32px); overflow-y: auto;
+        }
+        @media (min-width: 640px) {
+          .cn-card {
+            max-width: calc(100vw - 80px);
+            padding: 28px 40px 24px; border-radius: 26px;
+            max-height: calc(100vh - 80px);
+          }
         }
         .cn-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
         .cn-head-icon {
@@ -1036,7 +1100,7 @@ export default function ClientesPage() {
         .cn-sub { margin: 3px 0 0; font-size: 14px; color: var(--gray-400); }
 
         .cn-photo {
-          display: flex; align-items: center; gap: 16px; padding: 13px 16px; margin-bottom: 18px;
+          display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 13px 16px; margin-bottom: 18px;
           border-radius: 14px; border: 1px solid var(--primary-700); background: var(--primary-900);
         }
         .cn-photo-wrap { position: relative; flex: none; }
@@ -1065,7 +1129,8 @@ export default function ClientesPage() {
         .cn-photo-btn:hover { background: rgba(30,182,232,0.14); color: var(--primary-200); }
 
         .cn-fields { display: flex; flex-direction: column; gap: 13px; }
-        .cn-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; }
+        .cn-row2 { display: grid; grid-template-columns: 1fr; gap: 13px; }
+        @media (min-width: 480px) { .cn-row2 { grid-template-columns: 1fr 1fr; } }
         .cn-field { display: flex; flex-direction: column; gap: 7px; }
         .cn-field-label { font-size: 11.5px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--gray-300); }
         .cn-req { color: var(--primary-400); margin-left: 2px; }
@@ -1084,7 +1149,7 @@ export default function ClientesPage() {
         .cn-input-error:focus { box-shadow: 0 0 0 3px rgba(239,83,80,0.14) !important; }
         .cn-error { font-size: 11.5px; color: var(--error-medium); margin-top: -3px; }
 
-        .cn-phone { display: flex; gap: 10px; }
+        .cn-phone { display: flex; flex-wrap: wrap; gap: 10px; }
         .cn-ddi {
           appearance: none; flex: none; height: 46px; padding: 0 13px; border-radius: 12px;
           border: 1px solid var(--primary-700); background: var(--primary-900);
@@ -1092,18 +1157,24 @@ export default function ClientesPage() {
         }
         .cn-ddi:hover { border-color: var(--gray-400); }
         .cn-ddi:focus { outline: none; border-color: var(--primary-500); }
-        .cn-phone-input { flex: 1; }
+        .cn-phone-input { flex: 1; min-width: 0; }
 
         .cn-foot {
-          display: flex; justify-content: flex-end; gap: 14px;
+          display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px;
           margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--primary-700);
         }
         .cn-save { display: flex; align-items: center; gap: 9px; }
 
         /* ── Board view ── */
         .clb {
-          display: grid; grid-template-columns: repeat(4, 1fr); gap: 22px; align-items: start;
+          display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start;
           padding-bottom: 32px; min-width: 0;
+        }
+        @media (min-width: 640px) {
+          .clb { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (min-width: 1024px) {
+          .clb { grid-template-columns: repeat(4, 1fr); gap: 22px; }
         }
         .clb-col { display: flex; flex-direction: column; gap: 16px; min-width: 0; overflow: hidden; }
         .clb-col-head {

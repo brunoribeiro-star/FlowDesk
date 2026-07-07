@@ -961,24 +961,24 @@ export default function AdminPage() {
     <>
       <Head><title>Admin — FlowDesk</title></Head>
 
-      <div className="flex h-screen bg-primary-900 overflow-hidden">
+      <div className="flex flex-col lg:flex-row h-screen bg-primary-900 overflow-y-auto lg:overflow-hidden">
 
-        <aside className="w-[220px] shrink-0 bg-primary-800 border-r border-primary-700 flex flex-col h-full">
-          <div className="px-4 py-5 border-b border-primary-700">
+        <aside className="w-full lg:w-[220px] shrink-0 bg-primary-800 border-b lg:border-b-0 lg:border-r border-primary-700 flex flex-col lg:h-full">
+          <div className="px-4 py-3 lg:py-5 border-b border-primary-700">
             <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={100} height={24} priority />
             <span className="mt-2 inline-flex text-[10px] font-bold uppercase tracking-widest text-primary-400 bg-primary-900 border border-primary-700 px-2 py-0.5 rounded-md">
               Admin
             </span>
           </div>
 
-          <nav className="flex flex-col gap-0.5 px-2 py-4 flex-1">
+          <nav className="flex lg:flex-col gap-0.5 px-2 py-2 lg:py-4 flex-1 lg:flex-1 overflow-x-auto lg:overflow-visible">
             {navItems.map(item => (
               <button
                 key={item.value}
                 type="button"
                 onClick={() => setPage(item.value)}
                 className={clsx(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all w-full text-left",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all shrink-0 lg:w-full text-left whitespace-nowrap",
                   page === item.value
                     ? "bg-gradient-to-r from-primary-800 to-primary-700 border-l-2 border-primary-400 text-primary-100"
                     : "text-gray-400 hover:text-gray-200 hover:bg-primary-700"
@@ -1012,22 +1012,22 @@ export default function AdminPage() {
           </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between px-8 py-5 border-b border-primary-800">
+        <main className="flex-1 lg:overflow-y-auto">
+          <div className="flex items-center justify-between px-4 sm:px-8 py-4 sm:py-5 border-b border-primary-800 gap-3">
             <h1 className="text-[16px] font-semibold text-gray-100">
               {page === "dashboard" ? "Dashboard" : page === "usuarios" ? "Usuários" : "Leads"}
             </h1>
             <button
               type="button"
               onClick={() => { fetchUsers(); fetchLeads(); fetchRevenue(); }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-primary-800 border border-primary-700 rounded-xl text-[12px] text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 bg-primary-800 border border-primary-700 rounded-xl text-[12px] text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors whitespace-nowrap shrink-0"
             >
               <RefreshCw size={12} />
-              Atualizar
+              <span className="hidden sm:inline">Atualizar</span>
             </button>
           </div>
 
-          <div className="px-8 py-6">
+          <div className="px-4 sm:px-8 py-4 sm:py-6">
             {page === "dashboard" && (
               <DashboardPage
                 revenueData={revenueData}

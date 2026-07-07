@@ -94,8 +94,8 @@ export default function InvitePage() {
   }
 
   return (
-    <div className="min-h-screen bg-primary-900 text-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-primary-800 border border-primary-700 rounded-2xl p-8 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+    <div className="min-h-screen bg-primary-900 text-gray-100 flex items-center justify-center p-4 sm:p-6">
+      <div className="w-full max-w-md bg-primary-800 border border-primary-700 rounded-2xl p-6 sm:p-8 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
         {(state === "loading" || state === "accepting") && (
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 rounded-full border-2 border-primary-500 border-t-transparent animate-spin" />

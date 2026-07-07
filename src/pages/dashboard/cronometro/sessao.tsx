@@ -372,7 +372,7 @@ export default function CronometroSessaoPage() {
 
         {!focusMode && (
           <header
-            className="relative z-10 flex items-center gap-5 px-8 xl:px-11 py-[20px] border-b"
+            className="relative z-10 flex items-center gap-3 sm:gap-5 px-4 sm:px-6 lg:px-8 xl:px-11 py-4 lg:py-[20px] border-b"
             style={{ borderColor: "var(--gray-700)" }}
           >
             <button
@@ -385,14 +385,14 @@ export default function CronometroSessaoPage() {
             >
               <ArrowLeft size={18} />
             </button>
-            <span className="font-bold tracking-tight" style={{ fontSize: 26, color: "var(--gray-100)" }}>Time Tracker</span>
+            <span className="font-bold tracking-tight text-[20px] sm:text-[26px]" style={{ color: "var(--gray-100)" }}>Time Tracker</span>
             <div className="ml-auto">
               <HeaderProfile />
             </div>
           </header>
         )}
 
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center gap-8 px-8 py-4 overflow-hidden">
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center gap-5 sm:gap-8 px-4 sm:px-8 py-4 overflow-hidden">
 
           <div className="flex flex-col items-center gap-3">
             <p className="text-[13px] xl:text-[14px] font-medium tracking-[0.3em] uppercase text-gray-500">
@@ -484,7 +484,7 @@ export default function CronometroSessaoPage() {
               </span>
               <div className="flex items-baseline leading-none"
                 style={{ fontFamily: "'DM Sans', system-ui, sans-serif", fontVariantNumeric: "tabular-nums" }}>
-                <span style={{
+                <span className="tt-digit" style={{
                   fontSize: "clamp(64px, 8vw, 104px)",
                   fontWeight: 500,
                   letterSpacing: "-0.03em",
@@ -492,7 +492,7 @@ export default function CronometroSessaoPage() {
                 }}>
                   {mm}
                 </span>
-                <span className="tt-colon" style={{
+                <span className="tt-colon tt-digit" style={{
                   fontSize: "clamp(64px, 8vw, 104px)",
                   fontWeight: 500,
                   letterSpacing: "-0.03em",
@@ -503,7 +503,7 @@ export default function CronometroSessaoPage() {
                   animationTimingFunction: "steps(1)",
                   animationIterationCount: "infinite",
                 }}>:</span>
-                <span style={{
+                <span className="tt-digit" style={{
                   fontSize: "clamp(64px, 8vw, 104px)",
                   fontWeight: 500,
                   letterSpacing: "-0.03em",
@@ -661,6 +661,9 @@ export default function CronometroSessaoPage() {
         }
         .animate-tt-fadein {
           animation: ttFadeIn 0.4s ease-out forwards;
+        }
+        @media (max-width: 1023px) {
+          .tt-digit { font-size: clamp(40px, 14vw, 72px) !important; }
         }
       `}</style>
     </>

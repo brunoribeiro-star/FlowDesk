@@ -457,10 +457,10 @@ export default function TarefaCronometroSessaoPage() {
 
         {!focusMode && (
           <>
-            <header className="flex items-center justify-between px-10 py-5 shrink-0 z-10">
-              <button onClick={handleBack} className="tt-back-btn flex items-center gap-4 transition-colors">
+            <header className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-4 lg:py-5 shrink-0 z-10">
+              <button onClick={handleBack} className="tt-back-btn flex items-center gap-3 sm:gap-4 transition-colors">
                 <span className="tt-back-circle"><ArrowLeft size={18} /></span>
-                <span className="text-[17px] font-medium text-gray-200">Voltar</span>
+                <span className="text-[15px] sm:text-[17px] font-medium text-gray-200">Voltar</span>
               </button>
             </header>
             <div className="tt-hdr-divider shrink-0" />
@@ -468,7 +468,7 @@ export default function TarefaCronometroSessaoPage() {
         )}
 
         <div
-          className="flex-1 min-h-0"
+          className="tt-layout flex-1 min-h-0"
           style={hasPanel
             ? { display: "grid", gridTemplateColumns: "1fr 380px", gap: "32px", padding: "12px 40px 20px", alignItems: "center" }
             : { display: "flex", alignItems: "center", justifyContent: "center", padding: "12px 40px 20px" }
@@ -502,7 +502,7 @@ export default function TarefaCronometroSessaoPage() {
 
             <div className="tt-ring-wrap">
               <div className="tt-ring-halo" />
-              <svg width={296} height={296} viewBox={`0 0 ${CX * 2} ${CY * 2}`} className="absolute inset-0" overflow="visible">
+              <svg width="100%" height="100%" viewBox={`0 0 ${CX * 2} ${CY * 2}`} className="absolute inset-0" overflow="visible">
                 <defs>
                   <linearGradient id="ttRingGrad" x1="0" y1="0" x2="1" y2="1">
                     <stop offset="0%" stopColor="var(--primary-200)" />
@@ -825,6 +825,25 @@ export default function TarefaCronometroSessaoPage() {
           to   { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+
+        /* ── Responsivo ── */
+        @media (max-width: 1023px) {
+          .tt-layout {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            padding: 16px 16px 28px !important;
+            gap: 24px !important;
+            overflow-y: auto;
+          }
+          .tt-task-panel { width: 100%; height: auto; max-height: 360px; }
+          .tt-ring-wrap { width: 240px !important; height: 240px !important; }
+          .tt-time-display { font-size: 48px !important; }
+        }
+        @media (max-width: 420px) {
+          .tt-ring-wrap { width: 208px !important; height: 208px !important; }
+          .tt-time-display { font-size: 40px !important; }
+        }
       `}</style>
     </>
   );

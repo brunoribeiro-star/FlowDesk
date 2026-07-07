@@ -1658,17 +1658,17 @@ export default function ProjetoDetalhesPage() {
   return (
     <>
 
-      <div className="flex flex-col flex-1 pr-6 py-8 w-full overflow-hidden">
-        <div className="flex items-center justify-between gap-4 pb-3">
+      <div className="flex flex-col flex-1 px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-8 w-full overflow-hidden">
+        <div className="flex items-center justify-between gap-3 pb-3">
           <button
             onClick={() => router.push("/dashboard/projetos")}
-            className="inline-flex items-center gap-2 text-gray-100 text-[16px] font-medium transition-colors dt-back-btn"
+            className="inline-flex items-center gap-2 text-gray-100 text-[15px] sm:text-[16px] font-medium transition-colors dt-back-btn shrink-0"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-            Voltar
+            <span className="hidden xs:inline">Voltar</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
               onClick={() => router.push(`/dashboard/projetos/cronometro?projeto_id=${id}`)}
               className="dt-timer-btn"
@@ -1691,7 +1691,7 @@ export default function ProjetoDetalhesPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
+        <div className="mt-4 sm:mt-6 flex-1 min-h-0 overflow-y-auto pr-0 sm:pr-2 custom-scrollbar">
           <div className="w-full max-w-[980px] mx-auto">
             <div className="dt-card-new" style={{ padding: "30px 34px" }}>
               {isEditingHeader ? (
@@ -1779,30 +1779,30 @@ export default function ProjetoDetalhesPage() {
                 </div>
               ) : (
                 <div className="flex flex-col gap-6">
-                  <div className="flex items-start justify-between gap-6">
-                    <div className="flex items-center gap-5 min-w-0 flex-1">
-                      <div className="w-[92px] h-[92px] rounded-[20px] overflow-hidden shrink-0" style={{ border: "1px solid rgba(255,255,255,0.06)", background: "var(--primary-700)" }}>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 sm:gap-6">
+                    <div className="flex items-center gap-4 sm:gap-5 min-w-0 flex-1">
+                      <div className="w-[72px] h-[72px] sm:w-[92px] sm:h-[92px] rounded-[16px] sm:rounded-[20px] overflow-hidden shrink-0" style={{ border: "1px solid rgba(255,255,255,0.06)", background: "var(--primary-700)" }}>
                         <Image src={coverSrc} alt="Capa do projeto" width={92} height={92} className="w-full h-full object-cover" />
                       </div>
 
-                      <div className="min-w-0 flex flex-col gap-3">
-                        <div className="flex items-center gap-4 flex-wrap">
-                          <h1 className="text-[30px] font-bold text-gray-100 leading-tight tracking-tight">{projeto.titulo}</h1>
+                      <div className="min-w-0 flex flex-col gap-2 sm:gap-3">
+                        <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
+                          <h1 className="text-[21px] sm:text-[30px] font-bold text-gray-100 leading-tight tracking-tight">{projeto.titulo}</h1>
                           {renderStatusBadgeDetail(projeto.status)}
                         </div>
 
-                        <div className="flex items-center gap-2 text-[15px] text-gray-300">
-                          <div className="w-[30px] h-[30px] rounded-full overflow-hidden shrink-0" style={{ border: "1px solid var(--gray-600)" }}>
+                        <div className="flex items-center gap-2 text-[13px] sm:text-[15px] text-gray-300">
+                          <div className="w-[26px] h-[26px] sm:w-[30px] sm:h-[30px] rounded-full overflow-hidden shrink-0" style={{ border: "1px solid var(--gray-600)" }}>
                             <Image src={clienteFoto} alt={clienteNome} width={30} height={30} className="w-full h-full object-cover" />
                           </div>
-                          <span>Cliente: <strong className="text-gray-100 font-semibold">{clienteNome}</strong></span>
+                          <span className="truncate">Cliente: <strong className="text-gray-100 font-semibold">{clienteNome}</strong></span>
                           {clienteEmpresa && <><span style={{ color: "var(--gray-500)" }}>·</span><a href="#" className="text-primary-400 hover:text-primary-300 transition-colors">{clienteEmpresa}</a></>}
                         </div>
                       </div>
                     </div>
 
                     {user && projeto.user_id === user.id && (
-                      <div className="flex items-center gap-3 flex-none flex-wrap justify-end">
+                      <div className="flex items-center gap-3 flex-none flex-wrap sm:justify-end">
                         <button
                           type="button"
                           onClick={openEditHeader}
@@ -1903,8 +1903,8 @@ export default function ProjetoDetalhesPage() {
             </div>
 
             {user && projeto.user_id === user.id && (
-              <div className="dt-card-new mt-6" style={{ padding: "26px 30px 30px" }}>
-                <div className="flex items-start justify-between gap-4 mb-6">
+              <div className="dt-card-new mt-6 p-4 sm:p-[26px_30px_30px]">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
                   <div>
                     <h2 className="dt-section-title">Adiantamentos</h2>
                     <p className="dt-section-sub">Solicitações de adiantamento ao cliente</p>
@@ -1920,7 +1920,7 @@ export default function ProjetoDetalhesPage() {
                         setAdiantamentoFeedback(null);
                         setAdiantamentoModal(true);
                       }}
-                      className="dt-ghost-btn flex items-center gap-2 flex-none"
+                      className="dt-ghost-btn flex items-center justify-center gap-2 sm:flex-none"
                     >
                       <Plus size={15} />
                       Solicitar adiantamento
@@ -2429,10 +2429,10 @@ export default function ProjetoDetalhesPage() {
 
                 {activeTab === "briefing" && (
                   <div className="flex flex-col h-full dt-panel">
-                    <div className="flex items-center justify-between gap-3 mb-[22px]">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-[22px]">
                       <h3 className="dt-panel-title">Briefing</h3>
                       {projeto?.user_id === user?.id && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <button type="button" onClick={handleOpenSendNewBriefing} className="dt-primary-btn flex items-center gap-2 text-[13px]">
                             <Send size={14} /> Novo briefing
                           </button>
@@ -3005,6 +3005,18 @@ export default function ProjetoDetalhesPage() {
           border: 0;
           background: none;
           transition: color .2s;
+        }
+        @media (max-width: 639px) {
+          .dt-tab-btn { font-size: 14px; padding: 10px 10px; }
+          .dt-meta-cell { padding: 14px 14px; }
+          .dt-meta-label { font-size: 12px; }
+          .dt-meta-value { font-size: 16px; }
+          .dt-timer-btn, .dt-upload-btn { width: 42px; height: 42px; }
+          .dt-back-btn { padding: 10px 14px; }
+          .dt-ghost-btn { padding: 10px 14px; font-size: 13.5px; }
+          .dt-primary-btn { padding: 11px 16px; font-size: 13.5px; }
+          .dt-section-title { font-size: 18px; }
+          .dt-panel-title { font-size: 18px !important; }
         }
         .dt-tab-btn:hover { color: var(--gray-100); }
         .dt-tab-btn.is-on { color: var(--primary-300); }

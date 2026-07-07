@@ -120,16 +120,27 @@ export default function ProposalDetail() {
       <div className="pd-page no-print-layout relative flex flex-col flex-1 h-full overflow-hidden">
         <div className="pd-glow pd-glow-a" />
 
-        <header className="relative z-30 no-print flex items-center gap-5 px-8 xl:px-11 py-[22px] border-b" style={{ borderColor: "var(--gray-700)" }}>
-          <button
-            type="button"
-            className="pd-back-btn"
-            onClick={() => router.push("/dashboard/propostas")}
-          >
-            <ArrowLeft size={18} />
-          </button>
+        <header
+          className="relative z-30 no-print flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5 px-4 sm:px-6 lg:px-8 xl:px-11 py-4 lg:py-[22px] border-b"
+          style={{ borderColor: "var(--gray-700)" }}
+        >
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <button
+              type="button"
+              className="pd-back-btn"
+              onClick={() => router.push("/dashboard/propostas")}
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <div className="lg:hidden">
+              <HeaderProfile />
+            </div>
+          </div>
 
-          <h1 className="flex-1 text-center text-[22px] font-bold tracking-tight" style={{ color: "var(--gray-100)", letterSpacing: "-0.01em" }}>
+          <h1
+            className="lg:flex-1 text-left lg:text-center text-[18px] lg:text-[22px] font-bold tracking-tight truncate"
+            style={{ color: "var(--gray-100)", letterSpacing: "-0.01em" }}
+          >
             {proposal.title}
           </h1>
 
@@ -137,7 +148,7 @@ export default function ProposalDetail() {
             <button
               onClick={handleDownloadPDF}
               disabled={generatingPdf}
-              className="pd-pdf-btn"
+              className="pd-pdf-btn flex-1 lg:flex-none justify-center"
             >
               {generatingPdf ? (
                 <>
@@ -157,12 +168,14 @@ export default function ProposalDetail() {
                 </>
               )}
             </button>
-            <HeaderProfile />
+            <div className="hidden lg:block">
+              <HeaderProfile />
+            </div>
           </div>
         </header>
 
-        <div className="relative z-10 flex-1 overflow-y-auto py-8 px-6">
-          <div className="flex justify-center">
+        <div className="relative z-10 flex-1 overflow-y-auto overflow-x-auto py-6 sm:py-8 px-3 sm:px-6">
+          <div className="flex justify-center min-w-fit">
             {(() => {
               const tpl = proposal.description?.template;
               const sharedProps = {

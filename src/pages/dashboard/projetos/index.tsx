@@ -978,21 +978,19 @@ export default function ProjetosPage() {
 
     return (
       <div
-        className="flex-1 overflow-hidden flex flex-col"
+        className="flex-1 overflow-hidden flex flex-col rounded-[16px] sm:rounded-[22px] border p-4 sm:p-[22px_26px_26px]"
         style={{
-          borderRadius: 22,
-          border: "1px solid var(--primary-700)",
-          padding: "22px 26px 26px",
+          borderColor: "var(--primary-700)",
           background: "var(--primary-800)",
         }}
       >
-        <div className="flex items-center justify-center gap-7 mb-[18px]">
+        <div className="flex items-center justify-center gap-3 sm:gap-7 mb-3 sm:mb-[18px]">
           <button type="button" onClick={prevMonth} className="cv-nav-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="m15 18-6-6 6-6"/>
             </svg>
           </button>
-          <h2 className="m-0 text-[24px] font-semibold text-gray-100 tracking-tight">
+          <h2 className="m-0 text-[16px] sm:text-[24px] font-semibold text-gray-100 tracking-tight text-center">
             {monthName}{" "}
             <span className="text-primary-400 font-medium">{year}</span>
           </h2>
@@ -1003,11 +1001,11 @@ export default function ProjetosPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
           {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((day) => (
             <div
               key={day}
-              className="text-center text-[13px] font-semibold text-gray-400 uppercase tracking-widest pb-1.5"
+              className="text-center text-[10px] sm:text-[13px] font-semibold text-gray-400 uppercase tracking-widest pb-1.5 truncate"
             >
               {day}
             </div>
@@ -1015,7 +1013,7 @@ export default function ProjetosPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar pb-1">
-          <div className="grid grid-cols-7 gap-2" style={{ gridAutoRows: "minmax(110px, auto)" }}>
+          <div className="grid grid-cols-7 gap-1 sm:gap-2" style={{ gridAutoRows: "minmax(clamp(56px, 14vw, 110px), auto)" }}>
             {calendarDays.map((date, i) => {
               if (!date) return <div key={`empty-${i}`} />;
 
@@ -1397,17 +1395,16 @@ export default function ProjetosPage() {
     if (error) return <div className="mt-8 text-red-400">{error}</div>;
     if (!filtered.length) return <div className="mt-8 text-gray-400">Nenhum projeto encontrado.</div>;
 
+    const boardGridColsClass = columns.length === 1 ? "lg:grid-cols-1" : "lg:grid-cols-4";
+
     return (
-      <div className="overflow-y-auto overflow-x-hidden pb-4 custom-scrollbar h-full">
-        <div
-          className="grid min-h-full"
-          style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))`, gap: 20 }}
-        >
+      <div className="overflow-x-auto lg:overflow-x-hidden overflow-y-auto pb-4 custom-scrollbar h-full">
+        <div className={`flex lg:grid min-h-full gap-5 ${boardGridColsClass}`}>
           {columns.map((col) => {
             const colProjects = filtered.filter((p) => statusByProject[p.id] === col.status);
 
             return (
-              <div key={col.status} className="flex flex-col gap-4">
+              <div key={col.status} className="flex flex-col gap-4 w-[82vw] max-w-[340px] shrink-0 lg:w-auto lg:max-w-none lg:shrink">
                 <div
                   className="flex items-center gap-3 px-1 py-3 sticky top-0 z-10"
                   style={{ background: "var(--primary-900)" }}
@@ -1595,19 +1592,26 @@ export default function ProjetosPage() {
     <>
       <PageTour name="projetos" steps={PROJETOS_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 gap-4 pr-6 py-4 w-full overflow-hidden relative">
-        <div className="flex items-center gap-4 w-full pb-3">
-          <span className="text-[19px] text-gray-300 flex-none">
-            <strong className="text-white font-bold">{totalProjetos}</strong>{" "}
-            {totalProjetos === 1 ? "projeto" : "projetos"}
-          </span>
+      <div className="flex flex-col flex-1 gap-3 px-4 sm:px-6 lg:pl-0 lg:pr-6 py-3 sm:py-4 w-full overflow-hidden relative">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4 w-full pb-2 lg:pb-3">
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <span className="text-[16px] lg:text-[19px] text-gray-300 flex-none">
+              <strong className="text-white font-bold">{totalProjetos}</strong>{" "}
+              {totalProjetos === 1 ? "projeto" : "projetos"}
+            </span>
 
-          {renderViewToggle()}
+            <div className="flex items-center gap-2 lg:hidden">
+              {renderViewToggle()}
+              <HeaderProfile />
+            </div>
+          </div>
+
+          <div className="hidden lg:flex">{renderViewToggle()}</div>
 
           <label
             className="flex-1 flex items-center gap-3 transition-colors cursor-text"
             style={{
-              height: 50,
+              height: 48,
               padding: "0 16px",
               borderRadius: 13,
               border: "1px solid var(--primary-700)",
@@ -1620,69 +1624,73 @@ export default function ProjetosPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar projetos, clientes…"
-              className="flex-1 bg-transparent outline-none text-[15px] text-gray-100 placeholder-gray-500"
+              className="flex-1 min-w-0 bg-transparent outline-none text-[15px] text-gray-100 placeholder-gray-500"
             />
           </label>
 
-          <button
-            type="button"
-            onClick={() => setShowArchived((prev) => !prev)}
-            className="flex items-center gap-2 flex-none font-medium transition-colors"
-            style={{
-              height: 50,
-              padding: "0 18px",
-              borderRadius: 13,
-              fontSize: 15,
-              border: showArchived
-                ? "1px solid var(--gray-500)"
-                : "1px solid var(--primary-700)",
-              color: showArchived ? "var(--gray-100)" : "var(--gray-200)",
-              background: showArchived ? "var(--primary-700)" : "var(--primary-800)",
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="5" rx="1.5"/>
-              <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/>
-              <path d="M10 13h4"/>
-            </svg>
-            {showArchived ? "Voltar" : "Arquivados"}
-          </button>
+          <div className="flex items-center gap-2.5 lg:contents">
+            <button
+              type="button"
+              onClick={() => setShowArchived((prev) => !prev)}
+              className="flex flex-1 lg:flex-none items-center justify-center gap-2 font-medium transition-colors"
+              style={{
+                height: 48,
+                padding: "0 18px",
+                borderRadius: 13,
+                fontSize: 14.5,
+                border: showArchived
+                  ? "1px solid var(--gray-500)"
+                  : "1px solid var(--primary-700)",
+                color: showArchived ? "var(--gray-100)" : "var(--gray-200)",
+                background: showArchived ? "var(--primary-700)" : "var(--primary-800)",
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="5" rx="1.5"/>
+                <path d="M5 9v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/>
+                <path d="M10 13h4"/>
+              </svg>
+              <span className="whitespace-nowrap">{showArchived ? "Voltar" : "Arquivados"}</span>
+            </button>
 
-          <button
-            type="button"
-            id="tour-add-btn"
-            onClick={() => {
-              const limit = subscription.limits.projetos;
-              const ativos = projetos.filter(p => !isArchivedProject(p)).length;
-              if (limit !== null && ativos >= limit) {
-                triggerUpgradeBanner("projetos");
-                return;
-              }
-              router.push("/dashboard/projetos/novo");
-            }}
-            className="flex items-center gap-2 flex-none font-semibold transition-all duration-200 pv-primary-btn"
-            style={{
-              height: 50,
-              padding: "0 22px",
-              borderRadius: 13,
-              fontSize: 15.5,
-              border: "none",
-              cursor: "pointer",
-              color: "var(--primary-900)",
-              background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
-              boxShadow: "0 12px 28px -12px rgba(30,182,232,0.8)",
-            }}
-          >
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14"/><path d="M5 12h14"/>
-            </svg>
-            Projeto
-          </button>
+            <button
+              type="button"
+              id="tour-add-btn"
+              onClick={() => {
+                const limit = subscription.limits.projetos;
+                const ativos = projetos.filter(p => !isArchivedProject(p)).length;
+                if (limit !== null && ativos >= limit) {
+                  triggerUpgradeBanner("projetos");
+                  return;
+                }
+                router.push("/dashboard/projetos/novo");
+              }}
+              className="flex flex-1 lg:flex-none items-center justify-center gap-2 font-semibold transition-all duration-200 pv-primary-btn"
+              style={{
+                height: 48,
+                padding: "0 22px",
+                borderRadius: 13,
+                fontSize: 15,
+                border: "none",
+                cursor: "pointer",
+                color: "var(--primary-900)",
+                background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)",
+                boxShadow: "0 12px 28px -12px rgba(30,182,232,0.8)",
+              }}
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14"/><path d="M5 12h14"/>
+              </svg>
+              <span className="whitespace-nowrap">Projeto</span>
+            </button>
+          </div>
 
-          <HeaderProfile />
+          <div className="hidden lg:block">
+            <HeaderProfile />
+          </div>
         </div>
 
-        <section className="flex-1 h-full min-h-0 overflow-hidden pr-4 flex flex-col">
+        <section className="flex-1 h-full min-h-0 overflow-hidden lg:pr-4 flex flex-col">
           {viewMode === "list" && renderListView()}
           {viewMode === "board" && renderBoardView()}
           {viewMode === "calendar" && renderCalendarView()}
@@ -2143,6 +2151,29 @@ export default function ProjetosPage() {
         }
         .cv-event-chip:hover {
           opacity: 0.82;
+        }
+
+        @media (max-width: 639px) {
+          .cv-nav-btn {
+            width: 34px;
+            height: 34px;
+          }
+          .cv-cell-new {
+            padding: 5px;
+            gap: 4px;
+            border-radius: 9px;
+          }
+          .cv-day-num {
+            font-size: 11px;
+          }
+          .cv-event-chip {
+            padding: 3px 5px;
+            border-radius: 6px;
+          }
+          .proj-list-row {
+            padding: 12px 14px;
+            border-radius: 14px;
+          }
         }
       `}</style>
     </>

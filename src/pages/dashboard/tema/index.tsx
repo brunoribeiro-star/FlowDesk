@@ -47,9 +47,9 @@ export default function ThemePage() {
   }
 
   return (
-    <div className="min-h-full w-full bg-primary-900 text-gray-100 flex flex-col">
+    <div className="h-full w-full bg-primary-900 text-gray-100 flex flex-col overflow-y-auto">
 
-      <header className="w-full px-6 pt-6 flex items-center">
+      <header className="w-full px-4 sm:px-6 pt-6 flex items-center">
         <button
           onClick={() => router.back()}
           className="flex items-center gap-2 px-3 py-2 rounded-full
@@ -60,12 +60,12 @@ export default function ThemePage() {
         </button>
       </header>
 
-      <main className="flex-1 flex flex-col items-center justify-center px-6 pb-10">
-        <h1 className="text-[26px] font-semibold text-gray-100 mb-6">
+      <main className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6 py-8 lg:py-0 lg:pb-10">
+        <h1 className="text-[22px] sm:text-[26px] font-semibold text-gray-100 mb-6 text-center">
           Personalizar Tema
         </h1>
 
-        <div className="grid grid-cols-3 gap-5 max-w-4xl w-full">
+        <div className="grid grid-cols-2 xs:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5 max-w-4xl w-full">
 
           {others.map(theme => (
             <ThemeCard
@@ -76,7 +76,7 @@ export default function ThemePage() {
             />
           ))}
 
-          <div className="col-span-3">
+          <div className="col-span-full">
             <ThemeCard
               theme={selectedTheme}
               selected

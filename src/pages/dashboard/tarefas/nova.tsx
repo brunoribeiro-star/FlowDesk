@@ -358,9 +358,13 @@ export default function NovaTarefaPage() {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 22px 40px;
+          gap: 12px;
+          padding: 16px 16px;
           border-bottom: 1px solid var(--gray-800);
           flex-shrink: 0;
+        }
+        @media (min-width: 640px) {
+          .tk-new-top { padding: 22px 40px; }
         }
         .tk-back-btn {
           display: inline-flex;
@@ -428,17 +432,20 @@ export default function NovaTarefaPage() {
           width: 100%;
           max-width: 1040px;
           margin: 0 auto;
-          padding: 40px 40px 64px;
+          padding: 24px 16px 48px;
           display: flex;
           flex-direction: column;
+        }
+        @media (min-width: 640px) {
+          .tk-new-body { padding: 40px 40px 64px; }
         }
 
         /* ===== TASK NAME ===== */
         .tk-new-name {
           display: flex;
           align-items: center;
-          gap: 18px;
-          padding-bottom: 20px;
+          gap: 14px;
+          padding-bottom: 18px;
           border-bottom: 1px solid var(--gray-800);
         }
         .tk-chk-lg {
@@ -451,15 +458,19 @@ export default function NovaTarefaPage() {
         }
         .tk-name-input {
           flex: 1;
+          min-width: 0;
           background: none;
           border: none;
           outline: none;
           color: var(--gray-100);
           font-family: inherit;
-          font-size: 34px;
+          font-size: 24px;
           font-weight: 700;
           letter-spacing: -0.02em;
           padding: 0;
+        }
+        @media (min-width: 640px) {
+          .tk-name-input { font-size: 34px; }
         }
         .tk-name-input::placeholder { color: var(--gray-600); }
 
@@ -518,10 +529,14 @@ export default function NovaTarefaPage() {
         /* ===== ADD SUBTASK ===== */
         .tk-add-sub-row {
           display: flex;
+          flex-wrap: wrap;
           align-items: center;
           gap: 10px;
           margin-top: 14px;
-          padding-left: 48px;
+          padding-left: 16px;
+        }
+        @media (min-width: 640px) {
+          .tk-add-sub-row { padding-left: 48px; }
         }
         .tk-add-sub-btn {
           display: inline-flex;
@@ -555,12 +570,17 @@ export default function NovaTarefaPage() {
           color: var(--primary-300);
         }
         .tk-add-hint {
+          display: none;
           font-style: normal;
           font-size: 13px;
           color: var(--gray-600);
         }
+        @media (min-width: 480px) {
+          .tk-add-hint { display: inline; }
+        }
         .tk-sub-input {
           flex: 1;
+          min-width: 140px;
           background: none;
           border: none;
           outline: none;
@@ -587,9 +607,12 @@ export default function NovaTarefaPage() {
         /* ===== FIELDS GRID ===== */
         .tk-new-grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 22px 32px;
-          margin-top: 40px;
+          grid-template-columns: 1fr;
+          gap: 18px;
+          margin-top: 28px;
+        }
+        @media (min-width: 640px) {
+          .tk-new-grid { grid-template-columns: 1fr 1fr; gap: 22px 32px; margin-top: 40px; }
         }
         .tk-field {
           display: flex;

@@ -693,7 +693,7 @@ export default function NovoProjetoPage() {
 
       {popup.type && (
         <div
-          className={`fixed top-6 right-6 px-6 py-4 rounded-lg shadow-lg z-[999] transition-all ${
+          className={`fixed top-4 left-4 right-4 sm:left-auto sm:top-6 sm:right-6 px-5 py-3.5 sm:px-6 sm:py-4 rounded-lg shadow-lg z-[999] transition-all ${
             popup.type === "success"
               ? "bg-green-500 text-primary-900"
               : "bg-red-500 text-white"
@@ -752,10 +752,10 @@ export default function NovoProjetoPage() {
         </div>
       )}
 
-      <div className="flex flex-col flex-1 gap-8 pr-6 py-8 overflow-hidden">
+      <div className="flex flex-col flex-1 gap-4 sm:gap-8 px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-8 overflow-hidden">
         <header className="flex flex-col gap-1">
-          <h1 className="text-[32px] text-gray-200 font-semibold">Novo Projeto</h1>
-          <p className="text-[15px] text-gray-400">
+          <h1 className="text-[22px] sm:text-[32px] text-gray-200 font-semibold">Novo Projeto</h1>
+          <p className="text-[14px] sm:text-[15px] text-gray-400">
             Preencha as etapas para cadastrar um novo projeto.
           </p>
         </header>
@@ -803,10 +803,10 @@ export default function NovoProjetoPage() {
           </div>
         )}
 
-        <section className="flex-1 overflow-y-auto pr-2 pb-4 custom-scrollbar">
-          <div className="bg-primary-800 border border-primary-700 rounded-2xl p-8 flex flex-col gap-8">
+        <section className="flex-1 overflow-y-auto pr-0 sm:pr-2 pb-4 custom-scrollbar">
+          <div className="bg-primary-800 border border-primary-700 rounded-2xl p-4 sm:p-8 flex flex-col gap-5 sm:gap-8">
             <div className="flex items-center justify-between">
-              <h2 className="text-[20px] text-gray-300 font-medium">
+              <h2 className="text-[15px] sm:text-[20px] text-gray-300 font-medium">
                 {step === 1 && "Etapa 1 de 4 – Informações básicas"}
                 {step === 2 && "Etapa 2 de 4 – Escopo, prazos e pagamento"}
                 {step === 3 && "Etapa 3 de 4 – Links e observações"}
@@ -1217,21 +1217,21 @@ export default function NovoProjetoPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between mt-6 gap-4">
+            <div className="flex flex-wrap items-center justify-between mt-6 gap-3 sm:gap-4">
               <button
                 type="button"
                 onClick={handleCancelar}
-                className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 px-6 text-[15px] hover:bg-primary-700"
+                className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-2.5 px-4 sm:py-3 sm:px-6 text-[13.5px] sm:text-[15px] hover:bg-primary-700"
               >
                 Cancelar
               </button>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
                 {step > 1 && (
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-3 px-6 text-[15px] hover:bg-primary-700"
+                    className="bg-primary-800 border border-primary-600 text-gray-200 rounded-lg py-2.5 px-4 sm:py-3 sm:px-6 text-[13.5px] sm:text-[15px] hover:bg-primary-700"
                   >
                     ← Voltar
                   </button>
@@ -1241,7 +1241,7 @@ export default function NovoProjetoPage() {
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg py-3 px-6 text-[15px]"
+                    className="bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg py-2.5 px-4 sm:py-3 sm:px-6 text-[13.5px] sm:text-[15px]"
                   >
                     Próximo →
                   </button>
@@ -1250,7 +1250,7 @@ export default function NovoProjetoPage() {
                     type="button"
                     onClick={handleSubmit}
                     disabled={loading || coverUploading}
-                    className={`bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg py-3 px-6 text-[15px] ${
+                    className={`bg-primary-500 hover:bg-primary-300 text-primary-900 font-semibold rounded-lg py-2.5 px-4 sm:py-3 sm:px-6 text-[13.5px] sm:text-[15px] ${
                       loading || coverUploading ? "opacity-50 cursor-not-allowed" : ""
                     }`}
                   >

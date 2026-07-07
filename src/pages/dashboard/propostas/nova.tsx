@@ -237,24 +237,31 @@ export default function NovaProposta() {
       <div className="pn-page relative flex flex-col flex-1 h-full overflow-hidden">
         <div className="pn-glow pn-glow-a" />
 
-        <header className="pn-top relative z-30 flex items-center gap-5">
-          <button type="button" className="pn-back-btn" onClick={() => router.push("/dashboard/propostas")}>
-            <ArrowLeft size={18} />
-            <span>Voltar</span>
-          </button>
+        <header className="pn-top relative z-30 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5">
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <button type="button" className="pn-back-btn" onClick={() => router.push("/dashboard/propostas")}>
+              <ArrowLeft size={18} />
+              <span>Voltar</span>
+            </button>
+            <div className="lg:hidden">
+              <HeaderProfile />
+            </div>
+          </div>
 
           <span className="pn-title">Nova Proposta</span>
 
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-3 lg:ml-auto">
             <button
               type="button"
-              className="pn-save-btn"
+              className="pn-save-btn flex-1 lg:flex-none justify-center"
               onClick={criarProposta}
               disabled={!projectName || !clientId}
             >
               Salvar proposta
             </button>
-            <HeaderProfile />
+            <div className="hidden lg:block">
+              <HeaderProfile />
+            </div>
           </div>
         </header>
 
@@ -575,7 +582,7 @@ export default function NovaProposta() {
             </div>
           </section>
 
-          <div className="flex justify-center w-full">
+          <div className="flex justify-center w-full overflow-x-auto">
             {selectedTemplate === "template2" ? (
               <Template2 {...sharedPreviewProps} />
             ) : selectedTemplate === "template3" ? (
@@ -867,6 +874,28 @@ export default function NovaProposta() {
           background: linear-gradient(135deg, var(--primary-300), var(--primary-500));
         }
         .pn-tpl-desc { margin: 0; font-size: 13px; color: var(--gray-400); line-height: 1.5; }
+
+        /* ── Responsivo ── */
+        @media (max-width: 1023px) {
+          .pn-top { padding: 16px 20px; }
+          .pn-body { padding: 20px 16px 40px; gap: 18px; }
+          .pn-card { padding: 20px 18px 24px; }
+          .pn-detail-top { grid-template-columns: 1fr; }
+          .pn-row2 { grid-template-columns: repeat(2, 1fr); }
+          .pn-row3 { grid-template-columns: repeat(2, 1fr); }
+          .pn-appear-grid { grid-template-columns: repeat(2, 1fr); }
+          .pn-tpl-grid { grid-template-columns: repeat(2, 1fr); }
+          .pn-title { text-align: left; }
+        }
+        @media (max-width: 639px) {
+          .pn-top { padding: 14px 16px; }
+          .pn-body { padding: 16px 14px 36px; }
+          .pn-card { padding: 18px 16px 20px; }
+          .pn-row2 { grid-template-columns: 1fr; }
+          .pn-row3 { grid-template-columns: 1fr; }
+          .pn-appear-grid { grid-template-columns: 1fr; }
+          .pn-tpl-grid { grid-template-columns: 1fr; }
+        }
       `}</style>
     </>
   );

@@ -45,7 +45,7 @@ function applyThemePreview(themeValue: string) {
 function Card({ children, wide }: { children: React.ReactNode; wide?: boolean }) {
   return (
     <div
-      className={`w-full rounded-2xl p-8 ${wide ? "max-w-lg" : "max-w-md"}`}
+      className={`w-full rounded-2xl p-5 sm:p-8 ${wide ? "max-w-lg" : "max-w-md"}`}
       style={{
         background: "color-mix(in srgb, var(--primary-800) 55%, transparent)",
         backdropFilter: "blur(28px)",
@@ -388,7 +388,7 @@ export default function OnboardingPage() {
                   key={t.value}
                   type="button"
                   onClick={() => handleThemeSelect(t.value)}
-                  className="flex items-center gap-3 px-3 py-3 rounded-xl transition-all"
+                  className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3 py-3 rounded-xl transition-all min-w-0"
                   style={{
                     background: theme === t.value
                       ? "color-mix(in srgb, var(--primary-500) 10%, transparent)"
@@ -405,7 +405,7 @@ export default function OnboardingPage() {
                     <div className="w-3 h-3 rounded-full" style={{ background: t.accent }} />
                   </div>
                   <span
-                    className="text-sm font-medium flex-1 text-left"
+                    className="text-sm font-medium flex-1 min-w-0 truncate text-left"
                     style={{ color: theme === t.value ? "var(--primary-400)" : "var(--gray-200)" }}
                   >
                     {t.label}

@@ -135,13 +135,13 @@ export default function TarefaCronometroConfigPage() {
         background: "radial-gradient(circle, rgba(113,87,197,0.11), transparent 70%)",
       }} />
 
-      <header className="relative z-10 flex items-center justify-between px-8 xl:px-11 py-6">
+      <header className="relative z-10 flex items-center justify-between px-4 sm:px-8 xl:px-11 py-4 sm:py-6">
         <button type="button" onClick={() => router.push(`/dashboard/tarefas/${taskId}`)}
-          className="group flex items-center gap-4 bg-transparent border-0 p-0 cursor-pointer">
-          <span className="flex items-center justify-center w-11 h-11 rounded-full border border-gray-600 text-gray-300 transition-all duration-200 group-hover:border-primary-500 group-hover:text-primary-300">
+          className="group flex items-center gap-3 sm:gap-4 bg-transparent border-0 p-0 cursor-pointer">
+          <span className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full border border-gray-600 text-gray-300 transition-all duration-200 group-hover:border-primary-500 group-hover:text-primary-300 flex-none">
             <ArrowLeft size={18} />
           </span>
-          <span className="text-[19px] font-medium text-gray-200">Voltar para tarefa</span>
+          <span className="text-[16px] sm:text-[19px] font-medium text-gray-200">Voltar para tarefa</span>
         </button>
       </header>
 
@@ -149,26 +149,26 @@ export default function TarefaCronometroConfigPage() {
         background: "linear-gradient(90deg, transparent, rgba(148,169,173,0.18) 30%, rgba(148,169,173,0.18) 70%, transparent)",
       }} />
 
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 py-6 gap-10 overflow-y-auto">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-6 gap-8 sm:gap-10 overflow-y-auto">
 
         <div className="text-center">
           <p className="text-[13px] font-semibold uppercase tracking-[0.32em] text-gray-500 mb-3">Focando em</p>
-          <h1 className="text-[38px] xl:text-[44px] font-semibold tracking-tight leading-tight text-gray-100">
+          <h1 className="text-[26px] sm:text-[38px] xl:text-[44px] font-semibold tracking-tight leading-tight text-gray-100">
             {task?.titulo || "Tarefa"}
           </h1>
-          <p className="mt-3 text-[16px] xl:text-[17px] text-gray-500">
+          <p className="mt-3 text-[14px] sm:text-[16px] xl:text-[17px] text-gray-500">
             Como você quer cronometrar essa sessão de trabalho.
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-5 w-full max-w-[780px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full max-w-[780px]">
           {MODES.map(mode => {
             const isSelected = selected === mode.id;
             const { Icon } = mode;
             return (
               <button key={mode.id} type="button"
                 onClick={() => setSelected(mode.id)}
-                className={`group relative overflow-hidden text-left flex gap-5 p-7 rounded-[22px] border transition-all duration-200 cursor-pointer hover:-translate-y-1 ${isSelected ? "-translate-y-1" : ""}`}
+                className={`group relative overflow-hidden text-left flex gap-4 sm:gap-5 p-5 sm:p-7 rounded-[22px] border transition-all duration-200 cursor-pointer hover:-translate-y-1 ${isSelected ? "-translate-y-1" : ""}`}
                 style={{
                   background: "linear-gradient(180deg, var(--primary-800), var(--primary-900))",
                   borderColor: isSelected ? mode.acc.color : "var(--gray-700)",

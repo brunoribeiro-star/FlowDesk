@@ -176,7 +176,7 @@ function Card({
 }) {
   return (
     <div
-      className={clsx("border border-gray-700 rounded-[18px] py-[26px] px-7", className)}
+      className={clsx("border border-gray-700 rounded-[18px] py-5 px-4 sm:py-[26px] sm:px-7", className)}
       style={{ background: "linear-gradient(180deg, color-mix(in srgb, var(--primary-600) 16%, transparent), color-mix(in srgb, var(--primary-800) 30%, transparent))" }}
     >
       {title && (
@@ -955,9 +955,9 @@ export default function ConfiguracoesPage() {
   return (
     <>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
 
-        <aside className="w-[296px] bg-primary-900 flex flex-col py-[34px] px-[22px] gap-[30px] shrink-0">
+        <aside className="w-full lg:w-[296px] bg-primary-900 flex flex-col py-4 px-4 sm:py-5 sm:px-5 lg:py-[34px] lg:px-[22px] gap-4 lg:gap-[30px] shrink-0 sticky top-0 z-10 lg:static lg:z-auto">
           <div className="flex items-start gap-[14px] px-2">
             <button
               type="button"
@@ -968,19 +968,19 @@ export default function ConfiguracoesPage() {
               <ChevronLeft size={18} />
             </button>
             <div>
-              <h1 className="text-[25px] font-bold text-gray-100 tracking-tight leading-none">Configurações</h1>
-              <p className="text-[14px] text-gray-400 mt-[3px]">Conta e preferências</p>
+              <h1 className="text-[22px] sm:text-[25px] font-bold text-gray-100 tracking-tight leading-none">Configurações</h1>
+              <p className="text-[13px] sm:text-[14px] text-gray-400 mt-[3px]">Conta e preferências</p>
             </div>
           </div>
 
-          <nav className="flex flex-col gap-1">
+          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible flex-nowrap lg:flex-wrap -mx-1 px-1 lg:mx-0 lg:px-0">
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setSection(id)}
                 className={clsx(
-                  "flex items-center gap-[14px] h-[50px] px-4 text-[16px] rounded-[13px] transition-all text-left w-full",
+                  "flex items-center gap-[10px] lg:gap-[14px] h-[42px] lg:h-[50px] px-3 lg:px-4 text-[14px] lg:text-[16px] rounded-[12px] lg:rounded-[13px] transition-all text-left shrink-0 lg:w-full whitespace-nowrap",
                   section === id
                     ? "text-gray-100 font-semibold"
                     : "text-gray-300 font-medium hover:text-gray-100"
@@ -1001,7 +1001,7 @@ export default function ConfiguracoesPage() {
           </nav>
         </aside>
 
-        <main className="flex-1 overflow-y-auto custom-scrollbar py-10 px-12 bg-primary-800 rounded-tl-[22px] rounded-bl-[22px]" style={{ borderLeft: "1px solid var(--primary-700)" }}>
+        <main className="flex-1 lg:overflow-y-auto custom-scrollbar py-6 px-4 sm:px-6 lg:py-10 lg:px-12 bg-primary-800 rounded-none lg:rounded-tl-[22px] lg:rounded-bl-[22px] border-t lg:border-t-0 lg:border-l border-primary-700">
 
           {section === "perfil" && (
             <div className="flex flex-col gap-[22px]">
@@ -1229,7 +1229,7 @@ export default function ConfiguracoesPage() {
               />
 
               <Card title="Tema" desc="Personalize as cores da interface. A mudança é aplicada imediatamente.">
-                <div className="grid grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-4">
                   {THEMES.map((t) => {
                     const selected = theme === t.slug;
                     return (
@@ -1424,10 +1424,10 @@ export default function ConfiguracoesPage() {
 
               {!subscription.loading && (
                 <div
-                  className="border border-gray-700 rounded-[18px] p-7"
+                  className="border border-gray-700 rounded-[18px] p-4 sm:p-7"
                   style={{ background: "color-mix(in srgb, var(--primary-800) 34%, transparent)" }}
                 >
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <span
@@ -1547,7 +1547,7 @@ export default function ConfiguracoesPage() {
                 </div>
               )}
 
-              <div className="flex justify-center">
+              <div className="flex flex-wrap justify-center items-center gap-2">
                 <div className="inline-flex items-center p-1 rounded-full border border-gray-700 bg-primary-900">
                   {(["mensal", "anual"] as BillingPeriod[]).map((p) => (
                     <button
@@ -1750,7 +1750,7 @@ export default function ConfiguracoesPage() {
               </div>
 
               <div
-                className="flex items-center gap-5 p-7 rounded-[18px] border border-gray-700"
+                className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 p-4 sm:p-7 rounded-[18px] border border-gray-700"
                 style={{ background: "color-mix(in srgb, var(--primary-800) 34%, transparent)" }}
               >
                 <div
@@ -1889,7 +1889,7 @@ export default function ConfiguracoesPage() {
 
                     return (
                       <Card key={proj.id}>
-                        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-700">
+                        <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-gray-700">
                           <div className="flex items-center gap-2">
                             <FolderOpen size={16} className="text-gray-500 shrink-0" />
                             <span className="text-[14px] font-medium text-gray-200">{proj.titulo}</span>

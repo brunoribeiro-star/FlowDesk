@@ -576,8 +576,8 @@ export default function NovoBriefingPage() {
   return (
     <>
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fade-in">
-          <div className="bg-primary-900 border border-primary-700 rounded-2xl p-8 w-[90%] max-w-md text-center flex flex-col gap-6 shadow-2xl">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9999] flex items-center justify-center animate-fade-in p-4">
+          <div className="bg-primary-900 border border-primary-700 rounded-2xl p-6 sm:p-8 w-full max-w-md text-center flex flex-col gap-6 shadow-2xl">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-2 text-primary-400" style={{ background: 'rgba(30,182,232,0.10)' }}>
               <CheckSquare size={32} />
             </div>
@@ -614,29 +614,29 @@ export default function NovoBriefingPage() {
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 520, height: 520, right: -180, top: -180, background: 'radial-gradient(circle, rgba(30,182,232,0.10), transparent 70%)', filter: 'blur(100px)' }} />
         <div className="pointer-events-none absolute rounded-full z-0" style={{ width: 460, height: 460, right: -160, bottom: -200, background: 'radial-gradient(circle, rgba(16,66,83,0.45), transparent 70%)', filter: 'blur(100px)' }} />
 
-        <header className="relative z-10 flex items-center gap-5 px-10 py-[22px] border-b border-gray-700 flex-none">
-          <div className="flex items-center gap-[18px]">
+        <header className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5 px-4 sm:px-6 lg:px-10 py-4 sm:py-[22px] border-b border-gray-700 flex-none">
+          <div className="flex items-center gap-3 sm:gap-[18px] min-w-0">
             <button
               type="button"
               onClick={() => router.push(projetoId ? `/dashboard/projetos/${projetoId}` : "/dashboard/briefings")}
-              className="grid place-items-center flex-none w-[46px] h-[46px] rounded-[13px] border border-gray-700 text-gray-200 transition-all duration-200 hover:border-primary-500 hover:text-primary-300"
+              className="grid place-items-center flex-none w-[42px] h-[42px] sm:w-[46px] sm:h-[46px] rounded-[13px] border border-gray-700 text-gray-200 transition-all duration-200 hover:border-primary-500 hover:text-primary-300"
               style={{ background: 'var(--primary-800)' }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
               </svg>
             </button>
-            <span className="text-[19px] font-semibold text-gray-100">
+            <span className="text-[16px] sm:text-[19px] font-semibold text-gray-100 truncate">
               {editId ? "Editar Briefing" : "Novo Modelo de Briefing"}
             </span>
           </div>
 
-          <div className="ml-auto flex items-center gap-3.5">
+          <div className="flex items-center gap-3 lg:ml-auto lg:gap-3.5">
             <button
               type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 flex-none h-12 px-6 rounded-[14px] text-[16px] font-semibold border-0 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              className="flex-1 lg:flex-none flex items-center justify-center gap-2 h-12 px-6 rounded-[14px] text-[15px] sm:text-[16px] font-semibold border-0 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
               style={{ background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)', color: 'var(--primary-900)', boxShadow: '0 12px 28px -12px rgba(30,182,232,0.8)' }}
             >
               {saving ? (
@@ -644,7 +644,7 @@ export default function NovoBriefingPage() {
               ) : "Salvar alterações"}
             </button>
 
-            <div className="relative" ref={profileRef}>
+            <div className="relative flex-none" ref={profileRef}>
               <button
                 type="button"
                 onClick={() => setProfileOpen((v) => !v)}
@@ -672,7 +672,7 @@ export default function NovoBriefingPage() {
         </header>
 
         <main className="relative z-10 flex-1 overflow-y-auto novo-briefing-scroll">
-          <div className="max-w-[1180px] w-full mx-auto flex flex-col gap-[26px] px-10 py-[34px] pb-[44px]">
+          <div className="max-w-[1180px] w-full mx-auto flex flex-col gap-5 lg:gap-[26px] px-4 sm:px-6 lg:px-10 py-5 lg:py-[34px] pb-6 lg:pb-[44px]">
 
             {formError && (
               <div className="px-5 py-4 rounded-xl border text-[14px] flex items-center gap-3 animate-fade-in"
@@ -682,7 +682,7 @@ export default function NovoBriefingPage() {
               </div>
             )}
 
-            <section className="relative rounded-[22px] border border-gray-700 px-10 pt-[36px] pb-10"
+            <section className="relative rounded-[22px] border border-gray-700 px-4 sm:px-6 lg:px-10 pt-6 sm:pt-8 lg:pt-[36px] pb-6 sm:pb-8 lg:pb-10"
               style={{ background: 'var(--primary-800)' }}>
               <div className="absolute top-0 left-0 right-0 h-1 rounded-t-[22px]" style={{ background: 'linear-gradient(90deg, var(--primary-300), var(--primary-500) 50%, transparent)' }} />
 
@@ -690,20 +690,19 @@ export default function NovoBriefingPage() {
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
                 placeholder="Título do Briefing"
-                className="w-full bg-transparent outline-none border-none p-0 font-bold text-gray-100"
-                style={{ fontSize: 42, letterSpacing: '-0.02em', caretColor: 'var(--primary-500)' }}
+                className="w-full bg-transparent outline-none border-none p-0 font-bold text-gray-100 text-[26px] sm:text-[34px] lg:text-[42px]"
+                style={{ letterSpacing: '-0.02em', caretColor: 'var(--primary-500)' }}
               />
               <input
                 value={descricao}
                 onChange={(e) => setDescricao(e.target.value)}
                 placeholder="Adicione uma descrição ou instruções para o cliente preencher este briefing…"
-                className="w-full bg-transparent outline-none border-none p-0 text-gray-200 mt-[18px]"
-                style={{ fontSize: 18 }}
+                className="w-full bg-transparent outline-none border-none p-0 text-gray-200 mt-[18px] text-[15px] sm:text-[18px]"
               />
 
               <div className="h-px my-7 bg-gray-700" />
 
-              <div className="grid gap-11 relative z-20" style={{ gridTemplateColumns: '1fr 1.1fr' }}>
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.1fr] gap-6 lg:gap-11 relative z-20">
                 <div className="flex flex-col gap-[22px]">
                   <div className="flex gap-4">
                     <div className="flex flex-col gap-[11px]">
@@ -722,16 +721,16 @@ export default function NovoBriefingPage() {
                       <button
                         type="button"
                         onClick={() => setIconPickerOpen(!iconPickerOpen)}
-                        className="flex items-center gap-[10px] flex-1 h-[52px] px-4 rounded-[13px] border border-gray-600 text-gray-100 cursor-pointer transition-colors hover:border-gray-400"
+                        className="flex items-center gap-[10px] flex-1 min-w-0 h-[52px] px-4 rounded-[13px] border border-gray-600 text-gray-100 cursor-pointer transition-colors hover:border-gray-400"
                         style={{ background: 'var(--primary-800)', fontSize: 15 }}
                       >
                         {ICON_LIST[coverIcon as keyof typeof ICON_LIST] ? (
                           (() => {
                             const Ic = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
-                            return <><Ic size={17} style={{ color: 'var(--primary-300)' }} /><span>{coverIcon}</span></>;
+                            return <><Ic size={17} style={{ color: 'var(--primary-300)' }} className="flex-none" /><span className="truncate">{coverIcon}</span></>;
                           })()
                         ) : <span className="text-gray-500">Selecionar</span>}
-                        <ChevronDown size={15} className="ml-auto text-gray-500" />
+                        <ChevronDown size={15} className="ml-auto text-gray-500 flex-none" />
                       </button>
 
                       <ColorPicker value={coverIconColor} onChange={setCoverIconColor} />
@@ -739,7 +738,7 @@ export default function NovoBriefingPage() {
                       {iconPickerOpen && (
                         <>
                           <div className="fixed inset-0 z-40" onClick={() => setIconPickerOpen(false)} />
-                          <div className="absolute top-full mt-2 left-0 w-[360px] border border-gray-700 shadow-2xl rounded-xl p-4 z-50 grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto novo-briefing-scroll animate-fade-in-down"
+                          <div className="absolute top-full mt-2 left-0 w-[360px] max-w-[calc(100vw-2.5rem)] border border-gray-700 shadow-2xl rounded-xl p-4 z-50 grid grid-cols-6 gap-2 max-h-[300px] overflow-y-auto novo-briefing-scroll animate-fade-in-down"
                             style={{ background: 'var(--primary-800)' }}>
                             {Object.keys(ICON_LIST).map((iconName) => {
                               const IconComp = ICON_LIST[iconName as keyof typeof ICON_LIST];
@@ -759,13 +758,13 @@ export default function NovoBriefingPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center justify-center gap-[18px] min-h-[300px] p-10 rounded-[20px] transition-all duration-300"
+                <div className="flex flex-col items-center justify-center gap-[18px] min-h-[220px] sm:min-h-[260px] lg:min-h-[300px] p-6 sm:p-8 lg:p-10 rounded-[20px] transition-all duration-300"
                   style={{ background: cardBgColor, color: cardTextColor, boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06)' }}>
                   {coverIcon && ICON_LIST[coverIcon as keyof typeof ICON_LIST] && (() => {
                     const Ic = ICON_LIST[coverIcon as keyof typeof ICON_LIST];
                     return <Ic size={48} strokeWidth={1.6} style={{ color: coverIconColor }} />;
                   })()}
-                  <h3 className="m-0 text-[30px] font-bold text-center leading-tight" style={{ letterSpacing: '-0.01em' }}>
+                  <h3 className="m-0 text-[22px] sm:text-[26px] lg:text-[30px] font-bold text-center leading-tight" style={{ letterSpacing: '-0.01em' }}>
                     {titulo || "Título do Briefing"}
                   </h3>
                   <span className="text-[13px] font-semibold opacity-70" style={{ letterSpacing: '0.28em' }}>BRIEFING</span>
@@ -776,24 +775,26 @@ export default function NovoBriefingPage() {
             {questions.map((q, idx) => (
               <section
                 key={q.id}
-                className="rounded-[20px] border border-gray-700 px-8 py-7"
+                className="rounded-[20px] border border-gray-700 px-4 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-7"
                 style={{ background: 'var(--primary-800)' }}
               >
-                <div className="flex items-center gap-4">
-                  <span
-                    className="flex-none grid place-items-center w-11 h-11 rounded-[12px] text-[17px] font-bold text-primary-300"
-                    style={{ background: 'rgba(30,182,232,0.10)', border: '1px solid rgba(30,182,232,0.28)' }}
-                  >
-                    {idx + 1}
-                  </span>
-                  <input
-                    value={q.titulo}
-                    onChange={(e) => updateQuestion(q.id, { titulo: e.target.value })}
-                    placeholder="Digite a pergunta aqui"
-                    className="flex-1 h-14 px-5 rounded-[14px] border border-gray-600 bg-primary-800 text-gray-100 text-[17px] outline-none transition-all focus:border-primary-500"
-                    style={{ caretColor: 'var(--primary-500)' }}
-                  />
-                  <div className="relative flex-none w-[240px]">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0 sm:flex-1">
+                    <span
+                      className="flex-none grid place-items-center w-11 h-11 rounded-[12px] text-[17px] font-bold text-primary-300"
+                      style={{ background: 'rgba(30,182,232,0.10)', border: '1px solid rgba(30,182,232,0.28)' }}
+                    >
+                      {idx + 1}
+                    </span>
+                    <input
+                      value={q.titulo}
+                      onChange={(e) => updateQuestion(q.id, { titulo: e.target.value })}
+                      placeholder="Digite a pergunta aqui"
+                      className="flex-1 min-w-0 h-14 px-5 rounded-[14px] border border-gray-600 bg-primary-800 text-gray-100 text-[17px] outline-none transition-all focus:border-primary-500"
+                      style={{ caretColor: 'var(--primary-500)' }}
+                    />
+                  </div>
+                  <div className="relative flex-none w-full sm:w-[240px]">
                     <select
                       value={q.tipo}
                       onChange={(e) => handleChangeTipo(q.id, e.target.value)}
@@ -842,7 +843,7 @@ export default function NovoBriefingPage() {
                 )}
 
                 <div className="mt-[22px] mb-[2px] h-px bg-gray-700" />
-                <div className="mt-[18px] flex items-center justify-between">
+                <div className="mt-[18px] flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-1.5">
                     <button type="button" onClick={() => handleDuplicateQuestion(q.id)}
                       className="grid place-items-center w-[38px] h-[38px] rounded-[10px] border-0 bg-transparent text-gray-400 cursor-pointer transition-colors hover:bg-[rgba(148,169,173,0.10)] hover:text-gray-100" title="Duplicar">

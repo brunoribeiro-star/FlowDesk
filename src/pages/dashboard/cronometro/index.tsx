@@ -101,7 +101,7 @@ export default function CronometroPage() {
         }} />
 
         <header
-          className="relative z-10 flex items-center gap-5 px-8 xl:px-11 py-[20px] border-b"
+          className="relative z-10 flex items-center gap-3 sm:gap-5 px-4 sm:px-6 lg:px-8 xl:px-11 py-4 lg:py-[20px] border-b"
           style={{ borderColor: "var(--gray-700)" }}
         >
           <button
@@ -114,32 +114,32 @@ export default function CronometroPage() {
           >
             <ArrowLeft size={18} />
           </button>
-          <span className="font-bold tracking-tight" style={{ fontSize: 26, color: "var(--gray-100)" }}>Time Tracker</span>
+          <span className="font-bold tracking-tight text-[20px] sm:text-[26px]" style={{ color: "var(--gray-100)" }}>Time Tracker</span>
           <div className="ml-auto">
             <HeaderProfile />
           </div>
         </header>
 
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-8 py-6 gap-10 overflow-y-auto">
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-6 gap-8 sm:gap-10 overflow-y-auto">
 
           <div className="text-center">
             <p className="text-[13px] font-semibold uppercase tracking-[0.32em] text-gray-500 mb-3">Modo livre</p>
-            <h1 className="text-[38px] xl:text-[44px] font-semibold tracking-tight leading-tight text-gray-100">
+            <h1 className="text-[28px] sm:text-[38px] xl:text-[44px] font-semibold tracking-tight leading-tight text-gray-100">
               Escolha uma duração
             </h1>
-            <p className="mt-3 text-[16px] xl:text-[17px] text-gray-500">
+            <p className="mt-3 text-[14px] sm:text-[16px] xl:text-[17px] text-gray-500">
               Como você quer cronometrar essa sessão de trabalho.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-5 w-full max-w-[780px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5 w-full max-w-[780px]">
             {MODES.map(mode => {
               const isSelected = selected === mode.id;
               const { Icon } = mode;
               return (
                 <button key={mode.id} type="button"
                   onClick={() => setSelected(mode.id)}
-                  className={`group relative overflow-hidden text-left flex gap-5 p-7 rounded-[22px] border transition-all duration-200 cursor-pointer hover:-translate-y-1 ${isSelected ? "-translate-y-1" : ""}`}
+                  className={`group relative overflow-hidden text-left flex gap-4 sm:gap-5 p-5 sm:p-7 rounded-[22px] border transition-all duration-200 cursor-pointer hover:-translate-y-1 ${isSelected ? "-translate-y-1" : ""}`}
                   style={{
                     background: "linear-gradient(180deg, var(--primary-800), var(--primary-900))",
                     borderColor: isSelected ? mode.acc.color : "var(--gray-700)",

@@ -103,23 +103,25 @@ export default function RespostasBriefingPage() {
 
       <>
 
-        <div className="flex flex-col flex-1 min-w-0 pr-6 py-6 gap-6 overflow-hidden">
+        <div className="flex flex-col flex-1 min-w-0 px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6 gap-4 sm:gap-6 overflow-hidden">
           <header className="flex items-center justify-between gap-4 flex-shrink-0">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 onClick={() => router.push("/dashboard/briefings")}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-primary-700 text-gray-400 hover:text-gray-200 hover:bg-primary-800 transition-colors"
+                className="w-8 h-8 flex items-center justify-center rounded-lg border border-primary-700 text-gray-400 hover:text-gray-200 hover:bg-primary-800 transition-colors flex-shrink-0"
               >
                 <ChevronLeft size={16} />
               </button>
-              <div>
-                <div className="text-[20px] font-semibold text-gray-100 leading-tight">
+              <div className="min-w-0">
+                <div className="text-[18px] sm:text-[20px] font-semibold text-gray-100 leading-tight truncate">
                   {loading ? "Carregando..." : (envio?.template?.titulo || "Respostas do briefing")}
                 </div>
                 <div className="text-[13px] text-gray-500 mt-0.5">Respostas do cliente</div>
               </div>
             </div>
-            <HeaderProfile />
+            <div className="flex-shrink-0">
+              <HeaderProfile />
+            </div>
           </header>
 
           {loading ? (
@@ -140,7 +142,7 @@ export default function RespostasBriefingPage() {
             </div>
           ) : (
             <div className="flex-1 min-h-0 bg-primary-900/60 border border-primary-700 rounded-2xl overflow-hidden flex flex-col">
-              <div className="px-6 py-4 border-b border-primary-700 flex items-center gap-5 flex-wrap flex-shrink-0">
+              <div className="px-4 sm:px-6 py-4 border-b border-primary-700 flex items-center gap-3 sm:gap-5 flex-wrap flex-shrink-0">
                 <span className={`inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1 rounded-full ${
                   respondido
                     ? "bg-third-500/15 text-third-300 border border-third-500/20"
@@ -204,7 +206,7 @@ export default function RespostasBriefingPage() {
               ) : (
                 <div className="flex-1 overflow-y-auto respostas-scroll divide-y divide-primary-800">
                   {respostas.map((r, i) => (
-                    <div key={r.id} className="px-6 py-5 hover:bg-primary-800/30 transition-colors">
+                    <div key={r.id} className="px-4 sm:px-6 py-5 hover:bg-primary-800/30 transition-colors">
                       <div className="flex items-start gap-4">
                         <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary-800 border border-primary-700 text-[11px] font-bold text-primary-300 flex items-center justify-center mt-0.5">
                           {i + 1}

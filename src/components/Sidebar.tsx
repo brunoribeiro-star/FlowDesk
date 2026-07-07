@@ -116,7 +116,7 @@ export default function Sidebar({ defaultOpen = false, onOpenChange }: SidebarPr
   return (
     <aside
       className={clsx(
-        "relative h-screen bg-primary-800 flex flex-col justify-between",
+        "relative h-screen bg-primary-800 hidden lg:flex flex-col justify-between",
         transitionsReady && "transition-all duration-300 ease-in-out",
         open ? "w-[230px]" : "w-[68px]"
       )}

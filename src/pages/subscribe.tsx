@@ -68,7 +68,7 @@ export default function SubscribePage() {
         <title>Escolha seu plano — FlowDesk</title>
       </Head>
 
-      <div className="min-h-screen bg-primary-900 flex flex-col items-center justify-center p-6 gap-8">
+      <div className="min-h-screen bg-primary-900 flex flex-col items-center justify-center p-4 sm:p-6 gap-6 sm:gap-8">
         <div className="flex flex-col items-center gap-2 text-center">
           <Image src="/logo-flowdesk-nova.svg" alt="FlowDesk" width={130} height={34} priority />
           <h1 className="text-[22px] font-bold text-gray-100 mt-4">Período de teste encerrado</h1>
@@ -77,8 +77,7 @@ export default function SubscribePage() {
           </p>
         </div>
 
-        {/* Billing toggle */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <div className="flex items-center bg-primary-800 border border-primary-700 rounded-full p-1">
             {(["mensal", "anual"] as BillingPeriod[]).map((p) => (
               <button
@@ -98,9 +97,7 @@ export default function SubscribePage() {
           )}
         </div>
 
-        {/* Plan cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl">
-          {/* Essencial */}
           <div className="bg-primary-800 border border-primary-700 rounded-2xl p-6 flex flex-col">
             <div className="mb-4">
               <h2 className="text-[18px] font-bold text-gray-100">Essencial</h2>
@@ -141,7 +138,6 @@ export default function SubscribePage() {
             </button>
           </div>
 
-          {/* Profissional */}
           <div className="bg-primary-800 border-2 border-primary-500 rounded-2xl p-6 flex flex-col relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
               <span className="bg-primary-500 text-primary-950 text-[11px] font-bold px-3 py-1 rounded-full">

@@ -98,7 +98,7 @@ export default function GastosVsFaturamentoChart({ data }: Props) {
 
   return (
     <div>
-      <div className="w-full h-72">
+      <div className="w-full h-60 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={data}

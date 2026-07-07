@@ -425,13 +425,18 @@ export default function TarefasPage() {
 
       <div className="tk-page">
         <header className="tk-top-bar">
-          <div className="tk-top-left">
-            <button type="button" onClick={() => router.push("/dashboard")} className="tk-back-btn">
-              <IconChevLeft />
-            </button>
-            <h1 className="tk-page-title">Tarefas</h1>
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <div className="tk-top-left">
+              <button type="button" onClick={() => router.push("/dashboard")} className="tk-back-btn">
+                <IconChevLeft />
+              </button>
+              <h1 className="tk-page-title">Tarefas</h1>
+            </div>
+            <div className="lg:hidden">
+              <HeaderProfile />
+            </div>
           </div>
-          <div className="tk-top-right">
+          <div className="flex items-center gap-2 lg:gap-3 lg:contents">
             <div className="tk-seg-ctrl">
               {(["list","boards","calendar"] as const).map((k) => (
                 <button
@@ -449,11 +454,11 @@ export default function TarefasPage() {
               id="tour-add-btn"
               type="button"
               onClick={() => router.push("/dashboard/tarefas/nova")}
-              className="tk-btn-primary"
+              className="tk-btn-primary flex-1 lg:flex-none"
             >
               <IconPlus /> Nova tarefa
             </button>
-            <HeaderProfile />
+            <div className="hidden lg:block"><HeaderProfile /></div>
           </div>
         </header>
 
@@ -526,28 +531,39 @@ export default function TarefasPage() {
                             >
                               {ehConcluida && <IconCheck size={17} />}
                             </button>
-                            <div className="tlv-task-txt">
-                              <span className={"tlv-name" + (ehConcluida ? " is-done" : "")}>{t.titulo}</span>
-                              {total > 0 && (
-                                <span className="tlv-count">
-                                  <IconChecklist /> {done}/{total}
-                                </span>
-                              )}
+                            <div className="tlv-task-main">
+                              <div className="tlv-task-txt">
+                                <span className={"tlv-name" + (ehConcluida ? " is-done" : "")}>{t.titulo}</span>
+                                {total > 0 && (
+                                  <span className="tlv-count">
+                                    <IconChecklist /> {done}/{total}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="md:hidden">
+                                <div className="tlv-meta-mobile">
+                                  <span className="tk-pill">{projetoNome(t.projeto_id)}</span>
+                                  <span className="tlv-urg-mini"><UrgenciaIndicator nivel={urgencia} /> {urgencia}</span>
+                                  <span className="tlv-due-mini">{formatarDataCurta(t.due_date)}</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
 
-                          <div>
+                          <div className="hidden md:block">
                             <span className="tk-pill">{projetoNome(t.projeto_id)}</span>
                           </div>
 
-                          <div className="tlv-urg-cell">
-                            <UrgenciaIndicator nivel={urgencia} />
-                            <span className="tlv-urg-label">{urgencia}</span>
+                          <div className="hidden md:block">
+                            <div className="tlv-urg-cell">
+                              <UrgenciaIndicator nivel={urgencia} />
+                              <span className="tlv-urg-label">{urgencia}</span>
+                            </div>
                           </div>
 
-                          <div className="tlv-due">{formatarDataCurta(t.due_date)}</div>
+                          <div className="tlv-due hidden md:block">{formatarDataCurta(t.due_date)}</div>
 
-                          <div className="tlv-created">{tempoRelativo(t.created_at)}</div>
+                          <div className="tlv-created hidden md:block">{tempoRelativo(t.created_at)}</div>
 
                           <div className="tlv-menu-wrap" onClick={(e) => e.stopPropagation()}>
                             <button
@@ -708,6 +724,7 @@ export default function TarefasPage() {
               <button type="button" className="tcv-nav" onClick={nextMonth}><IconChevRight /></button>
             </div>
 
+            <div className="tcv-scrollx tasks-scroll">
             <div className="tcv-weekdays">
               {["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"].map((d) => (
                 <span key={d} className="tcv-wd">{d}</span>
@@ -749,6 +766,7 @@ export default function TarefasPage() {
                 );
               })}
             </div>
+            </div>
           </div>
         )}
       </div>
@@ -760,27 +778,42 @@ export default function TarefasPage() {
           flex-direction: column;
           flex: 1;
           gap: 0;
-          padding-right: 24px;
-          padding-top: 16px;
-          padding-bottom: 16px;
+          padding: 12px 16px 16px;
           overflow: hidden;
           min-height: 0;
+        }
+        @media (min-width: 1024px) {
+          .tk-page {
+            padding-left: 0;
+            padding-right: 24px;
+            padding-top: 16px;
+            padding-bottom: 16px;
+          }
         }
 
         /* ===== HEADER ===== */
         .tk-top-bar {
           display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 0 0 20px 0;
-          margin-bottom: 20px;
+          flex-direction: column;
+          gap: 14px;
+          padding: 0 0 16px 0;
+          margin-bottom: 16px;
           border-bottom: 1px solid var(--gray-700);
+        }
+        @media (min-width: 1024px) {
+          .tk-top-bar {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 0 0 20px 0;
+            margin-bottom: 20px;
+          }
         }
         .tk-top-left {
           display: flex;
           align-items: center;
-          gap: 20px;
+          gap: 14px;
         }
         .tk-back-btn {
           display: grid;
@@ -801,11 +834,12 @@ export default function TarefasPage() {
         }
         .tk-page-title {
           margin: 0;
-          font-size: 26px;
+          font-size: 21px;
           font-weight: 700;
           color: var(--gray-100);
           letter-spacing: -0.02em;
         }
+        @media (min-width: 1024px) { .tk-page-title { font-size: 26px; } }
         .tk-top-right {
           display: flex;
           align-items: center;
@@ -865,17 +899,25 @@ export default function TarefasPage() {
         /* ===== FILTERS ===== */
         .tk-filters-row {
           display: flex;
-          justify-content: flex-end;
-          gap: 12px;
-          padding-bottom: 16px;
+          flex-direction: column;
+          gap: 10px;
+          padding-bottom: 14px;
+        }
+        @media (min-width: 640px) {
+          .tk-filters-row { flex-direction: row; justify-content: flex-end; gap: 12px; padding-bottom: 16px; }
         }
         .tk-filter-wrap {
           position: relative;
-          display: inline-flex;
+          display: flex;
           align-items: center;
+          width: 100%;
+        }
+        @media (min-width: 640px) {
+          .tk-filter-wrap { display: inline-flex; width: auto; }
         }
         .tk-filter-select {
           appearance: none;
+          width: 100%;
           height: 44px;
           padding: 0 40px 0 18px;
           font-family: inherit;
@@ -891,6 +933,9 @@ export default function TarefasPage() {
         }
         .tk-filter-select:hover, .tk-filter-select:focus {
           border-color: var(--primary-600);
+        }
+        @media (min-width: 640px) {
+          .tk-filter-select { width: auto; }
         }
         .tk-filter-chev {
           position: absolute;
@@ -911,11 +956,16 @@ export default function TarefasPage() {
           overflow: hidden;
         }
         .tlv-head {
-          display: grid;
-          grid-template-columns: minmax(0,2.4fr) 1.5fr 1.2fr 0.9fr 0.9fr 44px;
-          gap: 20px;
-          padding: 14px 18px;
-          flex-shrink: 0;
+          display: none;
+        }
+        @media (min-width: 768px) {
+          .tlv-head {
+            display: grid;
+            grid-template-columns: minmax(0,2.4fr) 1.5fr 1.2fr 0.9fr 0.9fr 44px;
+            gap: 20px;
+            padding: 14px 18px;
+            flex-shrink: 0;
+          }
         }
         .tlv-head span {
           font-size: 12px;
@@ -952,13 +1002,21 @@ export default function TarefasPage() {
           border-color: var(--primary-600);
         }
         .tlv-row {
-          display: grid;
-          grid-template-columns: minmax(0,2.4fr) 1.5fr 1.2fr 0.9fr 0.9fr 44px;
+          display: flex;
           align-items: center;
-          gap: 20px;
-          padding: 18px;
+          gap: 12px;
+          padding: 14px 16px;
           cursor: pointer;
           transition: background .15s;
+        }
+        @media (min-width: 768px) {
+          .tlv-row {
+            display: grid;
+            grid-template-columns: minmax(0,2.4fr) 1.5fr 1.2fr 0.9fr 0.9fr 44px;
+            align-items: center;
+            gap: 20px;
+            padding: 18px;
+          }
         }
         .tlv-row:hover {
           background: var(--primary-700);
@@ -998,12 +1056,37 @@ export default function TarefasPage() {
           align-items: center;
           gap: 14px;
           min-width: 0;
+          flex: 1 1 auto;
+        }
+        .tlv-task-main {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+          flex: 1;
         }
         .tlv-task-txt {
           display: flex;
           align-items: center;
           gap: 10px;
           min-width: 0;
+        }
+        .tlv-meta-mobile {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .tlv-urg-mini {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12.5px;
+          color: var(--gray-400);
+        }
+        .tlv-due-mini {
+          font-size: 12.5px;
+          color: var(--gray-500);
         }
         .tlv-name {
           font-size: 16px;
@@ -1153,7 +1236,7 @@ export default function TarefasPage() {
           flex: 1;
           min-height: 0;
           display: grid;
-          grid-template-columns: repeat(5, 1fr);
+          grid-template-columns: repeat(5, minmax(220px, 1fr));
           gap: 16px;
           padding-top: 8px;
           padding-bottom: 32px;
@@ -1308,12 +1391,21 @@ export default function TarefasPage() {
           text-transform: capitalize;
         }
         .tcv-year { color: var(--primary-400); }
+        .tcv-scrollx {
+          flex: 1;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
         .tcv-weekdays {
           display: grid;
-          grid-template-columns: repeat(7, 1fr);
+          grid-template-columns: repeat(7, minmax(96px, 1fr));
           gap: 10px;
           margin-bottom: 10px;
           flex-shrink: 0;
+          min-width: 100%;
         }
         .tcv-wd {
           font-size: 13.5px;
@@ -1325,11 +1417,12 @@ export default function TarefasPage() {
           flex: 1;
           min-height: 0;
           display: grid;
-          grid-template-columns: repeat(7, 1fr);
+          grid-template-columns: repeat(7, minmax(96px, 1fr));
           auto-rows: 1fr;
           gap: 10px;
           overflow-y: auto;
           padding-bottom: 16px;
+          min-width: 100%;
         }
         .tcv-cell {
           position: relative;

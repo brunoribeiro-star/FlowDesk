@@ -475,44 +475,90 @@ export default function ContratosPage() {
               </div>
             ) : (
               <div className="cti-table">
-                <div className="cti-th">
-                  <span>Título</span>
-                  <span>Modelo</span>
-                  <span>Gerado em</span>
+                <div className="hidden md:block">
+                  <div className="cti-th">
+                    <span>Título</span>
+                    <span>Modelo</span>
+                    <span>Gerado em</span>
+                  </div>
                 </div>
                 {filteredContracts.map(c => (
-                  <div key={c.id} className="cti-row">
-                    <div className="cti-row-title">
-                      <span className="cti-row-icon">
-                        <FileDown size={18} />
-                      </span>
-                      <span className="cti-row-title-txt">{c.titulo}</span>
+                  <div key={c.id}>
+                    {/* Desktop row */}
+                    <div className="hidden md:block">
+                      <div className="cti-row">
+                        <div className="cti-row-title">
+                          <span className="cti-row-icon">
+                            <FileDown size={18} />
+                          </span>
+                          <span className="cti-row-title-txt">{c.titulo}</span>
+                        </div>
+                        <span className="cti-row-model">
+                          {c.contract_templates?.titulo ?? "—"}
+                        </span>
+                        <div className="cti-row-last">
+                          <span className="cti-row-date">{formatDate(c.created_at)}</span>
+                          <div className="cti-row-actions">
+                            <button
+                              type="button"
+                              onClick={() => setViewingContract(c)}
+                              className="cti-icon-btn"
+                              title="Ver contrato"
+                            >
+                              <Eye size={15} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteContract(c.id)}
+                              disabled={deletingContract === c.id}
+                              className="cti-icon-btn cti-icon-btn-danger"
+                              title="Excluir"
+                            >
+                              {deletingContract === c.id
+                                ? <Loader2 size={13} className="animate-spin" />
+                                : <Trash2 size={15} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <span className="cti-row-model">
-                      {c.contract_templates?.titulo ?? "—"}
-                    </span>
-                    <div className="cti-row-last">
-                      <span className="cti-row-date">{formatDate(c.created_at)}</span>
-                      <div className="cti-row-actions">
-                        <button
-                          type="button"
-                          onClick={() => setViewingContract(c)}
-                          className="cti-icon-btn"
-                          title="Ver contrato"
-                        >
-                          <Eye size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteContract(c.id)}
-                          disabled={deletingContract === c.id}
-                          className="cti-icon-btn cti-icon-btn-danger"
-                          title="Excluir"
-                        >
-                          {deletingContract === c.id
-                            ? <Loader2 size={13} className="animate-spin" />
-                            : <Trash2 size={15} />}
-                        </button>
+
+                    {/* Mobile card */}
+                    <div className="md:hidden flex flex-col gap-3 p-4 border-b" style={{ borderColor: "var(--gray-700)" }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="cti-row-icon">
+                          <FileDown size={18} />
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="cti-row-title-txt text-[15px] font-semibold" style={{ color: "var(--gray-100)" }}>{c.titulo}</div>
+                          <div className="cti-row-model text-[13px]">{c.contract_templates?.titulo ?? "—"}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="cti-row-date">{formatDate(c.created_at)}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setViewingContract(c)}
+                            className="cti-icon-btn"
+                            title="Ver contrato"
+                            style={{ opacity: 1 }}
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteContract(c.id)}
+                            disabled={deletingContract === c.id}
+                            className="cti-icon-btn cti-icon-btn-danger"
+                            title="Excluir"
+                            style={{ opacity: 1 }}
+                          >
+                            {deletingContract === c.id
+                              ? <Loader2 size={13} className="animate-spin" />
+                              : <Trash2 size={16} />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1147,9 +1193,34 @@ export default function ContratosPage() {
         .cti-overlay-ghost:hover { border-color: var(--primary-600); }
         .cti-overlay-ghost:disabled { opacity: .6; cursor: default; }
         .cti-overlay-canvas {
-          flex: 1; overflow-y: auto; padding: 44px 40px 60px;
+          flex: 1; overflow-y: auto; overflow-x: auto; padding: 44px 40px 60px;
           display: flex; justify-content: center; align-items: flex-start;
           background: linear-gradient(180deg, #5b6876, #4a5560);
+        }
+
+        /* ── Responsivo ── */
+        @media (max-width: 1023px) {
+          .cti-scroll { padding: 20px 20px 32px; gap: 26px; }
+          .cti-page-title { font-size: 30px; }
+          .cti-model-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+        }
+        @media (max-width: 767px) {
+          .cti-scroll { padding: 16px 14px 28px; gap: 22px; }
+          .cti-top { flex-direction: column; align-items: stretch; gap: 14px; }
+          .cti-top-l { gap: 14px; }
+          .cti-top-r { justify-content: space-between; }
+          .cti-primary-btn { flex: 1; justify-content: center; }
+          .cti-back { width: 44px; height: 44px; }
+          .cti-page-title { font-size: 24px; }
+          .cti-page-sub { font-size: 13.5px; }
+          .cti-model-grid { grid-template-columns: 1fr; }
+          .cti-section-head { flex-wrap: wrap; }
+          .cti-search-input { width: 160px; }
+          .cti-overlay-header { flex-wrap: wrap; padding: 14px 16px; gap: 10px; }
+          .cti-overlay-actions { margin-left: 0; width: 100%; }
+          .cti-overlay-primary, .cti-overlay-ghost { flex: 1; padding: 0 14px; }
+          .cti-overlay-canvas { padding: 24px 16px 40px; }
+          .cti-gm-box { max-width: 100%; }
         }
       `}</style>
     </>

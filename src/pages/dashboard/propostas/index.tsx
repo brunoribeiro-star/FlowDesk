@@ -180,13 +180,15 @@ export default function ProposalsList() {
 
   const renderListView = () => (
     <div className="pr-table flex-1 flex flex-col min-h-0">
-      <div className="pr-th">
-        <span>Projeto / Cliente</span>
-        <span>Status</span>
-        <span>Data</span>
-        <span className="pr-th-act">Ações</span>
+      <div className="hidden md:block">
+        <div className="pr-th">
+          <span>Projeto / Cliente</span>
+          <span>Status</span>
+          <span>Data</span>
+          <span className="pr-th-act">Ações</span>
+        </div>
       </div>
-      <div className="pr-rows">
+      <div className="pr-rows gap-3 md:gap-0 p-3 md:p-0">
         {filteredProposals.length === 0 ? (
           <div className="flex items-center justify-center py-12 text-sm" style={{ color: "var(--gray-500)" }}>
             Nenhuma proposta encontrada
@@ -194,86 +196,144 @@ export default function ProposalsList() {
         ) : (
           filteredProposals.map((p) => {
             const st = STATUS_CONFIG[p.status] || STATUS_CONFIG.analisando;
-            return (
-              <div
-                key={p.id}
-                className="pr-row"
-                onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
-              >
-                <div className="pr-proj">
-                  <span className="pr-cover">
-                    <Briefcase size={20} />
-                  </span>
-                  <span className="pr-proj-txt">
-                    <span className="pr-proj-name">{p.title}</span>
-                    {p.description?.clientName && (
-                      <span className="pr-proj-cli">
-                        <User size={14} />
-                        {p.description.clientName}
-                      </span>
-                    )}
-                  </span>
-                </div>
-
-                <div>
-                  <span className={`st st-${st.tone}`}>{st.label}</span>
-                </div>
-
-                <span className="pr-date">
-                  <Calendar size={15} />
-                  {formatDate(p.created_at)}
-                </span>
-
-                <div className="pr-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="pr-iconmini"
-                    title="Ver proposta"
-                    onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+            const actionsMenu = (
+              <div className="relative">
+                <button
+                  data-board-menu-trigger
+                  className="pr-iconmini"
+                  onClick={() =>
+                    setOpenListMenuId((cur) => (cur === p.id ? null : p.id))
+                  }
+                >
+                  <MoreVertical size={18} />
+                </button>
+                {openListMenuId === p.id && (
+                  <div
+                    data-board-menu
+                    className="absolute right-0 z-30 w-36 rounded-xl shadow-xl overflow-hidden"
+                    style={{
+                      top: "calc(100% + 6px)",
+                      background: "var(--primary-800)",
+                      border: "1px solid var(--primary-700)",
+                    }}
                   >
-                    <Eye size={18} />
-                  </button>
-                  <button
-                    className="pr-iconmini"
-                    title="Editar proposta"
-                    onClick={() => router.push(`/dashboard/propostas/${p.id}?edit=true`)}
-                  >
-                    <Pencil size={17} />
-                  </button>
-                  <div className="relative">
                     <button
-                      data-board-menu-trigger
-                      className="pr-iconmini"
-                      onClick={() =>
-                        setOpenListMenuId((cur) => (cur === p.id ? null : p.id))
-                      }
+                      onClick={() => {
+                        setOpenListMenuId(null);
+                        setDeleteModalId(p.id);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2 transition-colors"
+                      style={{ color: "var(--error-medium)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-700)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                     >
-                      <MoreVertical size={18} />
+                      <Trash2 size={13} />
+                      Excluir
                     </button>
-                    {openListMenuId === p.id && (
-                      <div
-                        data-board-menu
-                        className="absolute right-0 z-30 w-36 rounded-xl shadow-xl overflow-hidden"
-                        style={{
-                          top: "calc(100% + 6px)",
-                          background: "var(--primary-800)",
-                          border: "1px solid var(--primary-700)",
-                        }}
-                      >
-                        <button
-                          onClick={() => {
-                            setOpenListMenuId(null);
-                            setDeleteModalId(p.id);
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2 transition-colors"
-                          style={{ color: "var(--error-medium)" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-700)")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          <Trash2 size={13} />
-                          Excluir
-                        </button>
-                      </div>
-                    )}
+                  </div>
+                )}
+              </div>
+            );
+            return (
+              <div key={p.id}>
+                {/* Desktop row */}
+                <div className="hidden md:block">
+                <div
+                  className="pr-row"
+                  onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+                >
+                  <div className="pr-proj">
+                    <span className="pr-cover">
+                      <Briefcase size={20} />
+                    </span>
+                    <span className="pr-proj-txt">
+                      <span className="pr-proj-name">{p.title}</span>
+                      {p.description?.clientName && (
+                        <span className="pr-proj-cli">
+                          <User size={14} />
+                          {p.description.clientName}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className={`st st-${st.tone}`}>{st.label}</span>
+                  </div>
+
+                  <span className="pr-date">
+                    <Calendar size={15} />
+                    {formatDate(p.created_at)}
+                  </span>
+
+                  <div className="pr-actions" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="pr-iconmini"
+                      title="Ver proposta"
+                      onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+                    >
+                      <Eye size={18} />
+                    </button>
+                    <button
+                      className="pr-iconmini"
+                      title="Editar proposta"
+                      onClick={() => router.push(`/dashboard/propostas/${p.id}?edit=true`)}
+                    >
+                      <Pencil size={17} />
+                    </button>
+                    {actionsMenu}
+                  </div>
+                </div>
+                </div>
+
+                {/* Mobile card */}
+                <div
+                  className="md:hidden flex flex-col gap-3 rounded-2xl border border-primary-700 bg-primary-800 p-4"
+                  onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="pr-cover">
+                      <Briefcase size={20} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="pr-proj-name">{p.title}</div>
+                      {p.description?.clientName && (
+                        <span className="pr-proj-cli">
+                          <User size={14} />
+                          {p.description.clientName}
+                        </span>
+                      )}
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>{actionsMenu}</div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`st st-${st.tone}`}>{st.label}</span>
+                    <span className="pr-date">
+                      <Calendar size={14} />
+                      {formatDate(p.created_at)}
+                    </span>
+                  </div>
+
+                  <div
+                    className="flex items-center gap-2 pt-2 border-t"
+                    style={{ borderColor: "var(--gray-700)" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[13px]"
+                      style={{ background: "var(--primary-700)", color: "var(--gray-100)" }}
+                      onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
+                    >
+                      <Eye size={16} /> Ver
+                    </button>
+                    <button
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[13px]"
+                      style={{ background: "var(--primary-700)", color: "var(--gray-100)" }}
+                      onClick={() => router.push(`/dashboard/propostas/${p.id}?edit=true`)}
+                    >
+                      <Pencil size={15} /> Editar
+                    </button>
                   </div>
                 </div>
               </div>
@@ -422,14 +482,41 @@ export default function ProposalsList() {
         <div className="pr-glow pr-glow-a" />
         <div className="pr-glow pr-glow-b" />
 
-        <header className="relative z-30 flex items-center gap-4 px-8 xl:px-11 py-[16px] border-b" style={{ borderColor: "var(--gray-700)" }}>
-          <button
-            type="button"
-            className="pr-back-btn"
-            onClick={() => router.push("/dashboard")}
-          >
-            <ArrowLeft size={18} />
-          </button>
+        <header
+          className="relative z-30 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4 px-4 sm:px-6 lg:px-8 xl:px-11 py-4 lg:py-[16px] border-b"
+          style={{ borderColor: "var(--gray-700)" }}
+        >
+          <div className="flex items-center justify-between gap-3 lg:contents">
+            <button
+              type="button"
+              className="pr-back-btn"
+              onClick={() => router.push("/dashboard")}
+            >
+              <ArrowLeft size={18} />
+            </button>
+
+            <div className="flex items-center gap-2 lg:hidden">
+              <div className="pr-seg-ctrl">
+                <button
+                  type="button"
+                  className={`pr-seg-btn${viewMode === "list" ? " is-on" : ""}`}
+                  onClick={() => handleViewChange("list")}
+                  title="Visualização em lista"
+                >
+                  <LayoutList size={19} />
+                </button>
+                <button
+                  type="button"
+                  className={`pr-seg-btn${viewMode === "board" ? " is-on" : ""}`}
+                  onClick={() => handleViewChange("board")}
+                  title="Visualização em quadros"
+                >
+                  <LayoutGrid size={19} />
+                </button>
+              </div>
+              <HeaderProfile />
+            </div>
+          </div>
 
           <label className="pr-search-bar" style={{ flex: 1 }}>
             <Search size={19} />
@@ -441,39 +528,43 @@ export default function ProposalsList() {
             />
           </label>
 
-          <div className="pr-seg-ctrl">
-            <button
-              type="button"
-              className={`pr-seg-btn${viewMode === "list" ? " is-on" : ""}`}
-              onClick={() => handleViewChange("list")}
-              title="Visualização em lista"
-            >
-              <LayoutList size={19} />
-            </button>
-            <button
-              type="button"
-              className={`pr-seg-btn${viewMode === "board" ? " is-on" : ""}`}
-              onClick={() => handleViewChange("board")}
-              title="Visualização em quadros"
-            >
-              <LayoutGrid size={19} />
-            </button>
+          <div className="hidden lg:block">
+            <div className="pr-seg-ctrl">
+              <button
+                type="button"
+                className={`pr-seg-btn${viewMode === "list" ? " is-on" : ""}`}
+                onClick={() => handleViewChange("list")}
+                title="Visualização em lista"
+              >
+                <LayoutList size={19} />
+              </button>
+              <button
+                type="button"
+                className={`pr-seg-btn${viewMode === "board" ? " is-on" : ""}`}
+                onClick={() => handleViewChange("board")}
+                title="Visualização em quadros"
+              >
+                <LayoutGrid size={19} />
+              </button>
+            </div>
           </div>
 
           <button
             id="tour-add-btn"
             type="button"
-            className="pr-nova-btn"
+            className="pr-nova-btn justify-center"
             onClick={() => router.push("/dashboard/propostas/nova")}
           >
             <Plus size={19} />
             Nova Proposta
           </button>
 
-          <HeaderProfile />
+          <div className="hidden lg:block">
+            <HeaderProfile />
+          </div>
         </header>
 
-        <main className="relative z-10 flex-1 px-8 xl:px-11 pt-6 pb-8 min-h-0 flex flex-col overflow-hidden">
+        <main className="relative z-10 flex-1 px-4 sm:px-6 lg:px-8 xl:px-11 pt-4 sm:pt-6 pb-6 sm:pb-8 min-h-0 flex flex-col overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-40">
               <div

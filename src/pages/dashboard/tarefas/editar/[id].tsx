@@ -294,35 +294,55 @@ export default function EditarTarefaPage() {
       <div className="tk-new-page">
 
         <header className="tk-new-top">
-          <button type="button" onClick={handleVoltar} className="tk-back-btn">
-            <ArrowLeft size={17} />
-            <span>Voltar</span>
-          </button>
+          <div className="flex items-center justify-between gap-3 w-full sm:w-auto sm:contents">
+            <button type="button" onClick={handleVoltar} className="tk-back-btn">
+              <ArrowLeft size={17} />
+              <span>Voltar</span>
+            </button>
 
-          <div className="flex flex-col">
-            <span className="text-[22px] font-semibold" style={{ color: "var(--gray-100)", letterSpacing: "-0.01em" }}>
+            <div className="sm:hidden">
+              <button
+                type="button"
+                onClick={handleSalvar}
+                disabled={saving}
+                className="tk-btn-primary"
+              >
+                {saving ? (
+                  <>
+                    <span className="tk-spinner" />
+                    Salvando...
+                  </>
+                ) : "Salvar"}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col min-w-0">
+            <span className="text-[19px] sm:text-[22px] font-semibold" style={{ color: "var(--gray-100)", letterSpacing: "-0.01em" }}>
               Editar tarefa
             </span>
-            <span className="text-[14px]" style={{ color: "var(--gray-500)" }}>
+            <span className="text-[13px] sm:text-[14px]" style={{ color: "var(--gray-500)" }}>
               Atualize os detalhes, subtarefas e descrição.
             </span>
           </div>
 
-          <div style={{ flex: 1 }} />
+          <div className="hidden sm:block" style={{ flex: 1 }} />
 
-          <button
-            type="button"
-            onClick={handleSalvar}
-            disabled={saving}
-            className="tk-btn-primary"
-          >
-            {saving ? (
-              <>
-                <span className="tk-spinner" />
-                Salvando...
-              </>
-            ) : "Salvar alterações"}
-          </button>
+          <div className="hidden sm:block">
+            <button
+              type="button"
+              onClick={handleSalvar}
+              disabled={saving}
+              className="tk-btn-primary"
+            >
+              {saving ? (
+                <>
+                  <span className="tk-spinner" />
+                  Salvando...
+                </>
+              ) : "Salvar alterações"}
+            </button>
+          </div>
         </header>
 
         <main className="tk-new-body">
@@ -454,10 +474,10 @@ export default function EditarTarefaPage() {
 
       {linkModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
+          className="fixed inset-0 z-50 flex items-center justify-center px-4"
           style={{ background: "rgba(0,0,0,0.6)" }}
         >
-          <div className="w-full max-w-md rounded-2xl p-6"
+          <div className="w-full max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto"
             style={{
               background: "var(--primary-800)",
               border: "1px solid var(--primary-600)",
@@ -517,10 +537,13 @@ export default function EditarTarefaPage() {
           background: var(--primary-900);
         }
         .tk-new-top {
-          display: flex; align-items: center; gap: 20px;
-          padding: 20px 36px 20px 32px;
+          display: flex; flex-wrap: wrap; align-items: center; gap: 14px;
+          padding: 16px 16px;
           border-bottom: 1px solid var(--gray-800);
           flex-shrink: 0;
+        }
+        @media (min-width: 640px) {
+          .tk-new-top { flex-wrap: nowrap; gap: 20px; padding: 20px 36px 20px 32px; }
         }
 
         /* ── Back button ── */
@@ -556,9 +579,12 @@ export default function EditarTarefaPage() {
 
         /* ── Scrollable body ── */
         .tk-new-body {
-          flex: 1; overflow-y: auto; padding: 32px 48px 40px;
+          flex: 1; overflow-y: auto; padding: 20px 16px 32px;
           max-width: 1080px; width: 100%;
           margin: 0 auto; display: flex; flex-direction: column;
+        }
+        @media (min-width: 640px) {
+          .tk-new-body { padding: 32px 48px 40px; }
         }
         .tk-section-label {
           font-size: 11.5px; font-weight: 600; letter-spacing: 0.1em;
@@ -574,10 +600,13 @@ export default function EditarTarefaPage() {
 
         /* ── Title input ── */
         .tk-name-input {
-          flex: 1; background: transparent; border: none; outline: none;
-          font-size: 34px; font-weight: 700; line-height: 1.2;
+          flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+          font-size: 24px; font-weight: 700; line-height: 1.2;
           color: var(--gray-100); font-family: inherit;
           letter-spacing: -0.02em;
+        }
+        @media (min-width: 640px) {
+          .tk-name-input { font-size: 34px; }
         }
         .tk-name-input::placeholder { color: var(--gray-700); }
 
@@ -615,7 +644,7 @@ export default function EditarTarefaPage() {
           background: var(--success-medium);
         }
         .tk-sub-input {
-          flex: 1; background: transparent; border: none; outline: none;
+          flex: 1; min-width: 0; background: transparent; border: none; outline: none;
           font-size: 15px; color: var(--gray-200); font-family: inherit;
         }
         .tk-sub-input::placeholder { color: var(--gray-600); }

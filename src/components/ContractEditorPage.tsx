@@ -634,13 +634,28 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
         }
         .ced-insertvar:hover { background: rgba(30,182,232,0.14); }
         .ced-canvas {
-          flex: 1; overflow-y: auto; padding: 44px 40px 60px;
+          flex: 1; overflow-y: auto; overflow-x: auto; padding: 44px 40px 60px;
           display: flex; justify-content: center; align-items: flex-start;
           background: linear-gradient(180deg, #5b6876, #4a5560);
         }
         .ced-doc {
           width: 794px; background: #fff; padding: 80px 76px; border-radius: 4px;
           box-shadow: 0 30px 80px -20px rgba(0,0,0,0.5); flex-shrink: 0;
+        }
+
+        /* ── Responsivo ── */
+        @media (max-width: 1023px) {
+          .ced-header { flex-wrap: wrap; padding: 12px 16px; gap: 10px; }
+          .ced-actions { margin-left: 0; width: 100%; justify-content: flex-start; }
+          .ced-title-input { font-size: 17px; }
+          .ced-view-title { max-width: 100%; flex: 1; }
+          .ced-toolbar { padding: 10px 16px; }
+          .ced-canvas { padding: 24px 14px 40px; }
+        }
+        @media (max-width: 639px) {
+          .ced-primary-btn, .ced-ghost-btn { flex: 1; padding: 0 14px; height: 44px; font-size: 13px; white-space: nowrap; }
+          .ced-back-labeled { padding: 0 12px 0 10px; font-size: 13px; }
+          .ced-autosave { font-size: 12px; }
         }
         .contract-editor .ProseMirror {
           font-family: ${face}; font-size: 12pt; line-height: 1.85; color: #111; min-height: 834px; outline: none;
@@ -658,7 +673,6 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-        {/* HEADER */}
         <div className="ced-header">
           {mode === "generate" ? (
             <>
@@ -883,7 +897,6 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
           </div>
         </div>}
 
-        {/* CANVAS */}
         <div className="ced-canvas">
           <div className="contract-editor ced-doc">
             <EditorContent editor={editor} />
@@ -997,25 +1010,25 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
 
       {showPreview && (
         <div className="fixed inset-0 z-[60] flex flex-col bg-black/90">
-          <div className="shrink-0 flex items-center justify-between px-6 py-3 bg-primary-900 border-b border-primary-700">
-            <div className="flex items-center gap-3">
+          <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-6 py-3 bg-primary-900 border-b border-primary-700">
+            <div className="flex items-center gap-3 min-w-0">
               <button
                 type="button"
                 onClick={() => setShowPreview(false)}
-                className="flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-200 transition-colors"
+                className="flex items-center gap-1.5 text-[13px] text-gray-400 hover:text-gray-200 transition-colors flex-none"
               >
                 <ArrowLeft size={15} />
                 Voltar
               </button>
-              <span className="text-[14px] font-semibold text-gray-100">Pré-visualização</span>
-              <span className="text-[12px] text-gray-500">— o PDF gerado será idêntico a esta visualização</span>
+              <span className="text-[14px] font-semibold text-gray-100 flex-none">Pré-visualização</span>
+              <span className="hidden sm:inline text-[12px] text-gray-500 truncate">— o PDF gerado será idêntico a esta visualização</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => handleGenerate("pdf")}
                 disabled={!!generating}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-400 rounded-xl text-[13px] font-semibold text-primary-900 transition-colors disabled:opacity-60"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-400 rounded-xl text-[13px] font-semibold text-primary-900 transition-colors disabled:opacity-60"
               >
                 {generating === "pdf" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
                 Baixar PDF
@@ -1024,7 +1037,7 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
                 type="button"
                 onClick={() => handleGenerate("docx")}
                 disabled={!!generating}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary-800 hover:bg-primary-700 border border-primary-600 rounded-xl text-[13px] font-medium text-gray-200 transition-colors disabled:opacity-60"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-primary-800 hover:bg-primary-700 border border-primary-600 rounded-xl text-[13px] font-medium text-gray-200 transition-colors disabled:opacity-60"
               >
                 {generating === "docx" ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
                 Baixar DOCX
@@ -1032,7 +1045,7 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
             </div>
           </div>
 
-          <div className="flex-1 overflow-auto bg-[#6b7280] p-8">
+          <div className="flex-1 overflow-auto bg-[#6b7280] p-4 sm:p-8">
             <iframe
               srcDoc={previewHtml}
               title="Pré-visualização do contrato"

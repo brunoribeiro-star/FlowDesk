@@ -438,8 +438,7 @@ export default function FinanceiroPage() {
 
   return (
     <div
-      className="relative flex flex-col flex-1 gap-[22px] overflow-y-auto financeiro-scroll"
-      style={{ padding: "28px 40px 36px" }}
+      className="relative flex flex-col flex-1 gap-[22px] overflow-y-auto financeiro-scroll px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6"
     >
       <div
         className="pointer-events-none absolute rounded-full z-0"
@@ -451,36 +450,43 @@ export default function FinanceiroPage() {
       />
 
       <header
-        className="relative z-10 flex items-center gap-5 pb-[22px] border-b"
+        className="relative z-10 flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-5 pb-[22px] border-b"
         style={{ borderColor: "var(--gray-700)" }}
       >
-        <button
-          type="button"
-          onClick={() => router.push("/dashboard")}
-          className="grid place-items-center cursor-pointer transition-colors duration-200 flex-none"
-          style={{ width: 46, height: 46, borderRadius: 13, border: "1px solid var(--gray-700)", background: "var(--primary-800)", color: "var(--gray-200)" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-500)"; (e.currentTarget as HTMLElement).style.color = "var(--primary-300)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--gray-700)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-200)"; }}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
-          </svg>
-        </button>
-        <span className="font-bold tracking-tight" style={{ fontSize: 26, color: "var(--gray-100)" }}>Financeiro</span>
-        <div className="ml-auto">
+        <div className="flex items-center justify-between gap-3 lg:contents">
+          <div className="flex items-center gap-5 min-w-0">
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="grid place-items-center cursor-pointer transition-colors duration-200 flex-none"
+              style={{ width: 46, height: 46, borderRadius: 13, border: "1px solid var(--gray-700)", background: "var(--primary-800)", color: "var(--gray-200)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--primary-500)"; (e.currentTarget as HTMLElement).style.color = "var(--primary-300)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "var(--gray-700)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-200)"; }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
+              </svg>
+            </button>
+            <span className="font-bold tracking-tight truncate" style={{ fontSize: 26, color: "var(--gray-100)" }}>Financeiro</span>
+          </div>
+          <div className="lg:hidden">
+            <HeaderProfile />
+          </div>
+        </div>
+        <div className="hidden lg:block lg:ml-auto">
           <HeaderProfile />
         </div>
       </header>
 
-      <div className="relative z-10 flex items-center justify-between flex-wrap gap-3">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div
-          className="flex items-center gap-1"
+          className="flex items-center justify-between sm:justify-start gap-1 w-full sm:w-auto"
           style={{ borderRadius: 13, border: "1px solid var(--gray-700)", background: "var(--primary-800)", padding: 6 }}
         >
           <button
             type="button"
             onClick={irParaMesAnterior}
-            className="grid place-items-center cursor-pointer transition-colors duration-200"
+            className="grid place-items-center cursor-pointer transition-colors duration-200 flex-none"
             style={{ width: 36, height: 36, borderRadius: 10, border: 0, background: "none", color: "var(--gray-300)" }}
           >
             <ChevronLeft size={18} />
@@ -491,7 +497,7 @@ export default function FinanceiroPage() {
           <button
             type="button"
             onClick={irParaProximoMes}
-            className="grid place-items-center cursor-pointer transition-colors duration-200"
+            className="grid place-items-center cursor-pointer transition-colors duration-200 flex-none"
             style={{ width: 36, height: 36, borderRadius: 10, border: 0, background: "none", color: "var(--gray-300)" }}
           >
             <ChevronRight size={18} />
@@ -501,7 +507,7 @@ export default function FinanceiroPage() {
         <button
           type="button"
           onClick={abrirModalNovo}
-          className="flex items-center gap-2 cursor-pointer transition-all duration-200"
+          className="flex items-center justify-center gap-2 cursor-pointer transition-all duration-200 w-full sm:w-auto"
           style={{ height: 48, padding: "0 20px", borderRadius: 13, border: 0, background: "linear-gradient(135deg, var(--primary-300), var(--primary-500) 70%)", color: "var(--primary-900)", fontSize: 15, fontWeight: 700, boxShadow: "0 12px 28px -12px rgba(30,182,232,0.8)" }}
         >
           <Plus size={18} />
@@ -509,11 +515,11 @@ export default function FinanceiroPage() {
         </button>
       </div>
 
-      <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-[18px]">
+      <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-[18px]">
         {statCards.map((card) => (
           <div
             key={card.label}
-            className="flex flex-col p-[24px_26px] rounded-[18px] bg-primary-800 border border-primary-700 hover:border-primary-600 hover:-translate-y-0.5 transition-all duration-200 cursor-default"
+            className="flex flex-col p-4 sm:p-[24px_26px] rounded-[18px] bg-primary-800 border border-primary-700 hover:border-primary-600 hover:-translate-y-0.5 transition-all duration-200 cursor-default"
           >
             <div className="flex items-center gap-[11px] mb-[18px]">
               <span
@@ -525,7 +531,7 @@ export default function FinanceiroPage() {
               <span className="text-[15px] font-medium text-gray-300">{card.label}</span>
             </div>
             <p
-              className="text-[33px] font-bold leading-[1.1] tracking-tight m-0"
+              className="text-[24px] sm:text-[33px] font-bold leading-[1.1] tracking-tight m-0"
               style={{ color: card.valueColor }}
             >
               {card.value}
@@ -539,7 +545,7 @@ export default function FinanceiroPage() {
         <h2 className="text-[17px] font-semibold text-gray-200 tracking-tight m-0">
           Gastos x Faturamento (últimos meses)
         </h2>
-        <div className="rounded-[18px] bg-primary-800 border border-primary-700 px-[30px] pt-[30px] pb-[22px]">
+        <div className="rounded-[18px] bg-primary-800 border border-primary-700 px-4 sm:px-[30px] pt-4 sm:pt-[30px] pb-3 sm:pb-[22px]">
           {comparisonData.length > 0 ? (
             <GastosVsFaturamentoChart data={comparisonData} />
           ) : (
@@ -556,7 +562,7 @@ export default function FinanceiroPage() {
           style={{ borderRadius: 22, border: "1px solid var(--gray-700)", background: "linear-gradient(180deg, rgba(20,40,48,0.36), rgba(8,34,42,0.2))", height: 480 }}
         >
           <div
-            className="grid items-center flex-none"
+            className="hidden md:grid items-center flex-none"
             style={{ padding: "20px 26px", borderBottom: "1px solid var(--gray-700)", gap: 16, gridTemplateColumns: "2.1fr 1.3fr 1.4fr 1fr 1.2fr" }}
           >
             {["Descrição", "Categoria", "Tipo", "Valor", "Ações"].map((h, i) => (
@@ -575,70 +581,106 @@ export default function FinanceiroPage() {
               gastosDoMes.map((g) => {
                 const badge = tipoBadge(g);
                 const podeEncerrar = g.tipo === "fixo" && !g.data_fim;
-                return (
-                  <div
-                    key={g.id}
-                    className="grid items-center transition-colors duration-200"
-                    style={{ padding: "16px 26px", borderBottom: "1px solid rgba(29,38,40,0.7)", gap: 16, gridTemplateColumns: "2.1fr 1.3fr 1.4fr 1fr 1.2fr" }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.04)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                  >
-                    <span className="truncate font-semibold text-white" style={{ fontSize: 15.5 }}>{g.descricao}</span>
+                const acoesNode = (
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      title="Editar"
+                      onClick={() => abrirModalEditar(g)}
+                      className="grid place-items-center cursor-pointer transition-colors duration-200"
+                      style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-100)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
+                    >
+                      <Pencil size={16} />
+                    </button>
 
-                    <span className="truncate" style={{ fontSize: 14, color: "var(--gray-300)" }}>{g.categoria}</span>
-
-                    <div>
-                      <span
-                        className="inline-flex items-center gap-2 font-semibold"
-                        style={{ fontSize: 13, padding: "6px 12px", borderRadius: 10, border: `1px solid ${badge.border}`, background: badge.bg, color: badge.color }}
+                    {podeEncerrar && (
+                      <button
+                        type="button"
+                        title="Encerrar conta fixa"
+                        onClick={() => handleEncerrar(g, refDate)}
+                        className="grid place-items-center cursor-pointer transition-colors duration-200"
+                        style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,167,38,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--alert-medium)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
                       >
-                        <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: "currentColor", display: "inline-block" }} />
-                        {badge.label}
+                        <Ban size={16} />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      title="Excluir"
+                      onClick={() => handleExcluir(g.id)}
+                      className="grid place-items-center cursor-pointer transition-colors duration-200"
+                      style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,83,80,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--error-medium)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                );
+                return (
+                  <div key={g.id} className="contents">
+                    <div
+                      className="hidden md:grid items-center transition-colors duration-200"
+                      style={{ padding: "16px 26px", borderBottom: "1px solid rgba(29,38,40,0.7)", gap: 16, gridTemplateColumns: "2.1fr 1.3fr 1.4fr 1fr 1.2fr" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.04)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    >
+                      <span className="truncate font-semibold text-white" style={{ fontSize: 15.5 }}>{g.descricao}</span>
+
+                      <span className="truncate" style={{ fontSize: 14, color: "var(--gray-300)" }}>{g.categoria}</span>
+
+                      <div>
+                        <span
+                          className="inline-flex items-center gap-2 font-semibold"
+                          style={{ fontSize: 13, padding: "6px 12px", borderRadius: 10, border: `1px solid ${badge.border}`, background: badge.bg, color: badge.color }}
+                        >
+                          <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: "currentColor", display: "inline-block" }} />
+                          {badge.label}
+                        </span>
+                      </div>
+
+                      <span className="font-bold text-white" style={{ fontSize: 15.5, fontVariantNumeric: "tabular-nums" }}>
+                        {formatCurrency(g.valor)}
                       </span>
+
+                      {acoesNode}
                     </div>
 
-                    <span className="font-bold text-white" style={{ fontSize: 15.5, fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(g.valor)}
-                    </span>
-
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        title="Editar"
-                        onClick={() => abrirModalEditar(g)}
-                        className="grid place-items-center cursor-pointer transition-colors duration-200"
-                        style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-100)"; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
-                      >
-                        <Pencil size={16} />
-                      </button>
-
-                      {podeEncerrar && (
-                        <button
-                          type="button"
-                          title="Encerrar conta fixa"
-                          onClick={() => handleEncerrar(g, refDate)}
-                          className="grid place-items-center cursor-pointer transition-colors duration-200"
-                          style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,167,38,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--alert-medium)"; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
+                    <div
+                      className="md:hidden flex flex-col gap-2.5 rounded-2xl border p-4 mx-4 my-1.5"
+                      style={{ borderColor: "var(--gray-700)", background: "var(--primary-800)" }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="font-semibold text-white truncate" style={{ fontSize: 15 }}>{g.descricao}</span>
+                        <span
+                          className="inline-flex items-center gap-2 font-semibold flex-none"
+                          style={{ fontSize: 12, padding: "5px 10px", borderRadius: 9, border: `1px solid ${badge.border}`, background: badge.bg, color: badge.color }}
                         >
-                          <Ban size={16} />
-                        </button>
-                      )}
+                          <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: "currentColor", display: "inline-block" }} />
+                          {badge.label}
+                        </span>
+                      </div>
 
-                      <button
-                        type="button"
-                        title="Excluir"
-                        onClick={() => handleExcluir(g.id)}
-                        className="grid place-items-center cursor-pointer transition-colors duration-200"
-                        style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,83,80,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--error-medium)"; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--gray-500)" }}>Categoria</span>
+                        <span style={{ color: "var(--gray-300)" }}>{g.categoria}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--gray-500)" }}>Valor</span>
+                        <span className="font-bold text-white" style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {formatCurrency(g.valor)}
+                        </span>
+                      </div>
+
+                      <div className="pt-2.5 mt-1 border-t" style={{ borderColor: "var(--gray-700)" }}>
+                        {acoesNode}
+                      </div>
                     </div>
                   </div>
                 );
@@ -647,7 +689,7 @@ export default function FinanceiroPage() {
           </div>
         </div>
 
-        <div className="flex flex-col px-7 pt-[26px] pb-[30px] rounded-[18px] bg-primary-800 border border-primary-700">
+        <div className="flex flex-col px-4 sm:px-7 pt-[26px] pb-[30px] rounded-[18px] bg-primary-800 border border-primary-700">
           <div className="mb-2">
             <div className="text-[18px] font-semibold text-gray-100">Por categoria</div>
             <div className="text-[14px] text-gray-400 mt-[6px]">Gastos do mês selecionado</div>
@@ -670,7 +712,7 @@ export default function FinanceiroPage() {
           style={{ borderRadius: 22, border: "1px solid var(--gray-700)", background: "linear-gradient(180deg, rgba(20,40,48,0.36), rgba(8,34,42,0.2))" }}
         >
           <div
-            className="grid items-center flex-none"
+            className="hidden md:grid items-center flex-none"
             style={{ padding: "20px 26px", borderBottom: "1px solid var(--gray-700)", gap: 16, gridTemplateColumns: "1.9fr 1.2fr 1fr 1fr 1.6fr 1fr 1.2fr" }}
           >
             {["Descrição", "Categoria", "Tipo", "Valor", "Período", "Situação", "Ações"].map((h, i) => (
@@ -690,78 +732,125 @@ export default function FinanceiroPage() {
                 const situacao = getSituacaoGasto(g);
                 const badge = situacaoBadge(situacao);
                 const podeEncerrar = g.tipo === "fixo" && !g.data_fim;
-                return (
-                  <div
-                    key={g.id}
-                    className="grid items-center transition-colors duration-200"
-                    style={{ padding: "16px 26px", borderBottom: "1px solid rgba(29,38,40,0.7)", gap: 16, gridTemplateColumns: "1.9fr 1.2fr 1fr 1fr 1.6fr 1fr 1.2fr" }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.04)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                  >
-                    <span className="truncate font-semibold text-white" style={{ fontSize: 15 }}>{g.descricao}</span>
+                const tipoLabel = g.tipo === "fixo" ? "Fixo" : g.tipo === "parcelado" ? "Parcelado" : "Variável";
+                const acoesNode = (
+                  <div className="flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      title="Editar"
+                      onClick={() => abrirModalEditar(g)}
+                      className="grid place-items-center cursor-pointer transition-colors duration-200"
+                      style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-100)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
+                    >
+                      <Pencil size={16} />
+                    </button>
 
-                    <span className="truncate" style={{ fontSize: 13.5, color: "var(--gray-300)" }}>{g.categoria}</span>
-
-                    <span className="truncate" style={{ fontSize: 13.5, color: "var(--gray-300)" }}>
-                      {g.tipo === "fixo" ? "Fixo" : g.tipo === "parcelado" ? "Parcelado" : "Variável"}
-                    </span>
-
-                    <span className="font-bold text-white" style={{ fontSize: 15, fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(g.valor)}
-                    </span>
-
-                    <span className="truncate" style={{ fontSize: 13.5, color: "var(--gray-400)" }}>
-                      {descreverPeriodo(g, situacao)}
-                    </span>
-
-                    <div>
-                      <span
-                        className="inline-flex items-center gap-2 font-semibold"
-                        style={{ fontSize: 12.5, padding: "5px 11px", borderRadius: 10, border: `1px solid ${badge.border}`, background: badge.bg, color: badge.color }}
+                    {podeEncerrar && (
+                      <button
+                        type="button"
+                        title="Encerrar conta fixa"
+                        onClick={() => handleEncerrar(g, hojeAnoMes())}
+                        className="grid place-items-center cursor-pointer transition-colors duration-200"
+                        style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,167,38,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--alert-medium)"; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
                       >
-                        <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: "currentColor", display: "inline-block" }} />
-                        {badge.label}
+                        <Ban size={16} />
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      title="Excluir"
+                      onClick={() => handleExcluir(g.id)}
+                      className="grid place-items-center cursor-pointer transition-colors duration-200"
+                      style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,83,80,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--error-medium)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                );
+                return (
+                  <div key={g.id} className="contents">
+                    <div
+                      className="hidden md:grid items-center transition-colors duration-200"
+                      style={{ padding: "16px 26px", borderBottom: "1px solid rgba(29,38,40,0.7)", gap: 16, gridTemplateColumns: "1.9fr 1.2fr 1fr 1fr 1.6fr 1fr 1.2fr" }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.04)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                    >
+                      <span className="truncate font-semibold text-white" style={{ fontSize: 15 }}>{g.descricao}</span>
+
+                      <span className="truncate" style={{ fontSize: 13.5, color: "var(--gray-300)" }}>{g.categoria}</span>
+
+                      <span className="truncate" style={{ fontSize: 13.5, color: "var(--gray-300)" }}>
+                        {tipoLabel}
                       </span>
+
+                      <span className="font-bold text-white" style={{ fontSize: 15, fontVariantNumeric: "tabular-nums" }}>
+                        {formatCurrency(g.valor)}
+                      </span>
+
+                      <span className="truncate" style={{ fontSize: 13.5, color: "var(--gray-400)" }}>
+                        {descreverPeriodo(g, situacao)}
+                      </span>
+
+                      <div>
+                        <span
+                          className="inline-flex items-center gap-2 font-semibold"
+                          style={{ fontSize: 12.5, padding: "5px 11px", borderRadius: 10, border: `1px solid ${badge.border}`, background: badge.bg, color: badge.color }}
+                        >
+                          <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: "currentColor", display: "inline-block" }} />
+                          {badge.label}
+                        </span>
+                      </div>
+
+                      {acoesNode}
                     </div>
 
-                    <div className="flex items-center justify-end gap-1">
-                      <button
-                        type="button"
-                        title="Editar"
-                        onClick={() => abrirModalEditar(g)}
-                        className="grid place-items-center cursor-pointer transition-colors duration-200"
-                        style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(148,169,173,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--gray-100)"; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
-                      >
-                        <Pencil size={16} />
-                      </button>
-
-                      {podeEncerrar && (
-                        <button
-                          type="button"
-                          title="Encerrar conta fixa"
-                          onClick={() => handleEncerrar(g, hojeAnoMes())}
-                          className="grid place-items-center cursor-pointer transition-colors duration-200"
-                          style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
-                          onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,167,38,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--alert-medium)"; }}
-                          onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
+                    <div
+                      className="md:hidden flex flex-col gap-2.5 rounded-2xl border p-4 mx-4 my-1.5"
+                      style={{ borderColor: "var(--gray-700)", background: "var(--primary-800)" }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="font-semibold text-white truncate" style={{ fontSize: 15 }}>{g.descricao}</span>
+                        <span
+                          className="inline-flex items-center gap-2 font-semibold flex-none"
+                          style={{ fontSize: 12, padding: "5px 10px", borderRadius: 9, border: `1px solid ${badge.border}`, background: badge.bg, color: badge.color }}
                         >
-                          <Ban size={16} />
-                        </button>
-                      )}
+                          <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: "currentColor", display: "inline-block" }} />
+                          {badge.label}
+                        </span>
+                      </div>
 
-                      <button
-                        type="button"
-                        title="Excluir"
-                        onClick={() => handleExcluir(g.id)}
-                        className="grid place-items-center cursor-pointer transition-colors duration-200"
-                        style={{ width: 34, height: 34, borderRadius: 10, border: 0, background: "none", color: "var(--gray-400)" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,83,80,0.10)"; (e.currentTarget as HTMLElement).style.color = "var(--error-medium)"; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; (e.currentTarget as HTMLElement).style.color = "var(--gray-400)"; }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--gray-500)" }}>Categoria</span>
+                        <span style={{ color: "var(--gray-300)" }}>{g.categoria}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--gray-500)" }}>Tipo</span>
+                        <span style={{ color: "var(--gray-300)" }}>{tipoLabel}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--gray-500)" }}>Valor</span>
+                        <span className="font-bold text-white" style={{ fontVariantNumeric: "tabular-nums" }}>
+                          {formatCurrency(g.valor)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3" style={{ fontSize: 13.5 }}>
+                        <span style={{ color: "var(--gray-500)" }}>Período</span>
+                        <span className="text-right truncate" style={{ color: "var(--gray-400)" }}>{descreverPeriodo(g, situacao)}</span>
+                      </div>
+
+                      <div className="pt-2.5 mt-1 border-t" style={{ borderColor: "var(--gray-700)" }}>
+                        {acoesNode}
+                      </div>
                     </div>
                   </div>
                 );
@@ -772,7 +861,7 @@ export default function FinanceiroPage() {
       </div>
 
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(4,12,16,0.72)", backdropFilter: "blur(4px)" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(4,12,16,0.72)", backdropFilter: "blur(4px)" }}>
           <div
             className="w-full max-w-md flex flex-col overflow-hidden"
             style={{ borderRadius: 24, border: "1px solid var(--gray-600)", background: "linear-gradient(180deg, rgba(16,40,50,0.98), rgba(7,28,36,0.98))", boxShadow: "0 50px 110px -34px rgba(0,0,0,0.85), 0 0 0 1px rgba(30,182,232,0.10)" }}
