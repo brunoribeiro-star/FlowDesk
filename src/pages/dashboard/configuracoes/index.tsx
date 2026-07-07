@@ -955,7 +955,7 @@ export default function ConfiguracoesPage() {
   return (
     <>
 
-      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto lg:overflow-hidden">
+      <div className="flex flex-col lg:flex-row flex-1 overflow-y-auto overflow-x-hidden lg:overflow-hidden">
 
         <aside className="w-full lg:w-[296px] bg-primary-900 flex flex-col py-4 px-4 sm:py-5 sm:px-5 lg:py-[34px] lg:px-[22px] gap-4 lg:gap-[30px] shrink-0 sticky top-0 z-10 lg:static lg:z-auto">
           <div className="flex items-start gap-[14px] px-2">

@@ -17,6 +17,7 @@ import { triggerUpgradeBanner } from "@/lib/limitGuard";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Pencil,
   Search,
@@ -132,6 +133,8 @@ export default function ClientesPage() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const isMobile = useIsMobile();
+  const effectiveViewMode: ViewMode = isMobile ? "list" : viewMode;
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -592,24 +595,6 @@ export default function ClientesPage() {
             </div>
 
             <div className="flex items-center gap-2 lg:hidden">
-              <div className="cl-seg">
-                <button
-                  type="button"
-                  className={`cl-seg-btn${viewMode === "list" ? " is-on" : ""}`}
-                  onClick={() => setViewMode("list")}
-                  title="Lista"
-                >
-                  <LayoutList size={20} />
-                </button>
-                <button
-                  type="button"
-                  className={`cl-seg-btn${viewMode === "board" ? " is-on" : ""}`}
-                  onClick={() => setViewMode("board")}
-                  title="Quadros"
-                >
-                  <Kanban size={20} />
-                </button>
-              </div>
               <HeaderProfile />
             </div>
           </div>
@@ -669,9 +654,9 @@ export default function ClientesPage() {
 
         <div className="cl-hdr-divider" />
 
-        <main className={`relative z-10 flex-1 flex flex-col px-4 sm:px-6 lg:px-8 xl:px-11 py-4 sm:py-6 min-h-0 ${viewMode === "list" ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`}>
-          {viewMode === "list" && renderListView()}
-          {viewMode === "board" && renderBoardView()}
+        <main className={`relative z-10 flex-1 flex flex-col px-4 sm:px-6 lg:px-8 xl:px-11 py-4 sm:py-6 min-h-0 ${effectiveViewMode === "list" ? "overflow-hidden" : "overflow-y-auto overflow-x-hidden"}`}>
+          {effectiveViewMode === "list" && renderListView()}
+          {effectiveViewMode === "board" && renderBoardView()}
         </main>
       </div>
 

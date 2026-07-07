@@ -438,7 +438,7 @@ export default function FinanceiroPage() {
 
   return (
     <div
-      className="relative flex flex-col flex-1 gap-[22px] overflow-y-auto financeiro-scroll px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6"
+      className="relative flex flex-col flex-1 gap-[22px] overflow-y-auto overflow-x-hidden financeiro-scroll px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6"
     >
       <div
         className="pointer-events-none absolute rounded-full z-0"

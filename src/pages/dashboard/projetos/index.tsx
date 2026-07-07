@@ -16,6 +16,7 @@ import { duplicateProjeto } from "@/lib/supabaseQueries/projetos";
 import { syncPagamentosComValorProjeto } from "@/lib/supabaseQueries/pagamentos";
 import DatePicker from "@/components/DatePicker";
 import { useImageConverter } from "@/hooks/useImageConverter";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { checkStorageAvailable } from "@/lib/storageCheck";
@@ -156,6 +157,8 @@ export default function ProjetosPage() {
   const [showArchived, setShowArchived] = useState(false);
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const isMobile = useIsMobile();
+  const effectiveViewMode: ViewMode = isMobile ? "list" : viewMode;
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -1078,6 +1081,11 @@ export default function ProjetosPage() {
   }
 
   function renderViewToggle() {
+    // Board and calendar layouts need horizontal space that doesn't exist on
+    // mobile, so only the stacked list view is offered below the lg breakpoint
+    // — nothing to toggle there, so the control itself is hidden.
+    if (isMobile) return null;
+
     const views: [ViewMode, string, React.ReactNode][] = [
       ["list",     "Lista",      <List     key="list"     size={20} />],
       ["board",    "Quadros",    <LayoutGrid key="board"  size={20} />],
@@ -1691,12 +1699,12 @@ export default function ProjetosPage() {
         </div>
 
         <section className="flex-1 h-full min-h-0 overflow-hidden lg:pr-4 flex flex-col">
-          {viewMode === "list" && renderListView()}
-          {viewMode === "board" && renderBoardView()}
-          {viewMode === "calendar" && renderCalendarView()}
+          {effectiveViewMode === "list" && renderListView()}
+          {effectiveViewMode === "board" && renderBoardView()}
+          {effectiveViewMode === "calendar" && renderCalendarView()}
         </section>
 
-        {viewMode === "board" && totalProjetos > 0 && (
+        {effectiveViewMode === "board" && totalProjetos > 0 && (
           <div
             onDragOver={(e) => {
               e.preventDefault();

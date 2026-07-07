@@ -173,7 +173,7 @@ export default function RelatoriosPage() {
     <>
       <PageTour name="relatorios" steps={RELATORIOS_TOUR_STEPS} />
 
-      <div className="flex flex-col flex-1 gap-6 sm:gap-[38px] px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6 overflow-y-auto min-w-0">
+      <div className="flex flex-col flex-1 gap-6 sm:gap-[38px] px-4 sm:px-6 lg:pl-0 lg:pr-6 py-4 sm:py-6 overflow-y-auto overflow-x-hidden min-w-0">
 
         <header className="w-full flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
           <div className="flex items-center justify-between gap-3 lg:contents">

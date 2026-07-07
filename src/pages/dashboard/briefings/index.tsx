@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import {
   Pencil, Trash2, MoreVertical, ChevronDown,
   ClipboardList, FileText, Calendar, Copy, Send, Eye, Plus, X,
@@ -147,6 +148,8 @@ export default function BriefingsPage() {
   const [filtroEmail, setFiltroEmail] = useState<FiltroEmail>("");
   const [activeTab, setActiveTab] = useState<ActiveTab>("modelos");
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const isMobile = useIsMobile();
+  const effectiveViewMode: ViewMode = isMobile ? "list" : viewMode;
 
   useEffect(() => {
     const saved = localStorage.getItem("briefingsViewMode");
@@ -1479,17 +1482,19 @@ export default function BriefingsPage() {
                         <path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><circle cx="3.5" cy="6" r="0.5" fill="currentColor"/><circle cx="3.5" cy="12" r="0.5" fill="currentColor"/><circle cx="3.5" cy="18" r="0.5" fill="currentColor"/>
                       </svg>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => changeViewMode("board")}
-                      title="Quadros"
-                      className={`grid place-items-center w-10 h-[34px] rounded-[9px] border-0 cursor-pointer transition-colors duration-200 ${viewMode === "board" ? "" : "bg-transparent text-gray-400 hover:text-primary-300"}`}
-                      style={viewMode === "board" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)' } : {}}
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="5" rx="1.5"/><rect x="14" y="15" width="7" height="5" rx="1.5"/>
-                      </svg>
-                    </button>
+                    {!isMobile && (
+                      <button
+                        type="button"
+                        onClick={() => changeViewMode("board")}
+                        title="Quadros"
+                        className={`grid place-items-center w-10 h-[34px] rounded-[9px] border-0 cursor-pointer transition-colors duration-200 ${viewMode === "board" ? "" : "bg-transparent text-gray-400 hover:text-primary-300"}`}
+                        style={viewMode === "board" ? { background: 'linear-gradient(135deg, var(--primary-300), var(--primary-500))', color: 'var(--primary-900)' } : {}}
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="4" width="7" height="7" rx="1.5"/><rect x="14" y="4" width="7" height="7" rx="1.5"/><rect x="3" y="15" width="7" height="5" rx="1.5"/><rect x="14" y="15" width="7" height="5" rx="1.5"/>
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1526,7 +1531,7 @@ export default function BriefingsPage() {
                 </div>
               </div>
 
-              {viewMode === "list" && (
+              {effectiveViewMode === "list" && (
                 <div className="hidden md:grid gap-5 px-2 pb-4 flex-none" style={{ gridTemplateColumns: '1.5fr 1.3fr 1.4fr 1fr 1.5fr' }}>
                   <span className="text-[13px] font-medium text-gray-400">Cliente</span>
                   <span className="text-[13px] font-medium text-gray-400">Projeto</span>
@@ -1543,7 +1548,7 @@ export default function BriefingsPage() {
                   <div className="py-16 text-center text-red-400 text-sm">{erro}</div>
                 ) : enviosFiltrados.length === 0 ? (
                   <div className="py-16 text-center text-gray-500 text-sm">Nenhum envio encontrado com os filtros atuais.</div>
-                ) : viewMode === "board" ? (
+                ) : effectiveViewMode === "board" ? (
                   renderBoardView()
                 ) : (
                   <div className="flex flex-col">

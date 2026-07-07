@@ -47,7 +47,7 @@ export default function ThemePage() {
   }
 
   return (
-    <div className="h-full w-full bg-primary-900 text-gray-100 flex flex-col overflow-y-auto">
+    <div className="h-full w-full bg-primary-900 text-gray-100 flex flex-col overflow-y-auto overflow-x-hidden">
 
       <header className="w-full px-4 sm:px-6 pt-6 flex items-center">
         <button

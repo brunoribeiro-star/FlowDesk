@@ -18,6 +18,7 @@ import {
   User,
 } from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import Image from "next/image";
 import { formatarData as formatDate } from "@/lib/utils";
 import PageTour from "@/components/PageTour";
@@ -68,6 +69,8 @@ export default function ProposalsList() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "board">("list");
+  const isMobile = useIsMobile();
+  const effectiveViewMode: "list" | "board" = isMobile ? "list" : viewMode;
 
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
@@ -496,24 +499,6 @@ export default function ProposalsList() {
             </button>
 
             <div className="flex items-center gap-2 lg:hidden">
-              <div className="pr-seg-ctrl">
-                <button
-                  type="button"
-                  className={`pr-seg-btn${viewMode === "list" ? " is-on" : ""}`}
-                  onClick={() => handleViewChange("list")}
-                  title="Visualização em lista"
-                >
-                  <LayoutList size={19} />
-                </button>
-                <button
-                  type="button"
-                  className={`pr-seg-btn${viewMode === "board" ? " is-on" : ""}`}
-                  onClick={() => handleViewChange("board")}
-                  title="Visualização em quadros"
-                >
-                  <LayoutGrid size={19} />
-                </button>
-              </div>
               <HeaderProfile />
             </div>
           </div>
@@ -572,7 +557,7 @@ export default function ProposalsList() {
                 style={{ borderColor: "var(--primary-500)", borderTopColor: "transparent" }}
               />
             </div>
-          ) : viewMode === "list" ? (
+          ) : effectiveViewMode === "list" ? (
             renderListView()
           ) : (
             renderBoardView()

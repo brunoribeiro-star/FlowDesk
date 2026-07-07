@@ -227,7 +227,7 @@ export default function PortalProjetoPage() {
 
   if (pageState === "loading") {
     return (
-      <div style={{ height: "100vh", width: "100%", background: "var(--primary-900)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ height: "100dvh", width: "100%", background: "var(--primary-900)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ width: 32, height: 32, border: "2px solid var(--primary-500)", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
@@ -236,7 +236,7 @@ export default function PortalProjetoPage() {
 
   if (pageState === "denied" || pageState === "error" || !projeto) {
     return (
-      <div style={{ height: "100vh", width: "100%", background: "var(--primary-900)", color: "var(--gray-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ height: "100dvh", width: "100%", background: "var(--primary-900)", color: "var(--gray-100)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
           <p style={{ color: "var(--gray-400)", marginBottom: 16 }}>
             {pageState === "denied" ? "Você não tem acesso a este projeto." : "Erro ao carregar projeto."}
@@ -849,7 +849,7 @@ export default function PortalProjetoPage() {
         /* ====== Portal Cliente — Detalhes do Projeto ====== */
 
         .pcd-root {
-          height: 100vh; width: 100%; display: flex; overflow: hidden;
+          height: 100vh; height: 100dvh; width: 100%; display: flex; overflow: hidden;
           background: var(--primary-900); color: var(--gray-100);
           -webkit-font-smoothing: antialiased;
         }

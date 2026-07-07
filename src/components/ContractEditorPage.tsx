@@ -849,8 +849,8 @@ export default function ContractEditorPage({ mode, templateId, generateData }: C
             </button>
 
             {showVarDropdown && (
-              <div className="absolute top-full right-0 mt-1 z-50 bg-primary-900 border border-primary-700 rounded-xl shadow-2xl w-[480px] max-h-[420px] overflow-y-auto p-3">
-                <div className="grid grid-cols-2 gap-3">
+              <div className="absolute top-full right-0 mt-1 z-50 bg-primary-900 border border-primary-700 rounded-xl shadow-2xl w-[480px] max-w-[calc(100vw-2rem)] max-h-[420px] overflow-y-auto p-3">
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-3">
                   {VAR_SUGGESTIONS.map(group => (
                     <div key={group.group}>
                       <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-1">{group.group}</p>

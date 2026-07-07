@@ -11,6 +11,7 @@ import UrgenciaIndicator from "@/components/UrgenciaIndicator";
 import HeaderProfile from "@/components/HeaderProfile";
 import PageTour from "@/components/PageTour";
 import type { Step } from "react-joyride";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const TAREFAS_TOUR_STEPS: Step[] = [
   { target: "body", placement: "center", skipBeacon: true, title: "Bem-vindo às Tarefas!", content: "Esta é a visão global de todas as suas tarefas de todos os projetos. Ideal para saber o que precisa ser feito hoje, independente do projeto." },
@@ -132,6 +133,10 @@ export default function TarefasPage() {
   const collabProjectIdsRef = useRef<Set<string>>(new Set());
 
   const [view, setView] = useState<"list" | "boards" | "calendar">("list");
+  const isMobile = useIsMobile();
+  // Board and calendar layouts need more horizontal room than a phone screen
+  // offers, so mobile always falls back to the stacked list view.
+  const effectiveView: "list" | "boards" | "calendar" = isMobile ? "list" : view;
 
   useEffect(() => {
     const savedView = localStorage.getItem("tarefasViewMode");
@@ -437,19 +442,21 @@ export default function TarefasPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 lg:gap-3 lg:contents">
-            <div className="tk-seg-ctrl">
-              {(["list","boards","calendar"] as const).map((k) => (
-                <button
-                  key={k}
-                  type="button"
-                  onClick={() => changeView(k)}
-                  className={"tk-seg-item" + (view === k ? " is-on" : "")}
-                  title={k === "list" ? "Lista" : k === "boards" ? "Quadros" : "Calendário"}
-                >
-                  {k === "list" ? <IconList /> : k === "boards" ? <IconBoard /> : <IconCalendar />}
-                </button>
-              ))}
-            </div>
+            {!isMobile && (
+              <div className="tk-seg-ctrl">
+                {(["list","boards","calendar"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => changeView(k)}
+                    className={"tk-seg-item" + (view === k ? " is-on" : "")}
+                    title={k === "list" ? "Lista" : k === "boards" ? "Quadros" : "Calendário"}
+                  >
+                    {k === "list" ? <IconList /> : k === "boards" ? <IconBoard /> : <IconCalendar />}
+                  </button>
+                ))}
+              </div>
+            )}
             <button
               id="tour-add-btn"
               type="button"
@@ -462,7 +469,7 @@ export default function TarefasPage() {
           </div>
         </header>
 
-        {view === "list" && (
+        {effectiveView === "list" && (
           <div className="tk-filters-row">
             <div className="tk-filter-wrap">
               <select
@@ -495,7 +502,7 @@ export default function TarefasPage() {
           </div>
         )}
 
-        {view === "list" && (
+        {effectiveView === "list" && (
           <section className="tlv-shell">
             <div className="tlv-head">
               <span>Tarefa</span>
@@ -638,7 +645,7 @@ export default function TarefasPage() {
           </section>
         )}
 
-        {view === "boards" && (
+        {effectiveView === "boards" && (
           <div className="tbv-shell tasks-scroll">
             {URGENCY_COLUMNS.map((col) => {
               const colTasks = tasksFiltradas.filter((t) => {
@@ -712,7 +719,7 @@ export default function TarefasPage() {
           </div>
         )}
 
-        {view === "calendar" && (
+        {effectiveView === "calendar" && (
           <div className="tcv-shell">
             <div className="tcv-head">
               <button type="button" className="tcv-nav" onClick={prevMonth}><IconChevLeft /></button>

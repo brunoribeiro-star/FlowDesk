@@ -120,7 +120,7 @@ export default function CronometroPage() {
           </div>
         </header>
 
-        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-6 gap-8 sm:gap-10 overflow-y-auto">
+        <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-6 gap-8 sm:gap-10 overflow-y-auto overflow-x-hidden">
 
           <div className="text-center">
             <p className="text-[13px] font-semibold uppercase tracking-[0.32em] text-gray-500 mb-3">Modo livre</p>

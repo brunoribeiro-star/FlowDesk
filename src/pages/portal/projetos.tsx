@@ -368,7 +368,7 @@ export default function PortalProjetosPage() {
         /* ====== Portal Projetos — Redesign ====== */
 
         .cp-page {
-          height: 100vh; width: 100%; display: flex; overflow: hidden;
+          height: 100vh; height: 100dvh; width: 100%; display: flex; overflow: hidden;
           background: var(--primary-900); color: var(--gray-100);
           -webkit-font-smoothing: antialiased;
         }
