@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import {
-  Pencil, Trash2, MoreVertical, ChevronDown,
+  Pencil, Trash2, MoreVertical, ChevronDown, Check,
   ClipboardList, FileText, Calendar, Copy, Send, Eye, Plus, X,
   Star, Heart, Zap, Flag, Bookmark, MessageCircle, Hash, Link, Info, AlertCircle, Settings,
   User, Users, Briefcase, Folder, Image as ImageIcon, Clock, MapPin, Globe, Sun, Moon, Smile,
@@ -1602,6 +1602,14 @@ export default function BriefingsPage() {
                               >
                                 <Copy size={17} className="text-gray-400" />
                                 Copiar link
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => { setOpenMenuEnvioId(null); updateEnvioStatus(envio.id, isRespondido ? "pendente" : "respondido"); }}
+                                className="flex items-center gap-3 w-full px-3.5 py-3 rounded-[10px] text-[15.5px] font-medium text-gray-100 border-0 bg-transparent cursor-pointer transition-colors hover:bg-[rgba(30,182,232,0.10)] hover:text-gray-100"
+                              >
+                                <Check size={17} className="text-gray-400" />
+                                {isRespondido ? "Marcar como pendente" : "Marcar como respondido"}
                               </button>
                               <div className="h-px my-1.5 mx-2 bg-gray-700" />
                               <button

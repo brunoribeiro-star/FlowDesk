@@ -878,6 +878,13 @@ export default function ProjetosPage() {
     const current = draggingId;
     setDraggingId(null);
 
+    await moveProjectToStatus(current, coluna);
+  }
+
+  async function moveProjectToStatus(current: string, coluna: ProjetoStatus) {
+    const proj = projetos.find((p) => p.id === current);
+    if (!proj) return;
+
     const currentNs = normalizeStatus(proj, hasPagamentoPendente(proj));
 
     if (currentNs === coluna) return;
@@ -1258,6 +1265,34 @@ export default function ProjetosPage() {
                           <UrgenciaIndicator nivel={urg} />
                           <span className="text-[12px] text-gray-400">{entregaTxt}</span>
                         </div>
+                        {pendente && !p.isCollaborator && (
+                          <div className="mt-3 md:hidden flex flex-col gap-2">
+                            <div
+                              className="text-[13px] font-medium text-center py-2"
+                              style={{
+                                color: "var(--error-medium)",
+                                borderRadius: 11,
+                                background: "rgba(239,83,80,0.08)",
+                                border: "1px solid rgba(239,83,80,0.28)",
+                              }}
+                            >
+                              Pendência <strong className="font-bold">{valorRestante.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                checkCollabAndFinalize(p.id);
+                              }}
+                              className="bv-paid-btn w-full flex items-center justify-center gap-2"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>
+                              </svg>
+                              Pagamento recebido
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1351,7 +1386,7 @@ export default function ProjetosPage() {
                         </button>
                         {menuOpenId === p.id && (
                           <div
-                            className="absolute right-0 mt-2 w-40 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20"
+                            className="absolute right-0 mt-2 w-48 rounded-xl bg-primary-800 border border-primary-700 shadow-xl z-20"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <button
@@ -1361,6 +1396,26 @@ export default function ProjetosPage() {
                             >
                               Editar
                             </button>
+                            {ns !== "arquivado" && (
+                              <>
+                                <div className="px-4 pt-2 pb-1 text-[11px] uppercase tracking-wide text-gray-500">
+                                  Alterar status
+                                </div>
+                                {KANBAN_COLUMNS.filter((col) => col.status !== ns).map((col) => (
+                                  <button
+                                    key={col.status}
+                                    type="button"
+                                    onClick={() => {
+                                      setMenuOpenId(null);
+                                      moveProjectToStatus(p.id, col.status as ProjetoStatus);
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 text-[13px] text-gray-100 hover:bg-primary-700"
+                                  >
+                                    {col.label}
+                                  </button>
+                                ))}
+                              </>
+                            )}
                             <button
                               type="button"
                               onClick={() => handleDuplicate(p.id)}

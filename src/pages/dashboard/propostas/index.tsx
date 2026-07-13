@@ -213,13 +213,34 @@ export default function ProposalsList() {
                 {openListMenuId === p.id && (
                   <div
                     data-board-menu
-                    className="absolute right-0 z-30 w-36 rounded-xl shadow-xl overflow-hidden"
+                    className="absolute right-0 z-30 w-44 rounded-xl shadow-xl overflow-hidden"
                     style={{
                       top: "calc(100% + 6px)",
                       background: "var(--primary-800)",
                       border: "1px solid var(--primary-700)",
                     }}
                   >
+                    <div
+                      className="px-4 pt-2.5 pb-1 text-[11px] uppercase tracking-wide"
+                      style={{ color: "var(--gray-500)" }}
+                    >
+                      Alterar status
+                    </div>
+                    {COLUMNS.filter((col) => col.id !== p.status).map((col) => (
+                      <button
+                        key={col.id}
+                        onClick={() => {
+                          setOpenListMenuId(null);
+                          handleStatusChange(p.id, col.id);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2 transition-colors"
+                        style={{ color: "var(--gray-100)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-700)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                      >
+                        {col.label}
+                      </button>
+                    ))}
                     <button
                       onClick={() => {
                         setOpenListMenuId(null);

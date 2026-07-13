@@ -33,6 +33,7 @@ import {
   MoreHorizontal,
   Check,
   CreditCard,
+  Tag,
 } from "lucide-react";
 import Toast from "@/components/ui/Toast";
 import ConfirmModal from "@/components/ui/ConfirmModal";
@@ -463,6 +464,37 @@ export default function ClientesPage() {
                 {new Date(c.created_at).toLocaleDateString("pt-BR")}
               </div>
               <div className="cll-actions">
+                <div style={{ position: "relative" }} data-client-menu>
+                  <button
+                    type="button"
+                    className="cl-iconmini"
+                    onClick={() => setMenuOpenId(menuOpenId === c.id ? null : c.id)}
+                    title="Alterar estágio"
+                  >
+                    <Tag size={17} />
+                  </button>
+                  {menuOpenId === c.id && (
+                    <div className="clb-menu" data-client-menu>
+                      <div className="px-3 pt-1 pb-1.5 text-[11px] uppercase tracking-wide" style={{ color: "var(--gray-500)" }}>
+                        Estágio
+                      </div>
+                      {boardColumns.map((col) => (
+                        <button
+                          type="button"
+                          key={col.id}
+                          className="clb-menu-item"
+                          onClick={() => {
+                            setClientStatusMap((prev) => ({ ...prev, [c.id]: col.id }));
+                            setMenuOpenId(null);
+                          }}
+                        >
+                          <span className={`clb-dot tone-${col.tone}`} />
+                          {col.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button type="button" className="cl-iconmini" onClick={() => setEditing(c)} title="Editar">
                   <Pencil size={17} />
                 </button>
