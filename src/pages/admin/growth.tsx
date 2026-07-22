@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabaseClient";
 import clsx from "clsx";
 import {
   ArrowLeft, Target, Calendar as CalendarIcon, Sparkles,
-  Plus, Trash2, ExternalLink, Check, X as XIcon,
+  Plus, Trash2, ExternalLink, Check, X as XIcon, Map, BookOpen,
 } from "lucide-react";
 
 interface Goal {
@@ -58,6 +58,30 @@ const CALENDAR_STATUS: Record<string, string> = {
 };
 
 const REDES_OPCOES = ["instagram", "tiktok"];
+
+const ROADMAP = [
+  { fase: "Setup", periodo: "até 26/07", meta: null as number | null, foco: "Reposicionar perfil pessoal, habilitar collab post com @flowdesk, gravar banco de vídeos coringa", inicio: "2026-07-01", fim: "2026-07-26" },
+  { fase: "Fundação", periodo: "Ago/2026", meta: 75, foco: "Estabelecer os 4 pilares, postar todo dia, achar o que ressoa", inicio: "2026-07-27", fim: "2026-08-31" },
+  { fase: "Volume", periodo: "Set/2026", meta: 200, foco: "Dobrar cadência no que performou melhor em Agosto", inicio: "2026-09-01", fim: "2026-09-30" },
+  { fase: "Aceleração", periodo: "Out/2026", meta: 400, foco: "Colaborações, comunidades de freelancer/indie hacker, formatos mais ousados", inicio: "2026-10-01", fim: "2026-10-31" },
+  { fase: "Pico", periodo: "Nov/2026", meta: 700, foco: "Grande momento de conteúdo (lançamento de feature, campanha, evento)", inicio: "2026-11-01", fim: "2026-11-30" },
+  { fase: "Reta final", periodo: "Dez/2026", meta: 1000, foco: "Urgência, recapitulação da jornada, mecanismo de indicação", inicio: "2026-12-01", fim: "2026-12-31" },
+];
+
+const PILARES_INFO = [
+  { key: "dia_x", nome: "Dia X até a meta", desc: "Vídeo curto e cru, diário. Carro-chefe: sustenta a consistência e o algoritmo." },
+  { key: "build_in_public", nome: "Build in public", desc: "Atualização semanal de números reais: usuários, MRR, tarefas criadas, o que quebrou." },
+  { key: "meme", nome: "Meme/humor", desc: "Maior alcance entre os formatos analisados. Dores do freelancer: planilha, WhatsApp, cliente, cobrança." },
+  { key: "carrossel", nome: "Carrossel storytelling", desc: "Arco origem → luta → virada → prova. Gera o comentário de mais qualidade." },
+];
+
+const VOICE_GUIDE = [
+  "1ª pessoa, português informal, direto — frases curtas.",
+  "Número real mesmo quando é pequeno ou constrangedor (é isso que gera identificação).",
+  '"É grátis, testa e me fala o que achou" > "assine agora" — nunca venda dura.',
+  "Hashtags: #flowdesk #freelancer #buildinpublic #saas #empreendedorismo #gestaodeprojetos #produtividade",
+  "Todo post relevante sai como collab entre perfil pessoal + @flowdesk. Nunca publi fora do nicho.",
+];
 
 export default function GrowthPage() {
   const { user, loading: authLoading } = useAuth();
@@ -217,6 +241,7 @@ export default function GrowthPage() {
 
   const progressPct = goal ? Math.min(100, Math.round((currentValue / goal.meta_valor) * 100)) : 0;
   const pendingTrends = trendItems.filter(t => t.status === "novo");
+  const hoje = new Date().toISOString().slice(0, 10);
 
   return (
     <>
@@ -303,6 +328,59 @@ export default function GrowthPage() {
                 </div>
               </div>
             )}
+          </section>
+
+          <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-gray-300">
+              <Map size={16} className="text-primary-400" />
+              <h2 className="text-[14px] font-semibold">Roadmap por fase</h2>
+            </div>
+            <div className="flex flex-col gap-2">
+              {ROADMAP.map(f => {
+                const ativa = hoje >= f.inicio && hoje <= f.fim;
+                return (
+                  <div
+                    key={f.fase}
+                    className={clsx(
+                      "flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 rounded-lg px-4 py-3 border",
+                      ativa ? "bg-primary-500/10 border-primary-500/40" : "bg-primary-900 border-primary-700"
+                    )}
+                  >
+                    <div className="sm:w-[110px] shrink-0 flex items-center gap-2">
+                      <span className={clsx("text-[13px] font-semibold", ativa ? "text-primary-300" : "text-gray-200")}>{f.fase}</span>
+                      {ativa && <span className="text-[9px] font-bold uppercase text-primary-300 bg-primary-900 border border-primary-500/40 px-1.5 py-0.5 rounded-md">agora</span>}
+                    </div>
+                    <div className="sm:w-20 shrink-0 text-[12px] text-gray-500">{f.periodo}</div>
+                    <div className="flex-1 text-[12px] text-gray-400">{f.foco}</div>
+                    <div className="sm:w-32 shrink-0 text-[12px] text-gray-300 sm:text-right">
+                      {f.meta ? `meta: ${f.meta} usuários` : "—"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
+            <div className="flex items-center gap-2 text-gray-300">
+              <BookOpen size={16} className="text-primary-400" />
+              <h2 className="text-[14px] font-semibold">Pilares de conteúdo &amp; guia de voz</h2>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {PILARES_INFO.map(p => (
+                <div key={p.key} className="bg-primary-900 border border-primary-700 rounded-lg p-3 flex flex-col gap-1">
+                  <span className="text-[12px] font-semibold text-primary-300">{p.nome}</span>
+                  <span className="text-[12px] text-gray-400">{p.desc}</span>
+                </div>
+              ))}
+            </div>
+            <ul className="flex flex-col gap-1.5 pt-1 border-t border-primary-700">
+              {VOICE_GUIDE.map((v, i) => (
+                <li key={i} className="text-[12px] text-gray-400 pl-3 relative before:content-['•'] before:absolute before:left-0 before:text-primary-500">
+                  {v}
+                </li>
+              ))}
+            </ul>
           </section>
 
           <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
@@ -455,7 +533,8 @@ export default function GrowthPage() {
                           </span>
                         ))}
                       </div>
-                      <p className="text-[13px] text-gray-200 mt-1 truncate">{item.titulo}</p>
+                      <p className="text-[13px] text-gray-200 mt-1 font-medium">{item.titulo}</p>
+                      {item.legenda && <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{item.legenda}</p>}
                     </div>
                     <select
                       value={item.status}
