@@ -9,7 +9,7 @@ import {
   Users, Zap, Search, X, ChevronDown, LogOut,
   RefreshCw, Mail, Trash2, AlertTriangle, LayoutDashboard,
   ExternalLink, Camera, Phone, CheckCircle2,
-  FolderOpen, Clock, UserRound,
+  FolderOpen, Clock, UserRound, Rocket,
 } from "lucide-react";
 import clsx from "clsx";
 import {
@@ -993,6 +993,13 @@ export default function AdminPage() {
           </nav>
 
           <div className="px-2 pb-4 flex flex-col gap-1 border-t border-primary-700 pt-4">
+            <Link
+              href="/admin/growth"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors"
+            >
+              <Rocket size={16} className="text-gray-500" />
+              Growth
+            </Link>
             <Link
               href="/dashboard"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-gray-400 hover:text-gray-200 hover:bg-primary-700 transition-colors"
