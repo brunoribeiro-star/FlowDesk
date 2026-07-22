@@ -9,6 +9,7 @@ import {
   ArrowLeft, Target, Calendar as CalendarIcon, Sparkles,
   Plus, Trash2, ExternalLink, Check, X as XIcon, Map as MapIcon, BookOpen,
   ChevronLeft, ChevronRight, Video, Image as ImageIcon, Layers,
+  Copy, Clock, BarChart3, Heart, Eye, MessageCircle, Ban,
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -44,6 +45,10 @@ interface CalendarItem {
   status: string;
   formato: string;
   conteudo_detalhado: ConteudoDetalhado;
+  link_publicado: string | null;
+  curtidas: number | null;
+  visualizacoes: number | null;
+  comentarios: number | null;
 }
 
 interface TrendIdea {
@@ -78,13 +83,12 @@ const FORMATO_ICONS: Record<string, React.ReactNode> = {
   estatico: <ImageIcon size={11} />, carrossel: <Layers size={11} />, reel: <Video size={11} />,
 };
 
-const CALENDAR_STATUS: Record<string, string> = {
-  ideia: "Ideia",
-  rascunho: "Rascunho",
-  gravado: "Gravado",
-  postado: "Postado",
-  descartado: "Descartado",
-};
+const STATUS_STEPS = ["ideia", "rascunho", "gravado", "postado"] as const;
+const STATUS_STEP_LABELS: Record<string, string> = { ideia: "Ideia", rascunho: "Roteiro pronto", gravado: "Gravado", postado: "Postado" };
+
+async function copyText(text: string) {
+  try { await navigator.clipboard.writeText(text); } catch { /* clipboard indisponível, ignora */ }
+}
 
 const REDES_OPCOES = ["instagram", "tiktok"];
 
@@ -143,6 +147,7 @@ export default function GrowthPage() {
   const [goalForm, setGoalForm] = useState({ titulo: "1.000 usuários pagantes até 31/12/2026", meta_valor: 1000, data_alvo: "2026-12-31" });
 
   const [viewDate, setViewDate] = useState(() => new Date());
+  const hoje = isoDate(new Date());
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [calendarForm, setCalendarForm] = useState({
@@ -150,7 +155,10 @@ export default function GrowthPage() {
   });
 
   const [detailItem, setDetailItem] = useState<CalendarItem | null>(null);
-  const [detailDraft, setDetailDraft] = useState<{ legenda: string; status: string; conteudo_detalhado: ConteudoDetalhado } | null>(null);
+  const [detailDraft, setDetailDraft] = useState<{
+    legenda: string; status: string; conteudo_detalhado: ConteudoDetalhado;
+    link_publicado: string; curtidas: string; visualizacoes: string; comentarios: string;
+  } | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -242,6 +250,10 @@ export default function GrowthPage() {
       legenda: item.legenda ?? "",
       status: item.status,
       conteudo_detalhado: item.conteudo_detalhado ?? emptyContentFor(item.formato),
+      link_publicado: item.link_publicado ?? "",
+      curtidas: item.curtidas != null ? String(item.curtidas) : "",
+      visualizacoes: item.visualizacoes != null ? String(item.visualizacoes) : "",
+      comentarios: item.comentarios != null ? String(item.comentarios) : "",
     });
   }
 
@@ -251,10 +263,28 @@ export default function GrowthPage() {
     await fetch(`/api/admin/growth/calendar/${detailItem.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(detailDraft),
+      body: JSON.stringify({
+        legenda: detailDraft.legenda,
+        status: detailDraft.status,
+        conteudo_detalhado: detailDraft.conteudo_detalhado,
+        link_publicado: detailDraft.link_publicado || null,
+        curtidas: detailDraft.curtidas === "" ? null : Number(detailDraft.curtidas),
+        visualizacoes: detailDraft.visualizacoes === "" ? null : Number(detailDraft.visualizacoes),
+        comentarios: detailDraft.comentarios === "" ? null : Number(detailDraft.comentarios),
+      }),
     });
     setDetailItem(null);
     setDetailDraft(null);
+    fetchCalendar();
+  }
+
+  async function handleQuickStatus(item: CalendarItem, status: string) {
+    const token = await getToken();
+    await fetch(`/api/admin/growth/calendar/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status }),
+    });
     fetchCalendar();
   }
 
@@ -315,13 +345,62 @@ export default function GrowthPage() {
     return { cells, label: `${MONTHS_PT[month]} de ${year}` };
   }, [viewDate, calendarItems]);
 
+  const ritmoSemana = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const inicio = isoDate(monday);
+    const fim = isoDate(sunday);
+    const daSemana = calendarItems.filter(i => i.data_planejada >= inicio && i.data_planejada <= fim);
+    const gravados = daSemana.filter(i => i.status === "gravado" || i.status === "postado").length;
+    const postados = daSemana.filter(i => i.status === "postado").length;
+    return { planejados: daSemana.length, gravados, postados };
+  }, [calendarItems]);
+
+  const performancePorPilar = useMemo(() => {
+    const comResultado = calendarItems.filter(i => i.status === "postado" && i.curtidas != null);
+    const porPilar = new Map<string, { soma: number; count: number }>();
+    for (const item of comResultado) {
+      const acc = porPilar.get(item.pilar) ?? { soma: 0, count: 0 };
+      acc.soma += item.curtidas ?? 0;
+      acc.count += 1;
+      porPilar.set(item.pilar, acc);
+    }
+    return Array.from(porPilar.entries())
+      .map(([pilar, v]) => ({ pilar, media: Math.round(v.soma / v.count), count: v.count }))
+      .sort((a, b) => b.media - a.media);
+  }, [calendarItems]);
+
+  const historicoMetas = useMemo(() => {
+    return ROADMAP.filter(f => f.meta !== null && f.fim < hoje).map(f => {
+      const proximos = historico.filter(h => h.date <= f.fim).sort((a, b) => b.date.localeCompare(a.date));
+      const valor = proximos[0]?.active_subscribers ?? null;
+      return { ...f, valorNoFim: valor, bateu: valor !== null ? valor >= (f.meta as number) : null };
+    });
+  }, [historico, hoje]);
+
+  const conversaoTrend = useMemo(() => {
+    const total = trendItems.length;
+    const usado = trendItems.filter(t => t.status === "usado").length;
+    const descartado = trendItems.filter(t => t.status === "descartado").length;
+    const novo = trendItems.filter(t => t.status === "novo").length;
+    return { total, usado, descartado, novo };
+  }, [trendItems]);
+
+  const hojeItems = useMemo(
+    () => calendarItems.filter(i => i.data_planejada === hoje && i.status !== "postado" && i.status !== "descartado"),
+    [calendarItems, hoje]
+  );
+
   if (authLoading || !user || user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) return (
     <div className="h-screen flex items-center justify-center bg-primary-900">
       <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  const hoje = isoDate(new Date());
   const pendingTrends = trendItems.filter(t => t.status === "novo");
   const metricValue = currentValue[metricaView];
   const progressPct = goal && metricaView === "pagantes" ? Math.min(100, Math.round((metricValue / goal.meta_valor) * 100)) : null;
@@ -347,6 +426,54 @@ export default function GrowthPage() {
               Somente admin
             </span>
           </div>
+
+          {/* O que gravar hoje */}
+          {!loadingCalendar && (
+            <section
+              className={clsx(
+                "relative overflow-hidden rounded-[20px] border p-5 sm:p-6 flex flex-col gap-3 animate-fade-in",
+                hojeItems.length > 0 ? "border-amber-500/40" : "border-primary-700"
+              )}
+              style={{ background: hojeItems.length > 0 ? "rgba(245,158,11,0.06)" : "var(--primary-800)" }}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center border" style={{ color: hojeItems.length > 0 ? "#F59E0B" : "var(--primary-400)", background: hojeItems.length > 0 ? "rgba(245,158,11,0.12)" : "rgba(79,197,235,0.12)", borderColor: hojeItems.length > 0 ? "rgba(245,158,11,0.40)" : "rgba(79,197,235,0.40)" }}>
+                  <Clock size={18} />
+                </div>
+                <h2 className="text-[14px] font-semibold text-gray-200">O que gravar/postar hoje</h2>
+              </div>
+
+              {hojeItems.length === 0 ? (
+                <p className="text-[12px] text-gray-500">Nada pendente pra hoje. 🎉</p>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {hojeItems.map(item => {
+                    const c = PILAR_COLORS[item.pilar] ?? PILAR_COLORS.outro;
+                    return (
+                      <div key={item.id} className="bg-primary-900 border border-primary-700 rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
+                        <span className={clsx("text-[11px] font-medium px-2 py-0.5 rounded-md border shrink-0", c.text, c.bg, c.border)}>{PILARES[item.pilar] ?? item.pilar}</span>
+                        <button onClick={() => openDetail(item)} className="flex-1 min-w-[140px] text-left text-[13px] text-gray-200 hover:text-primary-300 transition-colors truncate">
+                          {item.titulo}
+                        </button>
+                        <span className="text-[11px] text-gray-500 shrink-0">{STATUS_STEP_LABELS[item.status] ?? item.status}</span>
+                        <div className="flex gap-1.5 shrink-0">
+                          {STATUS_STEPS.slice(STATUS_STEPS.indexOf(item.status as any) + 1).slice(0, 1).map(next => (
+                            <button
+                              key={next}
+                              onClick={() => handleQuickStatus(item, next)}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-primary-500 hover:bg-primary-400 rounded-lg text-[11px] text-white transition-colors"
+                            >
+                              <Check size={12} /> {STATUS_STEP_LABELS[next]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Meta */}
           <section className="relative overflow-hidden rounded-[20px] border border-primary-700 p-5 sm:p-6 flex flex-col gap-4 animate-fade-in" style={{ background: "var(--primary-800)" }}>
@@ -683,6 +810,71 @@ export default function GrowthPage() {
             )}
           </section>
 
+          {/* Ritmo & performance */}
+          <section className="rounded-[20px] border border-primary-700 p-5 sm:p-6 flex flex-col gap-5 animate-fade-in" style={{ background: "var(--primary-800)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-[10px] flex items-center justify-center border" style={{ color: "var(--primary-400)", background: "rgba(79,197,235,0.12)", borderColor: "rgba(79,197,235,0.40)" }}>
+                <BarChart3 size={18} />
+              </div>
+              <h2 className="text-[14px] font-semibold text-gray-200">Ritmo &amp; performance</h2>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="bg-primary-900 border border-primary-700 rounded-xl p-4 flex flex-col gap-2">
+                <span className="text-[11px] font-medium text-gray-400">Ritmo desta semana</span>
+                <div className="flex items-end gap-4">
+                  <div><span className="text-[22px] font-bold text-gray-100">{ritmoSemana.planejados}</span><p className="text-[10px] text-gray-500">planejados</p></div>
+                  <div><span className="text-[22px] font-bold text-primary-300">{ritmoSemana.gravados}</span><p className="text-[10px] text-gray-500">gravados</p></div>
+                  <div><span className="text-[22px] font-bold text-emerald-400">{ritmoSemana.postados}</span><p className="text-[10px] text-gray-500">postados</p></div>
+                </div>
+              </div>
+
+              <div className="bg-primary-900 border border-primary-700 rounded-xl p-4 flex flex-col gap-2">
+                <span className="text-[11px] font-medium text-gray-400">Conversão de trend</span>
+                <div className="flex items-end gap-3 flex-wrap">
+                  <div><span className="text-[22px] font-bold text-gray-100">{conversaoTrend.total}</span><p className="text-[10px] text-gray-500">detectados</p></div>
+                  <div><span className="text-[22px] font-bold text-emerald-400">{conversaoTrend.usado}</span><p className="text-[10px] text-gray-500">viraram post</p></div>
+                  <div><span className="text-[22px] font-bold text-rose-400">{conversaoTrend.descartado}</span><p className="text-[10px] text-gray-500">descartados</p></div>
+                </div>
+              </div>
+
+              <div className="bg-primary-900 border border-primary-700 rounded-xl p-4 flex flex-col gap-2">
+                <span className="text-[11px] font-medium text-gray-400">Performance por pilar</span>
+                {performancePorPilar.length === 0 ? (
+                  <p className="text-[11px] text-gray-500 mt-1">Sem posts com resultado registrado ainda.</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5 mt-1">
+                    {performancePorPilar.map(p => (
+                      <div key={p.pilar} className="flex items-center justify-between text-[12px]">
+                        <span className={PILAR_COLORS[p.pilar]?.text}>{PILARES[p.pilar] ?? p.pilar}</span>
+                        <span className="text-gray-300 font-medium">{p.media} curtidas <span className="text-gray-600">({p.count})</span></span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[11px] font-medium text-gray-400">Histórico de metas do roadmap</span>
+              {historicoMetas.length === 0 ? (
+                <p className="text-[12px] text-gray-500">Nenhuma fase com prazo encerrado ainda.</p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {historicoMetas.map(f => (
+                    <div key={f.fase} className="flex items-center justify-between text-[12px] bg-primary-900 border border-primary-700 rounded-lg px-3 py-2">
+                      <span className="text-gray-300">{f.fase} <span className="text-gray-600">({f.periodo})</span></span>
+                      <span className="text-gray-500">meta: {f.meta} · fechou com: {f.valorNoFim ?? "sem dado"}</span>
+                      <span className={clsx("text-[10px] font-bold uppercase px-2 py-0.5 rounded-md border", f.bateu === null ? "text-gray-500 bg-primary-800 border-primary-700" : f.bateu ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30" : "text-rose-400 bg-rose-500/10 border-rose-500/30")}>
+                        {f.bateu === null ? "sem dado" : f.bateu ? "bateu" : "não bateu"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
         </div>
       </div>
 
@@ -787,17 +979,46 @@ export default function GrowthPage() {
                     </span>
                   ))}
                 </div>
-                <select
-                  value={detailDraft.status}
-                  onChange={e => setDetailDraft(d => d && ({ ...d, status: e.target.value }))}
-                  className="bg-primary-800 border border-primary-700 rounded-lg px-2 py-1.5 text-[11px] text-gray-300 focus:outline-none focus:border-primary-500"
+              </div>
+
+              {/* Checklist de produção */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {STATUS_STEPS.map((step, idx) => {
+                  const currentIdx = STATUS_STEPS.indexOf(detailDraft.status as any);
+                  const done = detailDraft.status !== "descartado" && currentIdx >= idx;
+                  return (
+                    <React.Fragment key={step}>
+                      {idx > 0 && <div className={clsx("h-px w-4", done ? "bg-primary-500" : "bg-primary-700")} />}
+                      <button
+                        onClick={() => setDetailDraft(d => d && ({ ...d, status: step }))}
+                        className={clsx(
+                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors",
+                          done ? "bg-primary-500 border-primary-400 text-white" : "bg-primary-800 border-primary-700 text-gray-400 hover:text-gray-200"
+                        )}
+                      >
+                        {done && <Check size={12} />} {STATUS_STEP_LABELS[step]}
+                      </button>
+                    </React.Fragment>
+                  );
+                })}
+                <button
+                  onClick={() => setDetailDraft(d => d && ({ ...d, status: "descartado" }))}
+                  className={clsx(
+                    "ml-1 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium border transition-colors",
+                    detailDraft.status === "descartado" ? "bg-rose-500/20 border-rose-500/40 text-rose-400" : "bg-primary-800 border-primary-700 text-gray-500 hover:text-rose-400"
+                  )}
                 >
-                  {Object.entries(CALENDAR_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
+                  <Ban size={12} /> Descartar
+                </button>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium text-gray-400">Legenda / caption</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-medium text-gray-400">Legenda / caption</label>
+                  <button onClick={() => copyText(detailDraft.legenda)} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-primary-300 transition-colors">
+                    <Copy size={11} /> copiar
+                  </button>
+                </div>
                 <textarea
                   value={detailDraft.legenda}
                   onChange={e => setDetailDraft(d => d && ({ ...d, legenda: e.target.value }))}
@@ -806,7 +1027,42 @@ export default function GrowthPage() {
                 />
               </div>
 
+              {detailDraft.status === "postado" && (
+                <div className="border-t border-primary-700 pt-4 flex flex-col gap-3">
+                  <label className="text-[11px] font-medium text-gray-400">Resultado real</label>
+                  <input
+                    value={detailDraft.link_publicado}
+                    onChange={e => setDetailDraft(d => d && ({ ...d, link_publicado: e.target.value }))}
+                    placeholder="Link do post publicado"
+                    className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1 text-[10px] text-gray-500"><Heart size={11} /> curtidas</span>
+                      <input type="number" value={detailDraft.curtidas} onChange={e => setDetailDraft(d => d && ({ ...d, curtidas: e.target.value }))} className="bg-primary-800 border border-primary-700 rounded-lg px-2 py-1.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1 text-[10px] text-gray-500"><Eye size={11} /> views</span>
+                      <input type="number" value={detailDraft.visualizacoes} onChange={e => setDetailDraft(d => d && ({ ...d, visualizacoes: e.target.value }))} className="bg-primary-800 border border-primary-700 rounded-lg px-2 py-1.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                      <span className="flex items-center gap-1 text-[10px] text-gray-500"><MessageCircle size={11} /> comentários</span>
+                      <input type="number" value={detailDraft.comentarios} onChange={e => setDetailDraft(d => d && ({ ...d, comentarios: e.target.value }))} className="bg-primary-800 border border-primary-700 rounded-lg px-2 py-1.5 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500" />
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <div className="border-t border-primary-700 pt-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-gray-300">Estrutura ({FORMATO_LABELS[detailItem.formato]})</span>
+                  <button
+                    onClick={() => copyText(buildFullCopyText(detailItem.titulo, detailDraft.legenda, detailDraft.conteudo_detalhado, detailItem.formato))}
+                    className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-primary-300 transition-colors"
+                  >
+                    <Copy size={11} /> copiar tudo
+                  </button>
+                </div>
                 {detailItem.formato === "reel" && (
                   <>
                     <DetailField label="Roteiro do reel" value={(detailDraft.conteudo_detalhado as ReelContent)?.roteiro ?? ""} onChange={v => setDetailDraft(d => d && ({ ...d, conteudo_detalhado: { ...(d.conteudo_detalhado as ReelContent), roteiro: v } }))} />
@@ -898,10 +1154,33 @@ export default function GrowthPage() {
   );
 }
 
+function buildFullCopyText(titulo: string, legenda: string, conteudo: ConteudoDetalhado, formato: string): string {
+  const partes = [`Título: ${titulo}`, `Legenda: ${legenda}`];
+  if (formato === "reel" && conteudo) {
+    const c = conteudo as ReelContent;
+    partes.push(`Roteiro: ${c.roteiro}`, `Estilo de edição: ${c.estilo_edicao}`, `Fundo/cenário: ${c.fundo}`);
+    if (c.notas_extra) partes.push(`Notas extra: ${c.notas_extra}`);
+  } else if (formato === "estatico" && conteudo) {
+    const c = conteudo as EstaticoContent;
+    partes.push(`Copy: ${c.copy}`, `Direcionamento de design: ${c.direcionamento_design}`);
+  } else if (formato === "carrossel" && conteudo) {
+    const c = conteudo as CarrosselContent;
+    for (const slide of c.slides) {
+      partes.push(`Slide ${slide.ordem}: ${slide.copy}\n  Asset: ${slide.direcionamento_asset}\n  Estilo: ${slide.estilo_visual}`);
+    }
+  }
+  return partes.join("\n\n");
+}
+
 function DetailField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-medium text-gray-400">{label}</label>
+      <div className="flex items-center justify-between">
+        <label className="text-[11px] font-medium text-gray-400">{label}</label>
+        <button onClick={() => copyText(value)} className="flex items-center gap-1 text-[10px] text-gray-500 hover:text-primary-300 transition-colors">
+          <Copy size={11} /> copiar
+        </button>
+      </div>
       <textarea
         value={value}
         onChange={e => onChange(e.target.value)}
