@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -7,8 +7,12 @@ import { supabase } from "@/lib/supabaseClient";
 import clsx from "clsx";
 import {
   ArrowLeft, Target, Calendar as CalendarIcon, Sparkles,
-  Plus, Trash2, ExternalLink, Check, X as XIcon, Map, BookOpen,
+  Plus, Trash2, ExternalLink, Check, X as XIcon, Map as MapIcon, BookOpen,
+  ChevronLeft, ChevronRight, Video, Image as ImageIcon, Layers,
 } from "lucide-react";
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+} from "recharts";
 
 interface Goal {
   id: string;
@@ -17,7 +21,17 @@ interface Goal {
   valor_inicial: number;
   data_alvo: string;
   status: string;
+  metrica: string;
 }
+
+interface CurrentValue { pagantes: number; trial: number; total: number; }
+interface SnapshotPoint { date: string; active_subscribers: number; trial_count: number; total_users: number; }
+
+interface ReelContent { roteiro: string; estilo_edicao: string; fundo: string; notas_extra?: string | null; }
+interface EstaticoContent { copy: string; direcionamento_design: string; }
+interface CarrosselSlide { ordem: number; copy: string; direcionamento_asset: string; estilo_visual: string; }
+interface CarrosselContent { slides: CarrosselSlide[]; }
+type ConteudoDetalhado = ReelContent | EstaticoContent | CarrosselContent | null;
 
 interface CalendarItem {
   id: string;
@@ -28,6 +42,8 @@ interface CalendarItem {
   legenda: string | null;
   notas: string | null;
   status: string;
+  formato: string;
+  conteudo_detalhado: ConteudoDetalhado;
 }
 
 interface TrendIdea {
@@ -47,6 +63,19 @@ const PILARES: Record<string, string> = {
   meme: "Meme/humor",
   carrossel: "Carrossel storytelling",
   outro: "Outro",
+};
+
+const PILAR_COLORS: Record<string, { text: string; bg: string; border: string }> = {
+  dia_x: { text: "text-primary-300", bg: "bg-primary-500/10", border: "border-primary-500/30" },
+  build_in_public: { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30" },
+  meme: { text: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30" },
+  carrossel: { text: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/30" },
+  outro: { text: "text-gray-400", bg: "bg-gray-500/10", border: "border-gray-500/30" },
+};
+
+const FORMATO_LABELS: Record<string, string> = { estatico: "Estático", carrossel: "Carrossel", reel: "Reel" };
+const FORMATO_ICONS: Record<string, React.ReactNode> = {
+  estatico: <ImageIcon size={11} />, carrossel: <Layers size={11} />, reel: <Video size={11} />,
 };
 
 const CALENDAR_STATUS: Record<string, string> = {
@@ -83,13 +112,26 @@ const VOICE_GUIDE = [
   "Todo post relevante sai como collab entre perfil pessoal + @flowdesk. Nunca publi fora do nicho.",
 ];
 
+const MONTHS_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const WEEKDAYS_PT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+function isoDate(d: Date) { return d.toISOString().slice(0, 10); }
+function emptyContentFor(formato: string): ConteudoDetalhado {
+  if (formato === "reel") return { roteiro: "", estilo_edicao: "", fundo: "", notas_extra: "" };
+  if (formato === "estatico") return { copy: "", direcionamento_design: "" };
+  if (formato === "carrossel") return { slides: [{ ordem: 1, copy: "", direcionamento_asset: "", estilo_visual: "" }] };
+  return null;
+}
+
 export default function GrowthPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   const [goal, setGoal] = useState<Goal | null>(null);
-  const [currentValue, setCurrentValue] = useState(0);
+  const [currentValue, setCurrentValue] = useState<CurrentValue>({ pagantes: 0, trial: 0, total: 0 });
+  const [historico, setHistorico] = useState<SnapshotPoint[]>([]);
   const [loadingGoal, setLoadingGoal] = useState(true);
+  const [metricaView, setMetricaView] = useState<"pagantes" | "trial" | "total">("pagantes");
 
   const [calendarItems, setCalendarItems] = useState<CalendarItem[]>([]);
   const [loadingCalendar, setLoadingCalendar] = useState(true);
@@ -98,12 +140,17 @@ export default function GrowthPage() {
   const [loadingTrends, setLoadingTrends] = useState(true);
 
   const [showGoalForm, setShowGoalForm] = useState(false);
-  const [goalForm, setGoalForm] = useState({ titulo: "1.000 usuários até 31/12/2026", meta_valor: 1000, data_alvo: "2026-12-31" });
+  const [goalForm, setGoalForm] = useState({ titulo: "1.000 usuários pagantes até 31/12/2026", meta_valor: 1000, data_alvo: "2026-12-31" });
 
-  const [showCalendarForm, setShowCalendarForm] = useState(false);
+  const [viewDate, setViewDate] = useState(() => new Date());
+
+  const [showAddModal, setShowAddModal] = useState(false);
   const [calendarForm, setCalendarForm] = useState({
-    data_planejada: "", pilar: "dia_x", redes: ["instagram", "tiktok"], titulo: "", legenda: "",
+    data_planejada: "", pilar: "dia_x", formato: "reel", redes: ["instagram", "tiktok"], titulo: "", legenda: "",
   });
+
+  const [detailItem, setDetailItem] = useState<CalendarItem | null>(null);
+  const [detailDraft, setDetailDraft] = useState<{ legenda: string; status: string; conteudo_detalhado: ConteudoDetalhado } | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -123,7 +170,8 @@ export default function GrowthPage() {
     if (res.ok) {
       const d = await res.json();
       setGoal(d.goal);
-      setCurrentValue(d.currentValue ?? 0);
+      setCurrentValue(d.currentValue ?? { pagantes: 0, trial: 0, total: 0 });
+      setHistorico(d.historico ?? []);
     }
     setLoadingGoal(false);
   }, [getToken]);
@@ -156,7 +204,7 @@ export default function GrowthPage() {
     const res = await fetch("/api/admin/growth/goal", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...goalForm, valor_inicial: currentValue }),
+      body: JSON.stringify({ ...goalForm, metrica: "pagantes", valor_inicial: currentValue.pagantes }),
     });
     if (res.ok) { setShowGoalForm(false); fetchGoal(); }
   }
@@ -167,28 +215,46 @@ export default function GrowthPage() {
     const res = await fetch("/api/admin/growth/calendar", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(calendarForm),
+      body: JSON.stringify({ ...calendarForm, conteudo_detalhado: emptyContentFor(calendarForm.formato) }),
     });
     if (res.ok) {
-      setCalendarForm({ data_planejada: "", pilar: "dia_x", redes: ["instagram", "tiktok"], titulo: "", legenda: "" });
-      setShowCalendarForm(false);
+      setCalendarForm({ data_planejada: "", pilar: "dia_x", formato: "reel", redes: ["instagram", "tiktok"], titulo: "", legenda: "" });
+      setShowAddModal(false);
       fetchCalendar();
     }
-  }
-
-  async function handleUpdateCalendarStatus(id: string, status: string) {
-    const token = await getToken();
-    await fetch(`/api/admin/growth/calendar/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status }),
-    });
-    fetchCalendar();
   }
 
   async function handleDeleteCalendarItem(id: string) {
     const token = await getToken();
     await fetch(`/api/admin/growth/calendar/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    setDetailItem(null);
+    fetchCalendar();
+  }
+
+  function openAddForDate(date: string) {
+    setCalendarForm(f => ({ ...f, data_planejada: date }));
+    setShowAddModal(true);
+  }
+
+  function openDetail(item: CalendarItem) {
+    setDetailItem(item);
+    setDetailDraft({
+      legenda: item.legenda ?? "",
+      status: item.status,
+      conteudo_detalhado: item.conteudo_detalhado ?? emptyContentFor(item.formato),
+    });
+  }
+
+  async function handleSaveDetail() {
+    if (!detailItem || !detailDraft) return;
+    const token = await getToken();
+    await fetch(`/api/admin/growth/calendar/${detailItem.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(detailDraft),
+    });
+    setDetailItem(null);
+    setDetailDraft(null);
     fetchCalendar();
   }
 
@@ -198,12 +264,14 @@ export default function GrowthPage() {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        data_planejada: new Date().toISOString().slice(0, 10),
+        data_planejada: isoDate(new Date()),
         pilar: trend.pilar_sugerido || "outro",
+        formato: "reel",
         redes: ["instagram", "tiktok"],
         titulo: trend.titulo,
         legenda: trend.roteiro_sugerido || "",
         origem_trend_id: trend.id,
+        conteudo_detalhado: emptyContentFor("reel"),
       }),
     });
     if (res.ok) {
@@ -227,11 +295,25 @@ export default function GrowthPage() {
     fetchTrends();
   }
 
-  async function handleDeleteTrend(id: string) {
-    const token = await getToken();
-    await fetch(`/api/admin/growth/trends/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    fetchTrends();
-  }
+  const monthGrid = useMemo(() => {
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const itemsByDate = new Map<string, CalendarItem[]>();
+    for (const item of calendarItems) {
+      const arr = itemsByDate.get(item.data_planejada) ?? [];
+      arr.push(item);
+      itemsByDate.set(item.data_planejada, arr);
+    }
+    const cells: { day: number | null; date: string | null; items: CalendarItem[] }[] = [];
+    for (let i = 0; i < firstWeekday; i++) cells.push({ day: null, date: null, items: [] });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      cells.push({ day: d, date, items: itemsByDate.get(date) ?? [] });
+    }
+    return { cells, label: `${MONTHS_PT[month]} de ${year}` };
+  }, [viewDate, calendarItems]);
 
   if (authLoading || !user || user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) return (
     <div className="h-screen flex items-center justify-center bg-primary-900">
@@ -239,18 +321,19 @@ export default function GrowthPage() {
     </div>
   );
 
-  const progressPct = goal ? Math.min(100, Math.round((currentValue / goal.meta_valor) * 100)) : 0;
+  const hoje = isoDate(new Date());
   const pendingTrends = trendItems.filter(t => t.status === "novo");
-  const hoje = new Date().toISOString().slice(0, 10);
+  const metricValue = currentValue[metricaView];
+  const progressPct = goal && metricaView === "pagantes" ? Math.min(100, Math.round((metricValue / goal.meta_valor) * 100)) : null;
 
   return (
     <>
       <Head><title>Growth — FlowDesk Admin</title></Head>
 
       <div className="min-h-screen bg-primary-900">
-        <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6 sm:py-10 flex flex-col gap-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-10 flex flex-col gap-5">
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 animate-fade-in">
             <div className="flex items-center gap-3">
               <Link href="/admin" className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary-800 border border-primary-700 hover:border-primary-600 text-gray-400 hover:text-gray-200 transition-colors">
                 <ArrowLeft size={16} />
@@ -265,14 +348,36 @@ export default function GrowthPage() {
             </span>
           </div>
 
-          <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-gray-300">
-              <Target size={16} className="text-primary-400" />
-              <h2 className="text-[14px] font-semibold">Meta de usuários</h2>
+          {/* Meta */}
+          <section className="relative overflow-hidden rounded-[20px] border border-primary-700 p-5 sm:p-6 flex flex-col gap-4 animate-fade-in" style={{ background: "var(--primary-800)" }}>
+            <div className="absolute inset-x-0 top-0 h-[2px] opacity-80" style={{ background: "linear-gradient(90deg, var(--primary-400), transparent 60%)" }} />
+
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center border" style={{ color: "var(--primary-400)", background: "rgba(79,197,235,0.12)", borderColor: "rgba(79,197,235,0.40)" }}>
+                  <Target size={18} />
+                </div>
+                <h2 className="text-[14px] font-semibold text-gray-200">Meta de usuários</h2>
+              </div>
+
+              <div className="flex items-center bg-primary-900 border border-primary-700 rounded-xl p-1 gap-0.5">
+                {(["pagantes", "trial", "total"] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => setMetricaView(m)}
+                    className={clsx(
+                      "px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors",
+                      metricaView === m ? "bg-primary-500 text-white" : "text-gray-400 hover:text-gray-200"
+                    )}
+                  >
+                    {m === "pagantes" ? "Pagantes" : m === "trial" ? "Em trial" : "Total"}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {loadingGoal ? (
-              <div className="h-16 bg-primary-900/60 rounded-lg animate-pulse" />
+              <div className="h-24 bg-primary-900/60 rounded-lg animate-pulse" />
             ) : !goal && !showGoalForm ? (
               <button
                 onClick={() => setShowGoalForm(true)}
@@ -312,48 +417,98 @@ export default function GrowthPage() {
                 </div>
               </div>
             ) : goal && (
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-gray-200 font-medium">{goal.titulo}</span>
-                  <button onClick={() => { setGoalForm({ titulo: goal.titulo, meta_valor: goal.meta_valor, data_alvo: goal.data_alvo }); setShowGoalForm(true); }} className="text-gray-500 hover:text-gray-300 text-[11px]">
-                    editar
-                  </button>
+              <div className="flex flex-col gap-3">
+                <div className="flex items-end justify-between flex-wrap gap-2">
+                  <div>
+                    <span className="text-[36px] sm:text-[44px] font-bold text-gray-100 tracking-tight tabular-nums leading-none">
+                      {metricValue}
+                    </span>
+                    {metricaView === "pagantes" && (
+                      <span className="text-[15px] text-gray-500 ml-1.5">/ {goal.meta_valor}</span>
+                    )}
+                    <p className="text-[12px] text-gray-500 mt-1">
+                      {metricaView === "pagantes" ? "usuários pagantes" : metricaView === "trial" ? "em trial (7 dias)" : "contas totais"}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between text-[12px] text-gray-500 gap-4">
+                    <button onClick={() => { setGoalForm({ titulo: goal.titulo, meta_valor: goal.meta_valor, data_alvo: goal.data_alvo }); setShowGoalForm(true); }} className="text-gray-500 hover:text-gray-300 text-[11px] underline decoration-dotted">
+                      editar meta
+                    </button>
+                    <span>alvo: {new Date(goal.data_alvo + "T00:00:00").toLocaleDateString("pt-BR")}</span>
+                  </div>
                 </div>
-                <div className="h-3 bg-primary-900 rounded-full overflow-hidden border border-primary-700">
-                  <div className="h-full bg-gradient-to-r from-primary-500 to-primary-400 transition-all" style={{ width: `${progressPct}%` }} />
-                </div>
-                <div className="flex items-center justify-between text-[12px] text-gray-500">
-                  <span>{currentValue} / {goal.meta_valor} usuários ({progressPct}%)</span>
-                  <span>alvo: {new Date(goal.data_alvo + "T00:00:00").toLocaleDateString("pt-BR")}</span>
-                </div>
+
+                {progressPct !== null && (
+                  <div className="h-3 bg-primary-900 rounded-full overflow-hidden border border-primary-700">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${progressPct}%`, background: "linear-gradient(90deg, var(--primary-500), var(--primary-400))", boxShadow: "0 0 14px -2px var(--primary-500)" }}
+                    />
+                  </div>
+                )}
+
+                {historico.length > 1 && (
+                  <div className="h-[110px] -mx-1 mt-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={historico} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="gPagantes" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#1EB6E8" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="#1EB6E8" stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="gTrial" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.25} />
+                            <stop offset="100%" stopColor="#F59E0B" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid stroke="var(--primary-700)" vertical={false} />
+                        <XAxis dataKey="date" tick={{ fill: "#6b7280", fontSize: 10 }} tickFormatter={(v: string) => v.slice(5)} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: "#6b7280", fontSize: 10 }} axisLine={false} tickLine={false} width={24} />
+                        <Tooltip
+                          contentStyle={{ background: "var(--primary-900)", border: "1px solid var(--primary-600)", borderRadius: 8, fontSize: 12 }}
+                          labelStyle={{ color: "#9ca3af" }}
+                        />
+                        <Area type="monotone" dataKey="active_subscribers" name="Pagantes" stroke="#1EB6E8" fill="url(#gPagantes)" strokeWidth={2} />
+                        <Area type="monotone" dataKey="trial_count" name="Trial" stroke="#F59E0B" fill="url(#gTrial)" strokeWidth={2} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
             )}
           </section>
 
-          <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-gray-300">
-              <Map size={16} className="text-primary-400" />
-              <h2 className="text-[14px] font-semibold">Roadmap por fase</h2>
+          {/* Roadmap */}
+          <section className="rounded-[20px] border border-primary-700 p-5 sm:p-6 flex flex-col gap-4 animate-fade-in" style={{ background: "var(--primary-800)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-[10px] flex items-center justify-center border" style={{ color: "var(--primary-400)", background: "rgba(79,197,235,0.12)", borderColor: "rgba(79,197,235,0.40)" }}>
+                <MapIcon size={18} />
+              </div>
+              <h2 className="text-[14px] font-semibold text-gray-200">Roadmap por fase</h2>
             </div>
-            <div className="flex flex-col gap-2">
+            <div className="relative flex flex-col gap-1 pl-4">
+              <div className="absolute left-[7px] top-2 bottom-2 w-px bg-primary-700" />
               {ROADMAP.map(f => {
                 const ativa = hoje >= f.inicio && hoje <= f.fim;
+                const passada = hoje > f.fim;
                 return (
-                  <div
-                    key={f.fase}
-                    className={clsx(
-                      "flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 rounded-lg px-4 py-3 border",
-                      ativa ? "bg-primary-500/10 border-primary-500/40" : "bg-primary-900 border-primary-700"
-                    )}
-                  >
-                    <div className="sm:w-[110px] shrink-0 flex items-center gap-2">
+                  <div key={f.fase} className="relative flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 rounded-lg px-4 py-3">
+                    <div
+                      className="absolute -left-4 top-1/2 -translate-y-1/2 w-[13px] h-[13px] rounded-full border-2"
+                      style={{
+                        background: ativa ? "var(--primary-400)" : passada ? "var(--primary-600)" : "var(--primary-900)",
+                        borderColor: ativa ? "var(--primary-400)" : "var(--primary-700)",
+                        boxShadow: ativa ? "0 0 12px 1px var(--primary-500)" : "none",
+                      }}
+                    />
+                    <div className={clsx("sm:w-[110px] shrink-0 flex items-center gap-2 rounded-lg", ativa && "bg-primary-500/10 -mx-2 px-2 py-1")}>
                       <span className={clsx("text-[13px] font-semibold", ativa ? "text-primary-300" : "text-gray-200")}>{f.fase}</span>
                       {ativa && <span className="text-[9px] font-bold uppercase text-primary-300 bg-primary-900 border border-primary-500/40 px-1.5 py-0.5 rounded-md">agora</span>}
                     </div>
                     <div className="sm:w-20 shrink-0 text-[12px] text-gray-500">{f.periodo}</div>
                     <div className="flex-1 text-[12px] text-gray-400">{f.foco}</div>
-                    <div className="sm:w-32 shrink-0 text-[12px] text-gray-300 sm:text-right">
-                      {f.meta ? `meta: ${f.meta} usuários` : "—"}
+                    <div className="sm:w-36 shrink-0 text-[12px] text-gray-300 sm:text-right">
+                      {f.meta ? `meta: ${f.meta} pagantes` : "—"}
                     </div>
                   </div>
                 );
@@ -361,18 +516,24 @@ export default function GrowthPage() {
             </div>
           </section>
 
-          <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-gray-300">
-              <BookOpen size={16} className="text-primary-400" />
-              <h2 className="text-[14px] font-semibold">Pilares de conteúdo &amp; guia de voz</h2>
+          {/* Pillars & voice guide */}
+          <section className="rounded-[20px] border border-primary-700 p-5 sm:p-6 flex flex-col gap-4 animate-fade-in" style={{ background: "var(--primary-800)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-[10px] flex items-center justify-center border" style={{ color: "var(--primary-400)", background: "rgba(79,197,235,0.12)", borderColor: "rgba(79,197,235,0.40)" }}>
+                <BookOpen size={18} />
+              </div>
+              <h2 className="text-[14px] font-semibold text-gray-200">Pilares de conteúdo &amp; guia de voz</h2>
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
-              {PILARES_INFO.map(p => (
-                <div key={p.key} className="bg-primary-900 border border-primary-700 rounded-lg p-3 flex flex-col gap-1">
-                  <span className="text-[12px] font-semibold text-primary-300">{p.nome}</span>
-                  <span className="text-[12px] text-gray-400">{p.desc}</span>
-                </div>
-              ))}
+              {PILARES_INFO.map(p => {
+                const c = PILAR_COLORS[p.key];
+                return (
+                  <div key={p.key} className="bg-primary-900 border border-primary-700 rounded-xl p-3.5 flex flex-col gap-1.5 transition-all hover:border-primary-600">
+                    <span className={clsx("self-start text-[11px] font-semibold px-2 py-0.5 rounded-md border", c.text, c.bg, c.border)}>{p.nome}</span>
+                    <span className="text-[12px] text-gray-400">{p.desc}</span>
+                  </div>
+                );
+              })}
             </div>
             <ul className="flex flex-col gap-1.5 pt-1 border-t border-primary-700">
               {VOICE_GUIDE.map((v, i) => (
@@ -383,12 +544,18 @@ export default function GrowthPage() {
             </ul>
           </section>
 
-          <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-gray-300">
-              <Sparkles size={16} className="text-primary-400" />
-              <h2 className="text-[14px] font-semibold">Ideias de trend {pendingTrends.length > 0 && (
-                <span className="ml-1 text-[10px] font-bold text-primary-300 bg-primary-900 border border-primary-600 px-1.5 py-0.5 rounded-md align-middle">{pendingTrends.length} novas</span>
-              )}</h2>
+          {/* Trend ideas */}
+          <section className="rounded-[20px] border border-primary-700 p-5 sm:p-6 flex flex-col gap-4 animate-fade-in" style={{ background: "var(--primary-800)" }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-[10px] flex items-center justify-center border" style={{ color: "var(--primary-400)", background: "rgba(79,197,235,0.12)", borderColor: "rgba(79,197,235,0.40)" }}>
+                <Sparkles size={18} />
+              </div>
+              <h2 className="text-[14px] font-semibold text-gray-200">
+                Ideias de trend
+                {pendingTrends.length > 0 && (
+                  <span className="ml-2 text-[10px] font-bold text-primary-300 bg-primary-900 border border-primary-600 px-1.5 py-0.5 rounded-md align-middle">{pendingTrends.length} novas</span>
+                )}
+              </h2>
             </div>
 
             {loadingTrends ? (
@@ -398,7 +565,7 @@ export default function GrowthPage() {
             ) : (
               <div className="flex flex-col gap-3">
                 {trendItems.map(t => (
-                  <div key={t.id} className="bg-primary-900 border border-primary-700 rounded-lg p-4 flex flex-col gap-2">
+                  <div key={t.id} className="bg-primary-900 border border-primary-700 rounded-xl p-4 flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="text-[13px] font-medium text-gray-100">{t.titulo}</p>
@@ -441,122 +608,306 @@ export default function GrowthPage() {
             )}
           </section>
 
-          <section className="bg-primary-800 border border-primary-700 rounded-xl p-5 flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-gray-300">
-                <CalendarIcon size={16} className="text-primary-400" />
-                <h2 className="text-[14px] font-semibold">Calendário de conteúdo</h2>
+          {/* Content calendar */}
+          <section className="rounded-[20px] border border-primary-700 p-5 sm:p-6 flex flex-col gap-4 animate-fade-in" style={{ background: "var(--primary-800)" }}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center border" style={{ color: "var(--primary-400)", background: "rgba(79,197,235,0.12)", borderColor: "rgba(79,197,235,0.40)" }}>
+                  <CalendarIcon size={18} />
+                </div>
+                <h2 className="text-[14px] font-semibold text-gray-200">Calendário de conteúdo</h2>
               </div>
-              <button
-                onClick={() => setShowCalendarForm(s => !s)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[11px] text-gray-200 transition-colors"
-              >
-                <Plus size={12} /> Novo post
-              </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-primary-900 border border-primary-700 rounded-xl p-1 gap-0.5">
+                  <button onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-200 hover:bg-primary-800 transition-colors">
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="px-2 text-[12px] text-gray-300 font-medium w-[128px] text-center">{monthGrid.label}</span>
+                  <button onClick={() => setViewDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-200 hover:bg-primary-800 transition-colors">
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+                <button
+                  onClick={() => openAddForDate(hoje)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 hover:bg-primary-400 rounded-lg text-[11px] text-white transition-colors"
+                >
+                  <Plus size={12} /> Novo post
+                </button>
+              </div>
             </div>
 
-            {showCalendarForm && (
-              <div className="bg-primary-900 border border-primary-700 rounded-lg p-4 flex flex-col gap-3">
-                <div className="flex flex-wrap gap-3">
-                  <input
-                    type="date"
-                    value={calendarForm.data_planejada}
-                    onChange={e => setCalendarForm(f => ({ ...f, data_planejada: e.target.value }))}
-                    className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
-                  />
-                  <select
-                    value={calendarForm.pilar}
-                    onChange={e => setCalendarForm(f => ({ ...f, pilar: e.target.value }))}
-                    className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
-                  >
-                    {Object.entries(PILARES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                  <div className="flex items-center gap-2">
-                    {REDES_OPCOES.map(rede => (
-                      <label key={rede} className="flex items-center gap-1.5 text-[12px] text-gray-300 bg-primary-800 border border-primary-700 rounded-lg px-2.5 py-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={calendarForm.redes.includes(rede)}
-                          onChange={e => setCalendarForm(f => ({
-                            ...f,
-                            redes: e.target.checked ? [...f.redes, rede] : f.redes.filter(r => r !== rede),
-                          }))}
-                        />
-                        {rede === "instagram" ? "Instagram" : "TikTok"}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <input
-                  value={calendarForm.titulo}
-                  onChange={e => setCalendarForm(f => ({ ...f, titulo: e.target.value }))}
-                  placeholder="Título / ideia do post"
-                  className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
-                />
-                <textarea
-                  value={calendarForm.legenda}
-                  onChange={e => setCalendarForm(f => ({ ...f, legenda: e.target.value }))}
-                  placeholder="Rascunho da legenda"
-                  rows={3}
-                  className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 resize-none"
-                />
-                <div className="flex gap-2">
-                  <button onClick={handleAddCalendarItem} className="flex items-center gap-1.5 px-3 py-2 bg-primary-500 hover:bg-primary-400 rounded-lg text-[12px] text-white transition-colors">
-                    <Check size={14} /> Adicionar
-                  </button>
-                  <button onClick={() => setShowCalendarForm(false)} className="flex items-center gap-1.5 px-3 py-2 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-300 transition-colors">
-                    <XIcon size={14} /> Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
-
             {loadingCalendar ? (
-              <div className="h-16 bg-primary-900/60 rounded-lg animate-pulse" />
-            ) : calendarItems.length === 0 ? (
-              <p className="text-[12px] text-gray-500">Nenhum post planejado ainda.</p>
+              <div className="h-64 bg-primary-900/60 rounded-lg animate-pulse" />
             ) : (
-              <div className="flex flex-col gap-2">
-                {calendarItems.map(item => (
-                  <div key={item.id} className="bg-primary-900 border border-primary-700 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                    <div className="text-[12px] text-gray-500 sm:w-20 shrink-0">
-                      {new Date(item.data_planejada + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[11px] font-medium text-primary-300 bg-primary-800 border border-primary-700 px-2 py-0.5 rounded-md">
-                          {PILARES[item.pilar] ?? item.pilar}
-                        </span>
-                        {item.redes.map(r => (
-                          <span key={r} className="text-[11px] text-gray-400 bg-primary-800 border border-primary-700 px-2 py-0.5 rounded-md">
-                            {r === "instagram" ? "Instagram" : "TikTok"}
-                          </span>
-                        ))}
-                      </div>
-                      <p className="text-[13px] text-gray-200 mt-1 font-medium">{item.titulo}</p>
-                      {item.legenda && <p className="text-[12px] text-gray-500 mt-0.5 line-clamp-2">{item.legenda}</p>}
-                    </div>
-                    <select
-                      value={item.status}
-                      onChange={e => handleUpdateCalendarStatus(item.id, e.target.value)}
-                      className="bg-primary-800 border border-primary-700 rounded-lg px-2 py-1.5 text-[11px] text-gray-300 focus:outline-none focus:border-primary-500 shrink-0"
+              <div className="flex flex-col gap-1">
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {WEEKDAYS_PT.map(w => <div key={w} className="text-[10px] font-medium text-gray-500 py-1">{w}</div>)}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {monthGrid.cells.map((cell, i) => (
+                    <div
+                      key={i}
+                      onClick={() => cell.date && cell.items.length === 0 && openAddForDate(cell.date)}
+                      className={clsx(
+                        "min-h-[76px] sm:min-h-[92px] rounded-lg border p-1.5 flex flex-col gap-1 transition-colors",
+                        cell.day === null ? "border-transparent" : "border-primary-700 bg-primary-900/60",
+                        cell.date === hoje && "ring-1 ring-primary-500",
+                        cell.date && cell.items.length === 0 && "cursor-pointer hover:border-primary-600"
+                      )}
                     >
-                      {Object.entries(CALENDAR_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                    </select>
-                    <button
-                      onClick={() => handleDeleteCalendarItem(item.id)}
-                      className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary-800 hover:bg-rose-500/15 border border-primary-700 hover:border-rose-500/40 text-gray-500 hover:text-rose-400 transition-colors shrink-0"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+                      {cell.day !== null && (
+                        <>
+                          <span className={clsx("text-[10px]", cell.date === hoje ? "text-primary-300 font-bold" : "text-gray-500")}>{cell.day}</span>
+                          <div className="flex flex-col gap-0.5 overflow-hidden">
+                            {cell.items.map(item => {
+                              const c = PILAR_COLORS[item.pilar] ?? PILAR_COLORS.outro;
+                              return (
+                                <button
+                                  key={item.id}
+                                  onClick={(e) => { e.stopPropagation(); openDetail(item); }}
+                                  className={clsx("flex items-center gap-1 text-left text-[9.5px] sm:text-[10px] px-1.5 py-0.5 rounded border truncate transition-transform hover:-translate-y-px", c.text, c.bg, c.border)}
+                                  title={item.titulo}
+                                >
+                                  {FORMATO_ICONS[item.formato]}
+                                  <span className="truncate">{item.titulo}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </section>
 
         </div>
       </div>
+
+      {/* Add post modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowAddModal(false)}>
+          <div onClick={e => e.stopPropagation()} className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-fade-in">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-primary-700">
+              <h3 className="text-[14px] font-semibold text-gray-100">Novo post</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-500 hover:text-gray-300"><XIcon size={16} /></button>
+            </div>
+            <div className="p-5 flex flex-col gap-3">
+              <div className="flex flex-wrap gap-3">
+                <input
+                  type="date"
+                  value={calendarForm.data_planejada}
+                  onChange={e => setCalendarForm(f => ({ ...f, data_planejada: e.target.value }))}
+                  className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                />
+                <select
+                  value={calendarForm.pilar}
+                  onChange={e => setCalendarForm(f => ({ ...f, pilar: e.target.value }))}
+                  className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                >
+                  {Object.entries(PILARES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+                <select
+                  value={calendarForm.formato}
+                  onChange={e => setCalendarForm(f => ({ ...f, formato: e.target.value }))}
+                  className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+                >
+                  {Object.entries(FORMATO_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                {REDES_OPCOES.map(rede => (
+                  <label key={rede} className="flex items-center gap-1.5 text-[12px] text-gray-300 bg-primary-800 border border-primary-700 rounded-lg px-2.5 py-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={calendarForm.redes.includes(rede)}
+                      onChange={e => setCalendarForm(f => ({
+                        ...f,
+                        redes: e.target.checked ? [...f.redes, rede] : f.redes.filter(r => r !== rede),
+                      }))}
+                    />
+                    {rede === "instagram" ? "Instagram" : "TikTok"}
+                  </label>
+                ))}
+              </div>
+              <input
+                value={calendarForm.titulo}
+                onChange={e => setCalendarForm(f => ({ ...f, titulo: e.target.value }))}
+                placeholder="Título / ideia do post"
+                className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500"
+              />
+              <textarea
+                value={calendarForm.legenda}
+                onChange={e => setCalendarForm(f => ({ ...f, legenda: e.target.value }))}
+                placeholder="Rascunho da legenda"
+                rows={3}
+                className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 resize-none"
+              />
+              <p className="text-[11px] text-gray-500">O roteiro/estrutura detalhada (por formato) é preenchido depois, clicando no post.</p>
+              <div className="flex gap-2 pt-1">
+                <button onClick={handleAddCalendarItem} className="flex items-center gap-1.5 px-3 py-2 bg-primary-500 hover:bg-primary-400 rounded-lg text-[12px] text-white transition-colors">
+                  <Check size={14} /> Adicionar
+                </button>
+                <button onClick={() => setShowAddModal(false)} className="flex items-center gap-1.5 px-3 py-2 bg-primary-700 hover:bg-primary-600 border border-primary-600 rounded-lg text-[12px] text-gray-300 transition-colors">
+                  <XIcon size={14} /> Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Detail modal */}
+      {detailItem && detailDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => { setDetailItem(null); setDetailDraft(null); }}>
+          <div onClick={e => e.stopPropagation()} className="bg-primary-900 border border-primary-700 rounded-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl animate-fade-in">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-primary-700 sticky top-0 bg-primary-900">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={clsx("text-[11px] font-medium px-2 py-0.5 rounded-md border", PILAR_COLORS[detailItem.pilar]?.text, PILAR_COLORS[detailItem.pilar]?.bg, PILAR_COLORS[detailItem.pilar]?.border)}>
+                  {PILARES[detailItem.pilar] ?? detailItem.pilar}
+                </span>
+                <span className="flex items-center gap-1 text-[11px] text-gray-400 bg-primary-800 border border-primary-700 px-2 py-0.5 rounded-md">
+                  {FORMATO_ICONS[detailItem.formato]} {FORMATO_LABELS[detailItem.formato] ?? detailItem.formato}
+                </span>
+                <span className="text-[11px] text-gray-500">{new Date(detailItem.data_planejada + "T00:00:00").toLocaleDateString("pt-BR")}</span>
+              </div>
+              <button onClick={() => { setDetailItem(null); setDetailDraft(null); }} className="text-gray-500 hover:text-gray-300"><XIcon size={16} /></button>
+            </div>
+
+            <div className="p-5 flex flex-col gap-4">
+              <h3 className="text-[15px] font-semibold text-gray-100">{detailItem.titulo}</h3>
+
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  {detailItem.redes.map(r => (
+                    <span key={r} className="text-[11px] text-gray-400 bg-primary-800 border border-primary-700 px-2 py-0.5 rounded-md">
+                      {r === "instagram" ? "Instagram" : "TikTok"}
+                    </span>
+                  ))}
+                </div>
+                <select
+                  value={detailDraft.status}
+                  onChange={e => setDetailDraft(d => d && ({ ...d, status: e.target.value }))}
+                  className="bg-primary-800 border border-primary-700 rounded-lg px-2 py-1.5 text-[11px] text-gray-300 focus:outline-none focus:border-primary-500"
+                >
+                  {Object.entries(CALENDAR_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-medium text-gray-400">Legenda / caption</label>
+                <textarea
+                  value={detailDraft.legenda}
+                  onChange={e => setDetailDraft(d => d && ({ ...d, legenda: e.target.value }))}
+                  rows={3}
+                  className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 resize-none"
+                />
+              </div>
+
+              <div className="border-t border-primary-700 pt-4 flex flex-col gap-3">
+                {detailItem.formato === "reel" && (
+                  <>
+                    <DetailField label="Roteiro do reel" value={(detailDraft.conteudo_detalhado as ReelContent)?.roteiro ?? ""} onChange={v => setDetailDraft(d => d && ({ ...d, conteudo_detalhado: { ...(d.conteudo_detalhado as ReelContent), roteiro: v } }))} />
+                    <DetailField label="Estilo de edição" value={(detailDraft.conteudo_detalhado as ReelContent)?.estilo_edicao ?? ""} onChange={v => setDetailDraft(d => d && ({ ...d, conteudo_detalhado: { ...(d.conteudo_detalhado as ReelContent), estilo_edicao: v } }))} />
+                    <DetailField label="Fundo / cenário" value={(detailDraft.conteudo_detalhado as ReelContent)?.fundo ?? ""} onChange={v => setDetailDraft(d => d && ({ ...d, conteudo_detalhado: { ...(d.conteudo_detalhado as ReelContent), fundo: v } }))} />
+                    <DetailField label="Notas extra" value={(detailDraft.conteudo_detalhado as ReelContent)?.notas_extra ?? ""} onChange={v => setDetailDraft(d => d && ({ ...d, conteudo_detalhado: { ...(d.conteudo_detalhado as ReelContent), notas_extra: v } }))} />
+                  </>
+                )}
+                {detailItem.formato === "estatico" && (
+                  <>
+                    <DetailField label="Copy da peça" value={(detailDraft.conteudo_detalhado as EstaticoContent)?.copy ?? ""} onChange={v => setDetailDraft(d => d && ({ ...d, conteudo_detalhado: { ...(d.conteudo_detalhado as EstaticoContent), copy: v } }))} />
+                    <DetailField label="Direcionamento de design" value={(detailDraft.conteudo_detalhado as EstaticoContent)?.direcionamento_design ?? ""} onChange={v => setDetailDraft(d => d && ({ ...d, conteudo_detalhado: { ...(d.conteudo_detalhado as EstaticoContent), direcionamento_design: v } }))} />
+                  </>
+                )}
+                {detailItem.formato === "carrossel" && (
+                  <div className="flex flex-col gap-3">
+                    {((detailDraft.conteudo_detalhado as CarrosselContent)?.slides ?? []).map((slide, idx) => (
+                      <div key={idx} className="bg-primary-800 border border-primary-700 rounded-xl p-3 flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold text-violet-400">Slide {slide.ordem}</span>
+                          <button
+                            onClick={() => setDetailDraft(d => {
+                              if (!d) return d;
+                              const content = d.conteudo_detalhado as CarrosselContent;
+                              const slides = content.slides.filter((_, i) => i !== idx).map((s, i) => ({ ...s, ordem: i + 1 }));
+                              return { ...d, conteudo_detalhado: { slides } };
+                            })}
+                            className="text-gray-500 hover:text-rose-400"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                        <DetailField label="Copy do slide" value={slide.copy} onChange={v => setDetailDraft(d => {
+                          if (!d) return d;
+                          const content = d.conteudo_detalhado as CarrosselContent;
+                          const slides = content.slides.map((s, i) => i === idx ? { ...s, copy: v } : s);
+                          return { ...d, conteudo_detalhado: { slides } };
+                        })} />
+                        <DetailField label="Direcionamento de asset" value={slide.direcionamento_asset} onChange={v => setDetailDraft(d => {
+                          if (!d) return d;
+                          const content = d.conteudo_detalhado as CarrosselContent;
+                          const slides = content.slides.map((s, i) => i === idx ? { ...s, direcionamento_asset: v } : s);
+                          return { ...d, conteudo_detalhado: { slides } };
+                        })} />
+                        <DetailField label="Estilo visual" value={slide.estilo_visual} onChange={v => setDetailDraft(d => {
+                          if (!d) return d;
+                          const content = d.conteudo_detalhado as CarrosselContent;
+                          const slides = content.slides.map((s, i) => i === idx ? { ...s, estilo_visual: v } : s);
+                          return { ...d, conteudo_detalhado: { slides } };
+                        })} />
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => setDetailDraft(d => {
+                        if (!d) return d;
+                        const content = d.conteudo_detalhado as CarrosselContent;
+                        const slides = [...(content?.slides ?? []), { ordem: (content?.slides?.length ?? 0) + 1, copy: "", direcionamento_asset: "", estilo_visual: "" }];
+                        return { ...d, conteudo_detalhado: { slides } };
+                      })}
+                      className="self-start flex items-center gap-1.5 px-3 py-1.5 bg-primary-800 hover:bg-primary-700 border border-primary-700 rounded-lg text-[11px] text-gray-300 transition-colors"
+                    >
+                      <Plus size={12} /> Adicionar slide
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-primary-700">
+                <button onClick={() => handleDeleteCalendarItem(detailItem.id)} className="flex items-center gap-1.5 px-3 py-2 bg-primary-800 hover:bg-rose-500/15 border border-primary-700 hover:border-rose-500/40 rounded-lg text-[12px] text-gray-400 hover:text-rose-400 transition-colors">
+                  <Trash2 size={14} /> Excluir
+                </button>
+                <button onClick={handleSaveDetail} className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-400 rounded-lg text-[12px] text-white transition-colors">
+                  <Check size={14} /> Salvar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx global>{`
+        .animate-fade-in { animation: growthFadeIn 0.2s ease-out forwards; }
+        @keyframes growthFadeIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </>
+  );
+}
+
+function DetailField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-medium text-gray-400">{label}</label>
+      <textarea
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        rows={2}
+        className="bg-primary-800 border border-primary-700 rounded-lg px-3 py-2 text-[13px] text-gray-100 focus:outline-none focus:border-primary-500 resize-none"
+      />
+    </div>
   );
 }

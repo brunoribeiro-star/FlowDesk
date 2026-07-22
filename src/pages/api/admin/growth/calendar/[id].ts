@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const id = req.query.id as string;
 
   if (req.method === "PUT") {
-    const { data_planejada, pilar, redes, titulo, legenda, notas, status } = req.body ?? {};
+    const { data_planejada, pilar, redes, titulo, legenda, notas, status, formato, conteudo_detalhado } = req.body ?? {};
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (data_planejada !== undefined) updates.data_planejada = data_planejada;
     if (pilar !== undefined) updates.pilar = pilar;
@@ -29,6 +29,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (legenda !== undefined) updates.legenda = legenda;
     if (notas !== undefined) updates.notas = notas;
     if (status !== undefined) updates.status = status;
+    if (formato !== undefined) updates.formato = formato;
+    if (conteudo_detalhado !== undefined) updates.conteudo_detalhado = conteudo_detalhado;
 
     const { data, error } = await supabase
       .from("growth_content_calendar")

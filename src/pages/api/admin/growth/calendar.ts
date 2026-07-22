@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "POST") {
-    const { data_planejada, pilar, redes, titulo, legenda, notas, origem_trend_id } = req.body ?? {};
+    const { data_planejada, pilar, redes, titulo, legenda, notas, origem_trend_id, formato, conteudo_detalhado } = req.body ?? {};
     if (!data_planejada || !pilar || !titulo) {
       return res.status(400).json({ error: "data_planejada, pilar e titulo são obrigatórios" });
     }
@@ -42,6 +42,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         legenda: legenda ?? null,
         notas: notas ?? null,
         origem_trend_id: origem_trend_id ?? null,
+        formato: formato ?? "reel",
+        conteudo_detalhado: conteudo_detalhado ?? null,
       })
       .select()
       .single();
