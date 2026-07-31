@@ -15,6 +15,7 @@ import { IMAGE_SPECS } from "@/lib/imageSpecs";
 import { useImageConverter } from "@/hooks/useImageConverter";
 import ImageConverterModal from "@/components/ui/ImageConverterModal";
 import ColorPicker from "@/components/ui/ColorPicker";
+import Toggle from "@/components/ui/Toggle";
 import {
   ArrowLeft,
   Check,
@@ -71,8 +72,20 @@ export default function NovaProposta() {
 
   const [valueMasked, setValueMasked]     = useState("");
   const [value, setValue]                 = useState<number | null>(null);
-  const [valueDiscount, setValueDiscount] = useState<number | null>(null);
-  const [value12x, setValue12x]           = useState<number | null>(null);
+  const [discountEnabled, setDiscountEnabled] = useState(true);
+  const [discountPercent, setDiscountPercent] = useState(10);
+  const [installmentFeeEnabled, setInstallmentFeeEnabled] = useState(false);
+  const [installmentFeePercent, setInstallmentFeePercent] = useState(15);
+
+  const valueDiscount =
+    value !== null && discountEnabled
+      ? value * (1 - discountPercent / 100)
+      : null;
+
+  const value12x =
+    value !== null
+      ? (value * (1 + (installmentFeeEnabled ? installmentFeePercent / 100 : 0))) / 12
+      : null;
 
   const [dueDate, setDueDate]             = useState("");
   const [primaryColor, setPrimaryColor]   = useState("#22c55e");
@@ -131,11 +144,9 @@ export default function NovaProposta() {
   function handleMoneyChange(v: string) {
     const masked = maskMoney(v);
     setValueMasked(masked);
-    if (!masked) { setValue(null); setValueDiscount(null); setValue12x(null); return; }
+    if (!masked) { setValue(null); return; }
     const num = moneyToNumber(masked);
     setValue(num);
-    setValueDiscount(num * 0.9);
-    setValue12x(num / 12);
   }
 
   function addTech(name: string) {
@@ -388,7 +399,6 @@ export default function NovaProposta() {
                 />
               </label>
 
-              {/* Vencimento */}
               <div className="pn-field">
                 <span className="pn-field-label"><Calendar size={15} /> Vencimento</span>
                 <DatePicker
@@ -432,11 +442,55 @@ export default function NovaProposta() {
             </div>
 
             {value !== null && (
-              <p className="pn-value-hint">
-                À vista: {valueDiscount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                {" · "}
-                12×: {value12x?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-              </p>
+              <div className="pn-discount-block">
+                <div className="pn-discount-toggle-row">
+                  <Toggle value={discountEnabled} onChange={setDiscountEnabled} />
+                  <span className="pn-discount-label">Aplicar desconto para pagamento à vista</span>
+                  {discountEnabled && (
+                    <label className="pn-discount-pct">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={discountPercent}
+                        onChange={(e) =>
+                          setDiscountPercent(Math.min(100, Math.max(0, Number(e.target.value) || 0)))
+                        }
+                      />
+                      <span>%</span>
+                    </label>
+                  )}
+                </div>
+
+                <div className="pn-discount-toggle-row">
+                  <Toggle value={installmentFeeEnabled} onChange={setInstallmentFeeEnabled} />
+                  <span className="pn-discount-label">Repassar taxa de parcelamento ao cliente (12x)</span>
+                  {installmentFeeEnabled && (
+                    <label className="pn-discount-pct">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={installmentFeePercent}
+                        onChange={(e) =>
+                          setInstallmentFeePercent(Math.min(100, Math.max(0, Number(e.target.value) || 0)))
+                        }
+                      />
+                      <span>%</span>
+                    </label>
+                  )}
+                </div>
+
+                <p className="pn-value-hint">
+                  {discountEnabled && (
+                    <>
+                      À vista: {valueDiscount?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      {" · "}
+                    </>
+                  )}
+                  12×: {value12x?.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </p>
+              </div>
             )}
 
             <label className="pn-field" style={{ marginTop: "20px" }}>
@@ -582,7 +636,7 @@ export default function NovaProposta() {
             </div>
           </section>
 
-          <div className="flex justify-center w-full overflow-x-auto">
+          <div className="flex justify-center w-full">
             {selectedTemplate === "template2" ? (
               <Template2 {...sharedPreviewProps} />
             ) : selectedTemplate === "template3" ? (
@@ -818,6 +872,31 @@ export default function NovaProposta() {
         .pn-value-hint {
           font-size: 12px; color: var(--gray-400); margin-top: 6px;
         }
+        .pn-discount-block {
+          margin-top: 14px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .pn-discount-toggle-row {
+          display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        .pn-discount-label {
+          font-size: 13.5px; font-weight: 500; color: var(--gray-300);
+        }
+        .pn-discount-pct {
+          display: flex; align-items: center; gap: 6px;
+          height: 36px; padding: 0 12px; border-radius: 10px;
+          border: 1px solid var(--gray-600); background: var(--primary-900);
+          color: var(--gray-100); font-size: 13.5px;
+        }
+        .pn-discount-pct input {
+          width: 34px; background: none; border: 0; outline: none;
+          color: var(--gray-100); font-family: inherit; font-size: 13.5px;
+          -moz-appearance: textfield;
+        }
+        .pn-discount-pct input::-webkit-outer-spin-button,
+        .pn-discount-pct input::-webkit-inner-spin-button {
+          -webkit-appearance: none; margin: 0;
+        }
+        .pn-discount-pct span { color: var(--gray-500); }
 
         /* ── Appearance grid ── */
         .pn-appear-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }

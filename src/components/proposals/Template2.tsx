@@ -619,7 +619,7 @@ export default function Template2({
 
           <div className="rounded-xl border border-[#30363d] bg-[#161b22] overflow-hidden mt-2">
             <div
-              className="grid grid-cols-[1fr,2fr,auto] gap-4 px-6 py-3 text-[11px] uppercase tracking-widest text-[#8b949e]"
+              className="hidden sm:grid grid-cols-[1fr,2fr,auto] gap-4 px-6 py-3 text-[11px] uppercase tracking-widest text-[#8b949e]"
               style={{ borderBottom: "1px solid #30363d" }}
             >
               <span>Etapa</span>
@@ -630,7 +630,7 @@ export default function Template2({
             {content.section6.timeline.map((item, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-[1fr,2fr,auto] gap-4 px-6 py-4 items-center"
+                className="grid grid-cols-1 sm:grid-cols-[1fr,2fr,auto] gap-2 sm:gap-4 px-6 py-4 sm:items-center"
                 style={
                   idx < content.section6.timeline.length - 1
                     ? { borderBottom: "1px solid #21262d" }
@@ -806,18 +806,29 @@ export default function Template2({
                 </div>
 
                 <div className="flex flex-col items-start md:items-end gap-1 flex-shrink-0">
-                  {value != null && (
-                    <p className="text-[14px] line-through text-[#8b949e]">
+                  {valueDiscount != null ? (
+                    <>
+                      {value != null && (
+                        <p className="text-[14px] line-through text-[#8b949e]">
+                          {formatCurrencyBRL(value)}
+                        </p>
+                      )}
+                      <p
+                        className="text-[32px] font-bold leading-none"
+                        style={{ color: primaryColor }}
+                      >
+                        {formatCurrencyBRL(valueDiscount)}
+                      </p>
+                      <p className="text-[11px] text-[#8b949e]">pagamento único</p>
+                    </>
+                  ) : (
+                    <p
+                      className="text-[32px] font-bold leading-none"
+                      style={{ color: primaryColor }}
+                    >
                       {formatCurrencyBRL(value)}
                     </p>
                   )}
-                  <p
-                    className="text-[32px] font-bold leading-none"
-                    style={{ color: primaryColor }}
-                  >
-                    {formatCurrencyBRL(valueDiscount)}
-                  </p>
-                  <p className="text-[11px] text-[#8b949e]">pagamento único</p>
                 </div>
               </div>
             </div>

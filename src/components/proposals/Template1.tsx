@@ -828,12 +828,20 @@ export default function Template1({
                   }
                   editable={editable}
                 />
-                <p className="text-[13px] line-through opacity-80 mt-2">
-                  {formatCurrencyBRL(value)}
-                </p>
-                <p className="text-[22px] font-semibold mt-1">
-                  {formatCurrencyBRL(valueDiscount)}
-                </p>
+                {valueDiscount != null ? (
+                  <>
+                    <p className="text-[13px] line-through opacity-80 mt-2">
+                      {formatCurrencyBRL(value)}
+                    </p>
+                    <p className="text-[22px] font-semibold mt-1">
+                      {formatCurrencyBRL(valueDiscount)}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[22px] font-semibold mt-3">
+                    {formatCurrencyBRL(value)}
+                  </p>
+                )}
               </div>
             </div>
 

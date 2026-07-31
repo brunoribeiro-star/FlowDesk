@@ -318,17 +318,28 @@ export default function Template3({
               editable={editable}
             />
             <div className="flex items-baseline gap-4 mt-1">
-              {value != null && (
-                <span className="text-[15px] text-[#6b7280] line-through">
+              {valueDiscount != null ? (
+                <>
+                  {value != null && (
+                    <span className="text-[15px] text-[#6b7280] line-through">
+                      {formatCurrencyBRL(value)}
+                    </span>
+                  )}
+                  <span
+                    className="text-[40px] font-black tracking-tight leading-none"
+                    style={accentStyle}
+                  >
+                    {formatCurrencyBRL(valueDiscount)}
+                  </span>
+                </>
+              ) : (
+                <span
+                  className="text-[40px] font-black tracking-tight leading-none"
+                  style={accentStyle}
+                >
                   {formatCurrencyBRL(value)}
                 </span>
               )}
-              <span
-                className="text-[40px] font-black tracking-tight leading-none"
-                style={accentStyle}
-              >
-                {formatCurrencyBRL(valueDiscount)}
-              </span>
             </div>
           </div>
 

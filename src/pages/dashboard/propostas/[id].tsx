@@ -9,7 +9,7 @@ import Template2 from "@/components/proposals/Template2";
 import Template3 from "@/components/proposals/Template3";
 import Toast, { ToastType } from "@/components/Toast";
 import HeaderProfile from "@/components/HeaderProfile";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Link as LinkIcon } from "lucide-react";
 
 export default function ProposalDetail() {
   const router = useRouter();
@@ -22,6 +22,7 @@ export default function ProposalDetail() {
     null
   );
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [copyingLink, setCopyingLink] = useState(false);
 
   function showToast(message: string, type: ToastType) {
     setToast({ message, type });
@@ -113,6 +114,41 @@ export default function ProposalDetail() {
     }
   }
 
+  async function handleCopyLink() {
+    setCopyingLink(true);
+    try {
+      let token = proposal.public_token as string | null;
+
+      if (!token) {
+        token = crypto.randomUUID();
+        const { error } = await supabase
+          .from("proposals")
+          .update({ public_token: token })
+          .eq("id", id);
+
+        if (error) throw error;
+        setProposal((prev: any) => ({ ...prev, public_token: token }));
+      }
+
+      const link = `${window.location.origin}/propostas/publica/${token}`;
+      await navigator.clipboard.writeText(link);
+
+      if (proposal.due_date && new Date(proposal.due_date + "T00:00:00") < new Date()) {
+        showToast(
+          `Link copiado, mas essa proposta venceu em ${new Date(proposal.due_date + "T00:00:00").toLocaleDateString("pt-BR")} — o cliente não conseguirá abrir.`,
+          "error"
+        );
+      } else {
+        showToast("Link copiado!", "success");
+      }
+    } catch (error: any) {
+      console.error("Erro ao copiar link:", error);
+      showToast(error?.message || "Erro ao gerar link.", "error");
+    } finally {
+      setCopyingLink(false);
+    }
+  }
+
   return (
     <>
       {toast && <Toast message={toast.message} type={toast.type} />}
@@ -146,6 +182,14 @@ export default function ProposalDetail() {
 
           <div className="flex items-center gap-3">
             <button
+              onClick={handleCopyLink}
+              disabled={copyingLink}
+              className="pd-share-btn flex-1 lg:flex-none justify-center"
+            >
+              <LinkIcon size={17} />
+              {copyingLink ? "Copiando..." : "Copiar link"}
+            </button>
+            <button
               onClick={handleDownloadPDF}
               disabled={generatingPdf}
               className="pd-pdf-btn flex-1 lg:flex-none justify-center"
@@ -174,8 +218,8 @@ export default function ProposalDetail() {
           </div>
         </header>
 
-        <div className="relative z-10 flex-1 overflow-y-auto overflow-x-auto py-6 sm:py-8 px-3 sm:px-6">
-          <div className="flex justify-center min-w-fit">
+        <div className="relative z-10 flex-1 overflow-y-auto py-6 sm:py-8 px-3 sm:px-6">
+          <div className="flex justify-center w-full">
             {(() => {
               const tpl = proposal.description?.template;
               const sharedProps = {
@@ -246,6 +290,31 @@ export default function ProposalDetail() {
         .pd-back-btn:hover {
           border-color: var(--primary-500);
           color: var(--primary-300);
+        }
+        .pd-share-btn {
+          display: flex;
+          align-items: center;
+          gap: 9px;
+          height: 46px;
+          padding: 0 22px;
+          font-family: inherit;
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--gray-100);
+          cursor: pointer;
+          border: 1px solid var(--gray-700);
+          border-radius: 13px;
+          background: var(--primary-800);
+          transition: 0.2s;
+          white-space: nowrap;
+        }
+        .pd-share-btn:hover:not(:disabled) {
+          border-color: var(--primary-500);
+          color: var(--primary-300);
+        }
+        .pd-share-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
         .pd-pdf-btn {
           display: flex;

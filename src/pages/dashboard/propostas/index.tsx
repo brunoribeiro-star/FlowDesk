@@ -16,8 +16,10 @@ import {
   Briefcase,
   Calendar,
   User,
+  Link as LinkIcon,
 } from "lucide-react";
 import HeaderProfile from "@/components/HeaderProfile";
+import Toast, { ToastType } from "@/components/Toast";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import Image from "next/image";
 import { formatarData as formatDate } from "@/lib/utils";
@@ -41,6 +43,7 @@ type Proposal = {
   cover_url: string | null;
   created_at: string;
   client_id: string | null;
+  public_token: string | null;
   description?: {
     clientName?: string;
     projectName?: string;
@@ -79,6 +82,12 @@ export default function ProposalsList() {
   const [openBoardMenuId, setOpenBoardMenuId] = useState<string | null>(null);
   const [openListMenuId, setOpenListMenuId] = useState<string | null>(null);
   const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null);
+
+  function showToast(message: string, type: ToastType) {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  }
 
   useEffect(() => {
     const savedView = localStorage.getItem("proposalsViewMode");
@@ -109,7 +118,7 @@ export default function ProposalsList() {
 
       const { data, error } = await supabase
         .from("proposals")
-        .select("id, title, status, due_date, cover_url, created_at, client_id, description")
+        .select("id, title, status, due_date, cover_url, created_at, client_id, public_token, description")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -129,6 +138,37 @@ export default function ProposalsList() {
     setProposals((prev) => prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p)));
     const { error } = await supabase.from("proposals").update({ status: newStatus }).eq("id", id);
     if (error) console.error("Erro ao atualizar status:", error);
+  }
+
+  async function handleCopyLink(p: Proposal) {
+    let token = p.public_token;
+
+    if (!token) {
+      token = crypto.randomUUID();
+      const { error } = await supabase
+        .from("proposals")
+        .update({ public_token: token })
+        .eq("id", p.id);
+
+      if (error) {
+        console.error("Erro ao gerar link:", error);
+        showToast("Erro ao gerar link.", "error");
+        return;
+      }
+      setProposals((prev) => prev.map((item) => (item.id === p.id ? { ...item, public_token: token } : item)));
+    }
+
+    const link = `${window.location.origin}/propostas/publica/${token}`;
+    await navigator.clipboard.writeText(link);
+
+    if (p.due_date && new Date(p.due_date + "T00:00:00") < new Date()) {
+      showToast(
+        `Link copiado, mas essa proposta venceu em ${new Date(p.due_date + "T00:00:00").toLocaleDateString("pt-BR")} — o cliente não conseguirá abrir.`,
+        "error"
+      );
+    } else {
+      showToast("Link copiado!", "success");
+    }
   }
 
   async function deleteProposal(id: string) {
@@ -220,6 +260,19 @@ export default function ProposalsList() {
                       border: "1px solid var(--primary-700)",
                     }}
                   >
+                    <button
+                      onClick={() => {
+                        setOpenListMenuId(null);
+                        handleCopyLink(p);
+                      }}
+                      className="w-full text-left px-4 py-2.5 text-[13px] flex items-center gap-2 transition-colors"
+                      style={{ color: "var(--gray-100)" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "var(--primary-700)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                    >
+                      <LinkIcon size={13} />
+                      Copiar link
+                    </button>
                     <div
                       className="px-4 pt-2.5 pb-1 text-[11px] uppercase tracking-wide"
                       style={{ color: "var(--gray-500)" }}
@@ -260,7 +313,6 @@ export default function ProposalsList() {
             );
             return (
               <div key={p.id}>
-                {/* Desktop row */}
                 <div className="hidden md:block">
                 <div
                   className="pr-row"
@@ -310,7 +362,6 @@ export default function ProposalsList() {
                 </div>
                 </div>
 
-                {/* Mobile card */}
                 <div
                   className="md:hidden flex flex-col gap-3 rounded-2xl border border-primary-700 bg-primary-800 p-4"
                   onClick={() => router.push(`/dashboard/propostas/${p.id}`)}
@@ -500,6 +551,7 @@ export default function ProposalsList() {
 
   return (
     <>
+      {toast && <Toast message={toast.message} type={toast.type} />}
       <PageTour name="propostas" steps={PROPOSTAS_TOUR_STEPS} />
 
       <div className="pr-page relative flex flex-col flex-1 h-full overflow-hidden">
